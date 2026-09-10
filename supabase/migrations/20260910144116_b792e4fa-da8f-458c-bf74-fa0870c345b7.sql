@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.trigger_school_triage() FROM anon, authenticated, PUBLIC;

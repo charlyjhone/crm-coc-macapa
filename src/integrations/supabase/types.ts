@@ -264,12 +264,14 @@ export type Database = {
       }
       leads: {
         Row: {
+          agent_replied_at: string | null
           ai_close_probability: number | null
           ai_diagnosis: string | null
           ai_diagnosis_reason: string | null
           ai_diagnosis_updated_at: string | null
           ai_next_step: string | null
           archived: boolean | null
+          assunto: string | null
           client_interaction_count: number | null
           created_at: string
           data_proximo_pagamento: string | null
@@ -281,7 +283,10 @@ export type Database = {
           email_outbound_count: number | null
           emails: string[] | null
           ganho_at: string | null
+          handoff_at: string | null
+          handoff_reason: string | null
           id: string
+          interesse: string | null
           is_recurring: boolean | null
           language: string | null
           last_inbound_message: string | null
@@ -306,9 +311,12 @@ export type Database = {
           publicidade_quantidade: number | null
           publicidade_subtipo: string | null
           reopened_at: string | null
+          resolved_at: string | null
           source: string | null
           status: Database["public"]["Enums"]["lead_status"] | null
           suggested_followup: string | null
+          triage_status: string
+          triage_summary: string | null
           unclassified: boolean | null
           updated_at: string | null
           valor: number | null
@@ -320,12 +328,14 @@ export type Database = {
           whatsapp_phone_lid_map: Json
         }
         Insert: {
+          agent_replied_at?: string | null
           ai_close_probability?: number | null
           ai_diagnosis?: string | null
           ai_diagnosis_reason?: string | null
           ai_diagnosis_updated_at?: string | null
           ai_next_step?: string | null
           archived?: boolean | null
+          assunto?: string | null
           client_interaction_count?: number | null
           created_at?: string
           data_proximo_pagamento?: string | null
@@ -337,7 +347,10 @@ export type Database = {
           email_outbound_count?: number | null
           emails?: string[] | null
           ganho_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
+          interesse?: string | null
           is_recurring?: boolean | null
           language?: string | null
           last_inbound_message?: string | null
@@ -362,9 +375,12 @@ export type Database = {
           publicidade_quantidade?: number | null
           publicidade_subtipo?: string | null
           reopened_at?: string | null
+          resolved_at?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["lead_status"] | null
           suggested_followup?: string | null
+          triage_status?: string
+          triage_summary?: string | null
           unclassified?: boolean | null
           updated_at?: string | null
           valor?: number | null
@@ -376,12 +392,14 @@ export type Database = {
           whatsapp_phone_lid_map?: Json
         }
         Update: {
+          agent_replied_at?: string | null
           ai_close_probability?: number | null
           ai_diagnosis?: string | null
           ai_diagnosis_reason?: string | null
           ai_diagnosis_updated_at?: string | null
           ai_next_step?: string | null
           archived?: boolean | null
+          assunto?: string | null
           client_interaction_count?: number | null
           created_at?: string
           data_proximo_pagamento?: string | null
@@ -393,7 +411,10 @@ export type Database = {
           email_outbound_count?: number | null
           emails?: string[] | null
           ganho_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
+          interesse?: string | null
           is_recurring?: boolean | null
           language?: string | null
           last_inbound_message?: string | null
@@ -418,9 +439,12 @@ export type Database = {
           publicidade_quantidade?: number | null
           publicidade_subtipo?: string | null
           reopened_at?: string | null
+          resolved_at?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["lead_status"] | null
           suggested_followup?: string | null
+          triage_status?: string
+          triage_summary?: string | null
           unclassified?: boolean | null
           updated_at?: string | null
           valor?: number | null
