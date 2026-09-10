@@ -4,6 +4,13 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 
 > Reconstruído a partir do histórico completo do chat (2121 mensagens).
 
+## 2026-09-10
+
+### [14:20] Prompt
+> Como saber se o agente irá responder no meu whatsapp?
+
+**Ação Lovable:** Explicou que o agente (Susan) não responde automaticamente no WhatsApp; o envio é manual pela tela da oportunidade, com auxílio de IA para redigir o texto.
+
 ## 2025-10-10
 
 ### [02:08] Prompt
