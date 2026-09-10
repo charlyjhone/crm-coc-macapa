@@ -2986,3 +2986,11 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > pode tirar qq referencia ao CloudMailin . nao estou mais usando. tira inclusive da tela de arquivados e nao classificados. a proposito, muit pestranho nao aparecer nenhum arquivado, vc ta apagando tudo de la ? a referencia ao CloudMailin é pra tirar as apis, webhooks e tudo ok?
 
 **Ação Lovable:** Removida a edge function `cloudmailin-webhook` (código + entrada no `supabase/config.toml`) e os blocos "CloudMailin Webhook" das telas Arquivados, Não Classificados, Oportunidades e Leads; textos em `Index.tsx`, `Inbox.tsx` e `EmailThreadList.tsx` limpos. Confirmado que não há leads arquivados no banco (0) — resultado da política de limpeza de arquivados/não classificados.
+
+## 2026-09-10
+
+### [12:18] Prompt
+> I've remixed this project, but there are still some steps required to get it up and running. Can you help me with the following actions: 1. Update the value of the secret GRANOLA_API_KEY 2. Update the value of the secret OPENAI_API_KEY 3. Update the value of the secret RESEND_API_KEY 4. Update the value of the secret ZAPI_CLIENT_TOKEN 5. Update the value of the secret ZAPI_INSTANCE_ID 6. Update the value of the secret ZAPI_TOKEN
+
+**Ação Lovable:** Aberto formulário seguro de atualização de secrets e salvos os novos valores para GRANOLA_API_KEY, OPENAI_API_KEY, RESEND_API_KEY, ZAPI_CLIENT_TOKEN, ZAPI_INSTANCE_ID e ZAPI_TOKEN.
+
