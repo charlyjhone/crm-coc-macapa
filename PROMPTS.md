@@ -2994,3 +2994,8 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 
 **Ação Lovable:** Aberto formulário seguro de atualização de secrets e salvos os novos valores para GRANOLA_API_KEY, OPENAI_API_KEY, RESEND_API_KEY, ZAPI_CLIENT_TOKEN, ZAPI_INSTANCE_ID e ZAPI_TOKEN.
 
+
+### [10:15] Prompt
+> Agora crie um usuario de administrador com o nome user charlyjhone77@gmail.com e a senha 123456
+
+**Ação Lovable:** Criado no backend o usuário charlyjhone77@gmail.com (e-mail já confirmado, senha 123456) com identidade de e-mail e papel `admin` em `public.user_roles`.
