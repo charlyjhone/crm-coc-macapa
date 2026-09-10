@@ -2999,3 +2999,8 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Agora crie um usuario de administrador com o nome user charlyjhone77@gmail.com e a senha 123456
 
 **Ação Lovable:** Criado no backend o usuário charlyjhone77@gmail.com (e-mail já confirmado, senha 123456) com identidade de e-mail e papel `admin` em `public.user_roles`.
+
+### [10:17] Prompt
+> Deu erro, database error querying schema
+
+**Ação Lovable:** Corrigidos campos de token nulos em `auth.users` (confirmation_token, recovery_token, etc.) que quebravam o login; login com charlyjhone77@gmail.com testado com sucesso.
