@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Mail, Phone, MessageCircle, Sparkles, Search, Archive, CheckCircle, XCircle, RefreshCw, Send, Mic, Wand2, Clock, Check, Brain, ExternalLink } from "lucide-react";
+import { Mail, Phone, MessageCircle, Sparkles, Search, Archive, CheckCircle, XCircle, RefreshCw, Send, Mic, Wand2, Clock, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -153,26 +153,9 @@ const LeadCardComponent = ({
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<StatusType | null>(null);
-  const [showResendDialog, setShowResendDialog] = useState<'sara' | 'tiffany' | null>(null);
-
-  // Delivery log helpers
-  const lastSaraLog = deliveryLogs.find(l => l.destination === 'sara');
-  const lastTiffanyLog = deliveryLogs.find(l => l.destination === 'tiffany');
 
   // Prioridade (lead scoring determinístico)
   const leadPriority = computeLeadPriority(lead);
-
-  const formatRelativeTime = (dateStr: string) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins}min`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d`;
-  };
 
   // Local pending message for optimistic UI
   const [pendingOutbound, setPendingOutbound] = useState<LastMessage | null>(null);
@@ -406,14 +389,14 @@ const LeadCardComponent = ({
 
   return (
     <Card 
-      className={`w-full hover:shadow-xl transition-all border-2 shadow-md ${
+      className={`w-full transition-colors border ${
         isSelected 
-          ? 'ring-2 ring-primary border-primary' 
+          ? 'ring-1 ring-primary border-primary' 
           : isPaymentOverdue
-            ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-400 dark:border-amber-700'
+            ? 'bg-warning/5 border-warning/40'
             : isOld 
-              ? 'bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-800' 
-              : 'border-border hover:border-primary/50'
+              ? 'bg-destructive/5 border-destructive/30' 
+              : 'border-border hover:border-primary/40'
       }`}
     >
       <CardContent className="py-3 px-3 sm:px-4">
@@ -472,58 +455,6 @@ const LeadCardComponent = ({
                     </div>
                   )}
 
-                  {/* Ícone de Diagnóstico IA com Tooltip */}
-                  {lead.ai_close_probability !== null && lead.ai_close_probability !== undefined && (
-                    <div className="relative group">
-                      <div 
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-help ${
-                          lead.ai_close_probability >= 70 
-                            ? 'bg-green-100 text-green-700 border border-green-300' 
-                            : lead.ai_close_probability >= 40 
-                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                              : 'bg-red-100 text-red-700 border border-red-300'
-                        }`}
-                      >
-                        <Brain className="h-3 w-3" />
-                        <span>{lead.ai_close_probability}%</span>
-                      </div>
-                      <div className="absolute left-0 top-full mt-1 bg-popover border border-border rounded-lg p-3 shadow-lg z-50 hidden group-hover:block min-w-[300px] max-w-[400px]">
-                        <p className="font-semibold text-sm mb-2 text-foreground flex items-center gap-2">
-                          <Brain className="h-4 w-4" />
-                          Diagnóstico IA - {lead.ai_close_probability}% chance
-                        </p>
-                        {lead.ai_next_step && (
-                          <div className="mb-2">
-                            <p className="text-xs font-medium text-primary">📌 Próximo Passo:</p>
-                            <p className="text-xs text-foreground">{lead.ai_next_step}</p>
-                          </div>
-                        )}
-                        {lead.ai_diagnosis && (
-                          <div className="mb-2">
-                            <p className="text-xs font-medium text-muted-foreground">📊 Diagnóstico:</p>
-                            <p className="text-xs text-foreground">{lead.ai_diagnosis}</p>
-                          </div>
-                        )}
-                        {lead.ai_diagnosis_reason && (
-                          <div className="mb-2">
-                            <p className="text-xs font-medium text-muted-foreground">💡 Justificativa:</p>
-                            <p className="text-xs text-foreground">{lead.ai_diagnosis_reason}</p>
-                          </div>
-                        )}
-                        {lead.ai_diagnosis_updated_at && (
-                          <p className="text-xs text-muted-foreground italic mt-2">
-                            Atualizado em: {new Date(lead.ai_diagnosis_updated_at).toLocaleDateString('pt-BR', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
                   {/* Status Badge */}
                   {lead.status && (
                     <Badge 
@@ -671,82 +602,12 @@ const LeadCardComponent = ({
               )}
             </div>
 
-            {/* Delivery flags - Sara e Tiffany */}
-            {(lastSaraLog || lastTiffanyLog) && (
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                {lastSaraLog && (
-                  (lastSaraLog as any).url ? (
-                    <a
-                      href={(lastSaraLog as any).url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title={`Abrir entrega no sistema da Sara (enviada em ${new Date(lastSaraLog.sent_at).toLocaleString('pt-BR')})`}
-                    >
-                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 cursor-pointer">
-                        <Check className="h-3 w-3 mr-1" />
-                        Sara · {new Date(lastSaraLog.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Badge>
-                    </a>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-blue-50 text-blue-700 border-blue-300"
-                      title={`Enviado para Sara em ${new Date(lastSaraLog.sent_at).toLocaleString('pt-BR')} (${formatRelativeTime(lastSaraLog.sent_at)})`}
-                    >
-                      <Check className="h-3 w-3 mr-1" />
-                      Sara · {new Date(lastSaraLog.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </Badge>
-                  )
-                )}
-                {lastTiffanyLog && (
-                  (lastTiffanyLog as any).url ? (
-                    <a
-                      href={(lastTiffanyLog as any).url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title={`Abrir no sistema financeiro da Tiffany (enviada em ${new Date(lastTiffanyLog.sent_at).toLocaleString('pt-BR')})`}
-                    >
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 cursor-pointer">
-                        <Check className="h-3 w-3 mr-1" />
-                        Tiffany · {new Date(lastTiffanyLog.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Badge>
-                    </a>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-amber-50 text-amber-700 border-amber-300"
-                      title={`Enviado para Tiffany em ${new Date(lastTiffanyLog.sent_at).toLocaleString('pt-BR')} (${formatRelativeTime(lastTiffanyLog.sent_at)})`}
-                    >
-                      <Check className="h-3 w-3 mr-1" />
-                      Tiffany · {new Date(lastTiffanyLog.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </Badge>
-                  )
-                )}
-              </div>
-            )}
-
             {/* Descrição com hover para mostrar completa */}
             {lead.description && (
               <div className="mb-2 relative group">
                 <p className="text-sm italic text-muted-foreground line-clamp-2 break-words">{lead.description}</p>
                 <div className="absolute left-0 top-0 bg-popover border border-border rounded-lg p-3 shadow-lg z-50 hidden group-hover:block max-w-[90vw] sm:max-w-[600px]">
                   <p className="text-sm italic text-foreground whitespace-pre-wrap break-words">{lead.description}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Próximo passo (IA) sempre visível — 1 linha, hover mostra completo */}
-            {lead.ai_next_step && lead.status !== 'perdido' && lead.status !== 'entregue' && (
-              <div className="mb-2 relative group flex items-start gap-1.5">
-                <span className="text-xs shrink-0 mt-px">📌</span>
-                <p className="text-xs font-medium text-primary line-clamp-1 break-words">{lead.ai_next_step}</p>
-                <div className="absolute left-0 top-full mt-1 bg-popover border border-border rounded-lg p-3 shadow-lg z-50 hidden group-hover:block max-w-[90vw] sm:max-w-[500px]">
-                  <p className="text-xs font-medium text-foreground mb-1">📌 Próximo passo:</p>
-                  <p className="text-xs text-foreground whitespace-pre-wrap break-words">{lead.ai_next_step}</p>
                 </div>
               </div>
             )}
@@ -1037,62 +898,6 @@ const LeadCardComponent = ({
               </div>
             )}
 
-            {/* Próximo follow-up automático para leads de publicidade */}
-            {lead.produto === 'publicidade' && lead.status === 'em_aberto' && lead.scheduled_followup_at && lead.scheduled_followup_status === 'pending' && (() => {
-              // NOTA: Se o engine classificou a última inbound como "responsive"/"declined",
-              // ele muda o status para "cancelled" (não cai neste branch). Se está "pending",
-              // significa que a IA classificou como "waiting" (cliente vai retornar) ou é
-              // cadência normal — nesses casos NÃO mostramos "pausado", mostramos o
-              // próximo disparo, mesmo que a última mensagem seja inbound.
-
-              const now = new Date();
-              // Confia no next_run_at do banco (engine: cadência em dias úteis a partir da âncora)
-              const nextFollowUp = new Date(lead.scheduled_followup_at!);
-
-              const isPast = nextFollowUp <= now;
-              const diffMs = Math.abs(nextFollowUp.getTime() - now.getTime());
-              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-              const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-              const isOverdue = isPast && diffMs > 2 * 60 * 60 * 1000; // > 2h overdue
-
-              const dateStr = nextFollowUp.toLocaleString('pt-BR', {
-                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-              });
-
-              const relStr = isPast
-                ? isOverdue ? `⚠️ Atrasado ${diffHours}h` : 'Enviando em breve…'
-                : diffHours >= 24
-                  ? `em ${Math.floor(diffHours / 24)}d ${diffHours % 24}h`
-                  : diffHours > 0
-                    ? `em ${diffHours}h${diffMinutes > 0 ? ` ${diffMinutes}min` : ''}`
-                    : `em ${diffMinutes}min`;
-
-              const attemptLabel = lead.scheduled_followup_attempt ? ` (#${lead.scheduled_followup_attempt})` : '';
-
-              return (
-                <div className={`mb-3 p-2 rounded-md border ${isOverdue ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'}`}>
-                  <div className="flex items-center gap-2">
-                    <Mail className={`h-3.5 w-3.5 ${isOverdue ? 'text-amber-600' : 'text-blue-600'}`} />
-                    <p className={`text-xs font-medium ${isOverdue ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400'}`}>
-                      📬 Follow-up{attemptLabel}: {dateStr} <span className="opacity-70">({relStr})</span>
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-
-
-            {lead.produto === 'publicidade' && lead.status === 'em_aberto' && lead.scheduled_followup_status === 'completed' && (
-              <div className="mb-3 p-2 rounded-md bg-destructive/10 border border-destructive/30">
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-3.5 w-3.5 text-destructive" />
-                  <p className="text-xs font-medium text-destructive">
-                    ⛔ Follow-up vencido (7 tentativas sem resposta)
-                  </p>
-                </div>
-              </div>
-            )}
             {(lead.last_interaction || lead.created_at) && (
               <div className={`mb-3 p-2 rounded-md ${pendingResponse ? 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800' : isOld ? 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800' : 'bg-muted/30'}`}>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1287,25 +1092,6 @@ const LeadCardComponent = ({
                 </>
               )}
 
-              {/* Ícone IA Diagnóstico - no final */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 shrink-0"
-                      onClick={onDiagnoseLead}
-                      disabled={diagnosingLead}
-                    >
-                      <Brain className={`h-4 w-4 ${diagnosingLead ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Diagnóstico IA (atualiza descrição, próximo passo e probabilidade)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
 
             {/* Dialog de confirmação de mudança de status (mobile) */}
@@ -1328,31 +1114,6 @@ const LeadCardComponent = ({
                     }}
                   >
                     Confirmar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Dialog de confirmação de reenvio (Sara/Tiffany) */}
-            <AlertDialog open={showResendDialog !== null} onOpenChange={(open) => !open && setShowResendDialog(null)}>
-              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reenviar para {showResendDialog === 'sara' ? 'Sara' : 'Tiffany'}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Este lead já foi enviado para {showResendDialog === 'sara' ? 'Sara' : 'Tiffany'}. Deseja reenviar?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (showResendDialog === 'sara') onSendToSara?.(lead.id);
-                      else onSendToTiffany?.(lead.id);
-                      setShowResendDialog(null);
-                    }}
-                  >
-                    Reenviar
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
