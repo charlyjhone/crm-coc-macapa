@@ -130,23 +130,21 @@ export function AppSidebar() {
         {!collapsed ? (
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-lg font-bold tracking-tight">
-                <span className="text-foreground">migue</span>
-                <span className="text-primary">SALES</span>
+              <h1 className="text-base font-semibold tracking-tight text-sidebar-foreground">
+                COC Macapá Norte
               </h1>
-              <p className="text-sm text-foreground mt-0.5">Susan Whitfield</p>
-              <p className="text-xs text-muted-foreground">susan@inventormiguel.com</p>
+              <p className="text-xs text-sidebar-foreground/70 mt-0.5">CRM · Atendimento</p>
             </div>
             <SidebarTrigger className="mt-0.5" />
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1">
             <SidebarTrigger />
-            <span className="text-xs font-bold text-primary">mS</span>
+            <span className="text-xs font-semibold text-sidebar-primary">CN</span>
           </div>
         )}
       </SidebarHeader>
-      <Separator />
+      <Separator className="bg-sidebar-border" />
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -176,7 +174,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border pt-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleSyncMeetings} disabled={syncing} tooltip="Sincronizar reuniões do Granola">

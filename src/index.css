@@ -2,95 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Sistema de design do CRM COC Macapá Norte.
+   Paleta corporativa/sóbria: azul-marinho + azul-aço + cinza-ardósia.
+   Todas as cores em HSL, conforme convenção do shadcn/ui. */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 220 26% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 26% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 26% 14%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Azul-aço — ação primária */
+    --primary: 218.8 73.6% 52.5%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 211.8 56.3% 17.1%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 16% 95%;
+    --muted-foreground: 218 16.9% 34.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 16% 94%;
+    --accent-foreground: 211.8 56.3% 17.1%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 60.8% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 150 47.8% 35.3%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --warning: 35.5 71% 42%;
+    --warning-foreground: 0 0% 100%;
 
-    --sidebar-background: 0 0% 98%;
+    --border: 210 16% 88%;
+    --input: 210 16% 88%;
+    --ring: 218.8 73.6% 52.5%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Cantos discretos — layout denso, não "SaaS card kit" */
+    --radius: 0.25rem;
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar — azul-marinho profundo */
+    --sidebar-background: 211.8 56.3% 17.1%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-primary: 218.8 73.6% 52.5%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214.2 52% 24.5%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 211.8 45% 24%;
+    --sidebar-ring: 218.8 73.6% 52.5%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 211.8 40% 9%;
+    --foreground: 210 20% 92%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 211.8 40% 11%;
+    --card-foreground: 210 20% 92%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 211.8 40% 11%;
+    --popover-foreground: 210 20% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 218.8 73.6% 58%;
+    --primary-foreground: 211.8 56.3% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 211.8 30% 18%;
+    --secondary-foreground: 210 20% 92%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 211.8 30% 16%;
+    --muted-foreground: 210 12% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 211.8 30% 18%;
+    --accent-foreground: 210 20% 92%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --success: 150 40% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 35.5 65% 48%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 211.8 30% 20%;
+    --input: 211.8 30% 20%;
+    --ring: 218.8 73.6% 58%;
+
+    --sidebar-background: 211.8 56.3% 10%;
+    --sidebar-foreground: 210 20% 88%;
+    --sidebar-primary: 218.8 73.6% 58%;
+    --sidebar-primary-foreground: 211.8 56.3% 10%;
+    --sidebar-accent: 214.2 40% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 211.8 40% 16%;
+    --sidebar-ring: 218.8 73.6% 58%;
   }
 }
 
@@ -101,6 +110,12 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground overflow-x-hidden;
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -108,5 +123,16 @@ All colors MUST be HSL.
   .overflow-wrap-anywhere {
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  /* Linha de tabela densa, com divisor fino — em vez do padrão de card
+     com sombra. Usado nas listagens (Oportunidades, Leads, etc). */
+  .dense-row {
+    @apply border-b border-border/70 hover:bg-muted/60 transition-colors;
+  }
+
+  /* Ponto de status colorido + texto, em vez de badge grande. */
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full shrink-0;
   }
 }
