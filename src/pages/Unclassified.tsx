@@ -45,7 +45,7 @@ interface Lead {
   valor?: number | null;
   moeda?: 'BRL' | 'USD' | 'EUR' | null;
   produto?: 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null;
-  status?: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido' | null;
+  status?: 'novo' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | 'em_atendimento' | null;
   suggested_followup?: string | null;
   valor_manually_edited?: boolean | null;
   publicidade_subtipo?: string | null;
@@ -614,7 +614,7 @@ const Unclassified = () => {
           last_inbound_message: lastInbound || undefined,
           produto: lead.produto as 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null,
           moeda: lead.moeda as 'BRL' | 'USD' | 'EUR' | null,
-          status: lead.status as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null,
+          status: lead.status as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null,
         };
       }));
 
@@ -1847,13 +1847,13 @@ const Unclassified = () => {
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'ganho' })
+        .update({ status: 'matriculado' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'ganho' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'matriculado' } : l
       ));
 
       toast({
@@ -1879,13 +1879,13 @@ const Unclassified = () => {
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'perdido' })
+        .update({ status: 'nao_convertido' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'perdido' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'nao_convertido' } : l
       ));
 
       toast({
@@ -1983,7 +1983,7 @@ const Unclassified = () => {
       const statusValue = tempStatus || null;
       const { error } = await supabase
         .from('leads')
-        .update({ status: statusValue as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null })
+        .update({ status: statusValue as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null })
         .eq('id', lead.id);
 
       if (error) throw error;
@@ -2295,11 +2295,11 @@ const Unclassified = () => {
                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           >
                             <option value="">Selecione...</option>
-                            <option value="em_aberto">Em Aberto</option>
+                            <option value="novo">Em Aberto</option>
                             <option value="em_negociacao">Em Negociação</option>
-                            <option value="ganho">Ganho</option>
-                            <option value="perdido">Perdido</option>
-                            <option value="entregue">Entregue</option>
+                            <option value="matriculado">Ganho</option>
+                            <option value="nao_convertido">Perdido</option>
+                            <option value="resolvido">Entregue</option>
                           </select>
                           <Button size="sm" onClick={handleSaveStatus}>
                             <Save className="h-4 w-4" />
@@ -2313,18 +2313,18 @@ const Unclassified = () => {
                           {firstLead?.status ? (
                             <Badge 
                               variant={
-                                firstLead.status === 'ganho' ? 'default' : 
-                                firstLead.status === 'entregue' ? 'default' : 
-                                firstLead.status === 'perdido' ? 'destructive' : 
+                                firstLead.status === 'matriculado' ? 'default' : 
+                                firstLead.status === 'resolvido' ? 'default' : 
+                                firstLead.status === 'nao_convertido' ? 'destructive' : 
                                 'secondary'
                               } 
                               className="text-sm"
                             >
-                              {firstLead.status === 'em_aberto' ? 'Em Aberto' :
+                              {firstLead.status === 'novo' ? 'Em Aberto' :
                                firstLead.status === 'em_negociacao' ? 'Em Negociação' : 
-                               firstLead.status === 'ganho' ? 'Ganho' :
-                               firstLead.status === 'entregue' ? 'Entregue' :
-                               firstLead.status === 'perdido' ? 'Perdido' : 'Em Aberto'}
+                               firstLead.status === 'matriculado' ? 'Ganho' :
+                               firstLead.status === 'resolvido' ? 'Entregue' :
+                               firstLead.status === 'nao_convertido' ? 'Perdido' : 'Em Aberto'}
                             </Badge>
                           ) : (
                             <span className="text-sm text-muted-foreground">Não definido</span>
@@ -2347,13 +2347,13 @@ const Unclassified = () => {
                               try {
                                 const { error } = await supabase
                                   .from('leads')
-                                  .update({ status: 'ganho' })
+                                  .update({ status: 'matriculado' })
                                   .eq('id', firstLead!.id);
 
                                 if (error) throw error;
 
                                 setAllLeads(prev => prev.map(l => 
-                                  l.id === firstLead!.id ? { ...l, status: 'ganho' } : l
+                                  l.id === firstLead!.id ? { ...l, status: 'matriculado' } : l
                                 ));
 
                                 toast({
@@ -2378,13 +2378,13 @@ const Unclassified = () => {
                               try {
                                 const { error } = await supabase
                                   .from('leads')
-                                  .update({ status: 'perdido' })
+                                  .update({ status: 'nao_convertido' })
                                   .eq('id', firstLead!.id);
 
                                 if (error) throw error;
 
                                 setAllLeads(prev => prev.map(l => 
-                                  l.id === firstLead!.id ? { ...l, status: 'perdido' } : l
+                                  l.id === firstLead!.id ? { ...l, status: 'nao_convertido' } : l
                                 ));
 
                                 toast({

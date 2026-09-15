@@ -26,7 +26,7 @@ interface Lead {
   valor?: number | null;
   moeda?: 'BRL' | 'USD' | 'EUR' | null;
   produto?: 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null;
-  status?: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido' | null;
+  status?: 'novo' | 'em_atendimento' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null;
   suggested_followup?: string | null;
   valor_manually_edited?: boolean | null;
   is_recurring?: boolean | null;

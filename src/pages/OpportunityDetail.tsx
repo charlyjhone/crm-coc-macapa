@@ -61,7 +61,7 @@ interface Lead {
   produto?: 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null;
   publicidade_subtipo?: 'longo' | 'curto' | 'insercao' | 'longo_curto' | 'linkedin' | 'newsletter' | null;
   publicidade_quantidade?: number | null;
-  status?: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido' | null;
+  status?: 'novo' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | 'em_atendimento' | null;
   suggested_followup?: string | null;
   valor_manually_edited?: boolean | null;
   is_recurring?: boolean | null;
@@ -77,9 +77,9 @@ interface Lead {
   ai_diagnosis_reason?: string | null;
   reopened_at?: string | null;
   // Timestamps de status
-  ganho_at?: string | null;
-  perdido_at?: string | null;
-  produzido_at?: string | null;
+  matriculado_at?: string | null;
+  nao_convertido_at?: string | null;
+  resolvido_at?: string | null;
   negociacao_at?: string | null;
   whatsapp_chat_lids?: string[] | null;
   whatsapp_phone_lid_map?: any;
@@ -423,7 +423,7 @@ const OpportunityDetail = () => {
         moeda: data.moeda as 'BRL' | 'USD' | 'EUR' | null,
         produto: data.produto as 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null,
         publicidade_subtipo: data.publicidade_subtipo as 'longo' | 'curto' | 'insercao' | 'longo_curto' | 'linkedin' | 'newsletter' | null,
-        status: data.status as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null,
+        status: data.status as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null,
         email_inbound_count: data.email_inbound_count || 0,
         email_outbound_count: data.email_outbound_count || 0,
         whatsapp_inbound_count: data.whatsapp_inbound_count || 0,
@@ -800,7 +800,7 @@ const OpportunityDetail = () => {
         .from('leads')
         .select('id, delivered_at, valor, moeda, produto')
         .neq('id', lead.id)
-        .eq('status', 'entregue')
+        .eq('status', 'resolvido')
         .not('delivered_at', 'is', null)
         .or(lead.emails.map(e => `emails.cs.{${e}}`).join(','))
         .order('delivered_at', { ascending: false })
@@ -2300,7 +2300,7 @@ ${whatsappText || 'Nenhuma'}`;
                             </div>
                           );
                         }
-                        if (!['em_aberto', 'em_negociacao'].includes(lead.status || '')) {
+                        if (!['novo', 'em_negociacao'].includes(lead.status || '')) {
                           return (
                             <div className="flex items-center gap-2 text-xs pt-2 border-t mt-2 text-muted-foreground">
                               <Mail className="h-3 w-3 flex-shrink-0" />
@@ -2366,20 +2366,20 @@ ${whatsappText || 'Nenhuma'}`;
                         });
                       }
                       
-                      if (lead.ganho_at) {
+                      if (lead.matriculado_at) {
                         events.push({
                           label: 'Ganho',
-                          date: new Date(lead.ganho_at),
-                          dateStr: lead.ganho_at,
+                          date: new Date(lead.matriculado_at),
+                          dateStr: lead.matriculado_at,
                           color: statusColors['Ganho']
                         });
                       }
                       
-                      if (lead.produzido_at) {
+                      if (lead.resolvido_at) {
                         events.push({
                           label: 'Produzido',
-                          date: new Date(lead.produzido_at),
-                          dateStr: lead.produzido_at,
+                          date: new Date(lead.resolvido_at),
+                          dateStr: lead.resolvido_at,
                           color: statusColors['Produzido']
                         });
                       }
@@ -2393,11 +2393,11 @@ ${whatsappText || 'Nenhuma'}`;
                         });
                       }
                       
-                      if (lead.perdido_at) {
+                      if (lead.nao_convertido_at) {
                         events.push({
                           label: 'Perdido',
-                          date: new Date(lead.perdido_at),
-                          dateStr: lead.perdido_at,
+                          date: new Date(lead.nao_convertido_at),
+                          dateStr: lead.nao_convertido_at,
                           color: statusColors['Perdido']
                         });
                       }
@@ -2504,24 +2504,24 @@ ${whatsappText || 'Nenhuma'}`;
                           className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           {!lead.status && <option value="">Selecione...</option>}
-                          <option value="em_aberto">Em Aberto</option>
+                          <option value="novo">Em Aberto</option>
                           <option value="em_negociacao">Em Negociação</option>
-                          <option value="ganho">Ganho</option>
-                          <option value="produzido">Produzido</option>
-                          <option value="entregue">Entregue</option>
-                          <option value="perdido">Perdido</option>
+                          <option value="matriculado">Ganho</option>
+                          <option value="em_atendimento">Produzido</option>
+                          <option value="resolvido">Entregue</option>
+                          <option value="nao_convertido">Perdido</option>
                         </select>
                         
                         {/* Botões de atalho - só mostra se o status for diferente */}
                         
                         {/* Em Aberto - mostra se em_negociacao ou perdido (voltar) */}
-                        {(lead.status === 'em_negociacao' || lead.status === 'perdido') && (
+                        {(lead.status === 'em_negociacao' || lead.status === 'nao_convertido') && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={async () => {
                               try {
-                                const updateData = buildStatusUpdateData('em_aberto', lead);
+                                const updateData = buildStatusUpdateData('novo', lead);
                                 const { error } = await supabase
                                   .from('leads')
                                   .update(updateData)
@@ -2550,7 +2550,7 @@ ${whatsappText || 'Nenhuma'}`;
                         )}
 
                         {/* Em Negociação - mostra se ganho ou perdido */}
-                        {(lead.status === 'ganho' || lead.status === 'perdido') && (
+                        {(lead.status === 'matriculado' || lead.status === 'nao_convertido') && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -2585,13 +2585,13 @@ ${whatsappText || 'Nenhuma'}`;
                         )}
                         
                         {/* Ganho - só mostra se NÃO estiver ganho */}
-                        {lead.status !== 'ganho' && (
+                        {lead.status !== 'matriculado' && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={async () => {
                               try {
-                                const updateData = buildStatusUpdateData('ganho', lead);
+                                const updateData = buildStatusUpdateData('matriculado', lead);
                                 const { error } = await supabase
                                   .from('leads')
                                   .update(updateData)
@@ -2621,13 +2621,13 @@ ${whatsappText || 'Nenhuma'}`;
                         )}
                         
                         {/* Perdido - só mostra se NÃO estiver perdido */}
-                        {lead.status !== 'perdido' && (
+                        {lead.status !== 'nao_convertido' && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={async () => {
                               try {
-                                const updateData = buildStatusUpdateData('perdido', lead);
+                                const updateData = buildStatusUpdateData('nao_convertido', lead);
                                 const { error } = await supabase
                                   .from('leads')
                                   .update(updateData)
@@ -2657,13 +2657,13 @@ ${whatsappText || 'Nenhuma'}`;
                         )}
 
                         {/* Entregue - só mostra se estiver ganho */}
-                        {lead.status === 'ganho' && (
+                        {lead.status === 'matriculado' && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={async () => {
                               try {
-                                const updateData = buildStatusUpdateData('entregue', lead);
+                                const updateData = buildStatusUpdateData('resolvido', lead);
                                 const { error } = await supabase
                                   .from('leads')
                                   .update(updateData)
@@ -2980,7 +2980,7 @@ ${whatsappText || 'Nenhuma'}`;
                   </div>
 
                   {/* Valor Pago - para status ganho ou produzido */}
-                  {(lead.status === 'ganho' || lead.status === 'produzido') && lead.valor && (
+                  {(lead.status === 'matriculado' || lead.status === 'em_atendimento') && lead.valor && (
                     <div className="mt-4 pt-3 border-t">
                       <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">

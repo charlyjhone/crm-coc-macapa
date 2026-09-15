@@ -20,10 +20,10 @@ interface DailyLead {
   status: string | null;
   created_at: string;
   negociacao_at: string | null;
-  ganho_at: string | null;
-  perdido_at: string | null;
+  matriculado_at: string | null;
+  nao_convertido_at: string | null;
   delivered_at: string | null;
-  produzido_at: string | null;
+  resolvido_at: string | null;
   valor: number | null;
   valor_pago: number | null;
   moeda: string | null;
@@ -62,11 +62,12 @@ const COLORS = {
   ganhos: "hsl(142, 76%, 36%)",
   perdidos: "hsl(0, 84%, 60%)",
   funil: {
-    em_aberto: "hsl(221, 83%, 53%)",
+    novo: "hsl(221, 83%, 53%)",
+    em_atendimento: "hsl(215, 20%, 45%)",
     em_negociacao: "hsl(25, 95%, 53%)",
-    ganho: "hsl(142, 76%, 36%)",
-    produzido: "hsl(262, 83%, 58%)",
-    entregue: "hsl(199, 89%, 48%)",
+    matriculado: "hsl(142, 76%, 36%)",
+    resolvido: "hsl(199, 89%, 48%)",
+    nao_convertido: "hsl(0, 84%, 60%)",
   }
 };
 
@@ -124,9 +125,9 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
 
     const novos = allLeads.filter(l => isYesterday(l.created_at));
     const negociacoes = allLeads.filter(l => isYesterday(l.negociacao_at));
-    const ganhos = allLeads.filter(l => isYesterday(l.ganho_at));
-    const perdidos = allLeads.filter(l => isYesterday(l.perdido_at));
-    const produzidos = allLeads.filter(l => isYesterday(l.produzido_at));
+    const ganhos = allLeads.filter(l => isYesterday(l.matriculado_at));
+    const perdidos = allLeads.filter(l => isYesterday(l.nao_convertido_at));
+    const produzidos = allLeads.filter(l => isYesterday(l.resolvido_at));
     const entregues = allLeads.filter(l => isYesterday(l.delivered_at));
 
     return { novos, negociacoes, ganhos, perdidos, produzidos, entregues };
@@ -141,9 +142,9 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
     return {
       novos: allLeads.filter(l => isToday(l.created_at)),
       negociacoes: allLeads.filter(l => isToday(l.negociacao_at)),
-      ganhos: allLeads.filter(l => isToday(l.ganho_at)),
-      perdidos: allLeads.filter(l => isToday(l.perdido_at)),
-      produzidos: allLeads.filter(l => isToday(l.produzido_at)),
+      ganhos: allLeads.filter(l => isToday(l.matriculado_at)),
+      perdidos: allLeads.filter(l => isToday(l.nao_convertido_at)),
+      produzidos: allLeads.filter(l => isToday(l.resolvido_at)),
       entregues: allLeads.filter(l => isToday(l.delivered_at)),
     };
   }, [allLeads, todayStart, todayEnd]);
@@ -163,15 +164,15 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
     const last7 = {
       novos: allLeads.filter(l => inRange(l.created_at, last7Start, last7End)).length,
       negociacoes: allLeads.filter(l => inRange(l.negociacao_at, last7Start, last7End)).length,
-      ganhos: allLeads.filter(l => inRange(l.ganho_at, last7Start, last7End)).length,
-      perdidos: allLeads.filter(l => inRange(l.perdido_at, last7Start, last7End)).length,
+      ganhos: allLeads.filter(l => inRange(l.matriculado_at, last7Start, last7End)).length,
+      perdidos: allLeads.filter(l => inRange(l.nao_convertido_at, last7Start, last7End)).length,
     };
 
     const prev7 = {
       novos: allLeads.filter(l => inRange(l.created_at, prev7Start, prev7End)).length,
       negociacoes: allLeads.filter(l => inRange(l.negociacao_at, prev7Start, prev7End)).length,
-      ganhos: allLeads.filter(l => inRange(l.ganho_at, prev7Start, prev7End)).length,
-      perdidos: allLeads.filter(l => inRange(l.perdido_at, prev7Start, prev7End)).length,
+      ganhos: allLeads.filter(l => inRange(l.matriculado_at, prev7Start, prev7End)).length,
+      perdidos: allLeads.filter(l => inRange(l.nao_convertido_at, prev7Start, prev7End)).length,
     };
 
     return { last7, prev7 };
@@ -196,8 +197,8 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
         label: format(day, "dd/MM", { locale: ptBR }),
         novos: allLeads.filter(l => inDay(l.created_at)).length,
         negociacoes: allLeads.filter(l => inDay(l.negociacao_at)).length,
-        ganhos: allLeads.filter(l => inDay(l.ganho_at)).length,
-        perdidos: allLeads.filter(l => inDay(l.perdido_at)).length,
+        ganhos: allLeads.filter(l => inDay(l.matriculado_at)).length,
+        perdidos: allLeads.filter(l => inDay(l.nao_convertido_at)).length,
         entregues: allLeads.filter(l => inDay(l.delivered_at)).length,
       });
     }
@@ -241,10 +242,10 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
   // === Funnel data (without perdido) ===
   const funnelData = useMemo(() => {
     const statusCounts: Record<string, { count: number; eurTotal: number }> = {
-      em_aberto: { count: 0, eurTotal: 0 },
+      novo: { count: 0, eurTotal: 0 },
+      em_atendimento: { count: 0, eurTotal: 0 },
       em_negociacao: { count: 0, eurTotal: 0 },
-      ganho: { count: 0, eurTotal: 0 },
-      produzido: { count: 0, eurTotal: 0 },
+      matriculado: { count: 0, eurTotal: 0 },
     };
     allLeads.forEach(l => {
       if (l.status && l.status in statusCounts) {
@@ -276,7 +277,7 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
       };
 
       const novosWeek = allLeads.filter(l => inWeek(l.created_at)).length;
-      const ganhosWeek = allLeads.filter(l => inWeek(l.ganho_at)).length;
+      const ganhosWeek = allLeads.filter(l => inWeek(l.matriculado_at)).length;
 
       weeks.push({
         label: format(weekStart, "dd/MM", { locale: ptBR }),
@@ -290,10 +291,10 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
   // === Action suggestions ===
   const paymentPending = useMemo(() => {
     return allLeads
-      .filter(l => l.status === 'produzido' && l.valor && (l.valor_pago ?? 0) < l.valor)
+      .filter(l => l.status === 'matriculado' && l.valor && (l.valor_pago ?? 0) < l.valor)
       .sort((a, b) => {
-        const da = a.produzido_at ? new Date(a.produzido_at).getTime() : Infinity;
-        const db = b.produzido_at ? new Date(b.produzido_at).getTime() : Infinity;
+        const da = a.resolvido_at ? new Date(a.resolvido_at).getTime() : Infinity;
+        const db = b.resolvido_at ? new Date(b.resolvido_at).getTime() : Infinity;
         return da - db;
       });
   }, [allLeads]);
@@ -305,9 +306,9 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
       .slice(0, 5);
   }, [allLeads]);
 
-  const topEmAberto = useMemo(() => {
+  const topNovo = useMemo(() => {
     return allLeads
-      .filter(l => l.status === 'em_aberto' && l.ai_close_probability !== null)
+      .filter(l => l.status === 'novo' && l.ai_close_probability !== null)
       .sort((a, b) => (b.ai_close_probability ?? 0) - (a.ai_close_probability ?? 0))
       .slice(0, 5);
   }, [allLeads]);
@@ -707,12 +708,12 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {topEmAberto.length === 0 ? (
+              {topNovo.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Nenhum lead em aberto com probabilidade</p>
               ) : (
                 <>
                   <div className="space-y-2">
-                    {topEmAberto.map(l => (
+                    {topNovo.map(l => (
                       <button
                         key={l.id}
                         onClick={() => openOpportunity(l.id)}
@@ -761,7 +762,7 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
                     ))}
                   </div>
                   <div className="mt-3 pt-2 border-t text-xs font-medium text-muted-foreground">
-                    Total Top 5: {formatEur(topEmAberto.reduce((s, l) => s + toEur(l.valor, l.moeda), 0))}
+                    Total Top 5: {formatEur(topNovo.reduce((s, l) => s + toEur(l.valor, l.moeda), 0))}
                   </div>
                 </>
               )}

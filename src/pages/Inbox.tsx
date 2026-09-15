@@ -162,21 +162,21 @@ function isSusanInboxEmail(email: EmailWithLead): boolean {
 const PAGE_SIZE = 30;
 
 const STATUS_LABELS: Record<string, string> = {
-  em_aberto: "Em Aberto",
-  em_negociacao: "Negociação",
-  ganho: "Ganho",
-  produzido: "Produzido",
-  entregue: "Entregue",
-  perdido: "Perdido",
+  novo: "Novo",
+  em_atendimento: "Em Atendimento",
+  em_negociacao: "Em Negociação",
+  matriculado: "Matriculado",
+  resolvido: "Resolvido",
+  nao_convertido: "Não Convertido",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  em_aberto: "bg-muted text-muted-foreground",
+  novo: "bg-muted text-muted-foreground",
+  em_atendimento: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   em_negociacao: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  ganho: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  produzido: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  entregue: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-  perdido: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  matriculado: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  resolvido: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  nao_convertido: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 interface MatchingLead {
@@ -215,13 +215,13 @@ const Inbox = () => {
   const leadCacheRef = useRef<Record<string, { name: string; email: string | null }>>({});
   const [activeLeadIds, setActiveLeadIds] = useState<string[] | null>(null);
 
-  // Carrega IDs de leads ativos (em_aberto, em_negociacao, ganho). Outros statuses ficam ocultos do Inbox.
+  // Carrega IDs de leads ativos (novo, em_atendimento, em_negociacao, matriculado). Outros statuses ficam ocultos do Inbox.
   useEffect(() => {
     const loadActive = async () => {
       const { data, error } = await supabase
         .from("leads")
         .select("id")
-        .in("status", ["em_aberto", "em_negociacao", "ganho"]);
+        .in("status", ["novo", "em_atendimento", "em_negociacao", "matriculado"]);
       if (error) {
         console.error("Erro carregando leads ativos:", error);
         setActiveLeadIds([]);
@@ -490,8 +490,8 @@ const Inbox = () => {
 
     // Multiple leads - sort: non-perdido first, then by created_at desc
     const sorted = [...leads].sort((a, b) => {
-      const aLost = a.status === "perdido";
-      const bLost = b.status === "perdido";
+      const aLost = a.status === "nao_convertido";
+      const bLost = b.status === "nao_convertido";
       if (aLost !== bLost) return aLost ? 1 : -1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
@@ -880,8 +880,8 @@ const Inbox = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm text-foreground">{lead.name}</span>
-                      <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[lead.status || "em_aberto"] || ""}`}>
-                        {STATUS_LABELS[lead.status || "em_aberto"] || lead.status}
+                      <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[lead.status || "novo"] || ""}`}>
+                        {STATUS_LABELS[lead.status || "novo"] || lead.status}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">

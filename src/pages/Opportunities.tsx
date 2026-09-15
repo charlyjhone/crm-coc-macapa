@@ -63,7 +63,7 @@ interface Lead {
   produto?: 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null;
   publicidade_subtipo?: string | null;
   publicidade_quantidade?: number | null;
-  status?: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido' | null;
+  status?: 'novo' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | 'em_atendimento' | null;
   suggested_followup?: string | null;
   valor_manually_edited?: boolean | null;
   is_recurring?: boolean | null;
@@ -83,9 +83,9 @@ interface Lead {
   ai_diagnosis_reason?: string | null;
   ai_diagnosis_updated_at?: string | null;
   // Timestamps de status
-  ganho_at?: string | null;
-  perdido_at?: string | null;
-  produzido_at?: string | null;
+  matriculado_at?: string | null;
+  nao_convertido_at?: string | null;
+  resolvido_at?: string | null;
   negociacao_at?: string | null;
   // Cached last messages (from DB columns)
   last_inbound_message_text?: string | null;
@@ -169,12 +169,12 @@ const Opportunities = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Initialize filters from URL params
-  const getInitialStatusFilter = (): 'all' | 'em_aberto' | 'em_negociacao' | 'ganho' | 'ganho_produzido' | 'produzido' | 'perdido' | 'entregue' => {
+  const getInitialStatusFilter = (): 'all' | 'novo' | 'em_negociacao' | 'matriculado' | 'ganho_produzido' | 'em_atendimento' | 'nao_convertido' | 'resolvido' => {
     const param = searchParams.get('status');
-    if (param && ['all', 'em_aberto', 'em_negociacao', 'ganho', 'ganho_produzido', 'produzido', 'perdido', 'entregue'].includes(param)) {
-      return param as 'all' | 'em_aberto' | 'em_negociacao' | 'ganho' | 'ganho_produzido' | 'produzido' | 'perdido' | 'entregue';
+    if (param && ['all', 'novo', 'em_negociacao', 'matriculado', 'ganho_produzido', 'em_atendimento', 'nao_convertido', 'resolvido'].includes(param)) {
+      return param as 'all' | 'novo' | 'em_negociacao' | 'matriculado' | 'ganho_produzido' | 'em_atendimento' | 'nao_convertido' | 'resolvido';
     }
-    return 'em_aberto';
+    return 'novo';
   };
 
   const getInitialProdutoFilter = (): 'all' | 'publicidade' | 'palestra' | 'consultoria' | 'palestra_consultoria' | 'documentario' => {
@@ -248,7 +248,7 @@ const Opportunities = () => {
   const [sortType, setSortType] = useState<'priority' | 'recent-message' | 'recent-inbound' | 'newest' | 'oldest' | 'no-response' | 'probability'>(getInitialSortType);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'em_aberto' | 'em_negociacao' | 'ganho' | 'ganho_produzido' | 'produzido' | 'perdido' | 'entregue'>(getInitialStatusFilter);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'novo' | 'em_negociacao' | 'matriculado' | 'ganho_produzido' | 'em_atendimento' | 'nao_convertido' | 'resolvido'>(getInitialStatusFilter);
   const [followupVencidoFilter, setFollowupVencidoFilter] = useState(searchParams.get('followup_vencido') === 'true');
   const [pendingResponseFilter, setPendingResponseFilter] = useState(searchParams.get('pending') === 'true');
   const [probFilter, setProbFilter] = useState<0 | 50 | 60 | 80>(() => {
@@ -338,7 +338,7 @@ const Opportunities = () => {
     const params = new URLSearchParams();
     
     // Only add non-default values to URL
-    if (statusFilter !== 'em_aberto') {
+    if (statusFilter !== 'novo') {
       params.set('status', statusFilter);
     }
     if (produtoFilter !== 'all') {
@@ -735,19 +735,19 @@ const Opportunities = () => {
     }
     
     // Aplicar filtro de status sempre (mesmo com pesquisa)
-    if (statusFilter === 'em_aberto') {
+    if (statusFilter === 'novo') {
       filteredLeads = filteredLeads.filter(lead => 
-        lead.status === 'em_aberto' || lead.status === null
+        lead.status === 'novo' || lead.status === null
       );
     } else if (statusFilter === 'ganho_produzido') {
-      filteredLeads = filteredLeads.filter(lead => lead.status === 'ganho' || lead.status === 'produzido');
-    } else if (statusFilter === 'ganho') {
-      filteredLeads = filteredLeads.filter(lead => lead.status === 'ganho');
+      filteredLeads = filteredLeads.filter(lead => lead.status === 'matriculado' || lead.status === 'em_atendimento');
+    } else if (statusFilter === 'matriculado') {
+      filteredLeads = filteredLeads.filter(lead => lead.status === 'matriculado');
     } else if (statusFilter !== 'all') {
       filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
     }
     
-    // Aplicar filtro de follow-ups vencidos (só faz sentido em "em_aberto")
+    // Aplicar filtro de follow-ups vencidos (só faz sentido em "novo")
     if (followupVencidoFilter) {
       filteredLeads = filteredLeads.filter(lead => 
         lead.produto === 'publicidade' && 
@@ -823,7 +823,7 @@ const Opportunities = () => {
       const ignoredDomains = ['inventosdigitais.com.br', 'cloudmailin.net'];
       const isIgnored = (email: string) => email && ignoredDomains.some(d => email.toLowerCase().endsWith(`@${d}`));
       if (isIgnored(lead.email)) return false;
-      if (lead.status !== 'em_aberto' && lead.status !== null) return false;
+      if (lead.status !== 'novo' && lead.status !== null) return false;
       if (lead.archived || lead.unclassified) return false;
       if (produtoFilter === 'publicidade' && lead.produto !== 'publicidade') return false;
       if (produtoFilter === 'palestra' && lead.produto !== 'palestra') return false;
@@ -1078,7 +1078,7 @@ const Opportunities = () => {
           ...lead,
           produto: lead.produto as 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null,
           moeda: lead.moeda as 'BRL' | 'USD' | 'EUR' | null,
-          status: lead.status as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null,
+          status: lead.status as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null,
           // Use cached counts from DB
           email_count: (lead.email_inbound_count || 0) + (lead.email_outbound_count || 0),
           email_inbound_count: lead.email_inbound_count || 0,
@@ -1290,7 +1290,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
       const deliveredLeadsResult = await supabase
         .from('leads')
         .select('id, name, email, emails, phones, delivered_at, valor, moeda, produto')
-        .eq('status', 'entregue');
+        .eq('status', 'resolvido');
       
       const deliveredLeads = deliveredLeadsResult.data || [];
       
@@ -1363,8 +1363,8 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
       const realNames: string[] = [];
       let allMessages: string[] = [];
       
-      // Verificar se algum lead está como "ganho"
-      const wonLead = leadsToMerge.find(l => l.status === 'ganho');
+      // Verificar se algum lead está como "matriculado"
+      const wonLead = leadsToMerge.find(l => l.status === 'matriculado');
       
       leadsToMerge.forEach(lead => {
         // Funções auxiliares de normalização
@@ -1428,9 +1428,9 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
         unclassified: false
       };
       
-      // Se algum lead está como "ganho", manter status e informações do lead ganho
+      // Se algum lead está como "matriculado", manter status e informações do lead ganho
       if (wonLead) {
-        updateData.status = 'ganho';
+        updateData.status = 'matriculado';
         updateData.valor = wonLead.valor;
         updateData.moeda = wonLead.moeda;
         updateData.produto = wonLead.produto;
@@ -2671,13 +2671,13 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'ganho' })
+        .update({ status: 'matriculado' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'ganho' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'matriculado' } : l
       ));
 
       toast({
@@ -2703,13 +2703,13 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'perdido' })
+        .update({ status: 'nao_convertido' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'perdido' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'nao_convertido' } : l
       ));
 
       toast({
@@ -2885,7 +2885,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
       const statusValue = tempStatus || null;
       const { error } = await supabase
         .from('leads')
-        .update({ status: statusValue as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null })
+        .update({ status: statusValue as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null })
         .eq('id', lead.id);
 
       if (error) throw error;
@@ -3360,17 +3360,17 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                                     const updateData: any = { status: newStatus };
                                     
                                     // Salvar datas conforme o status
-                                    if (newStatus === 'ganho') {
-                                      updateData.ganho_at = new Date().toISOString();
-                                      updateData.perdido_at = null;
-                                    } else if (newStatus === 'perdido') {
-                                      updateData.perdido_at = new Date().toISOString();
-                                      updateData.ganho_at = null;
-                                    } else if (newStatus === 'entregue') {
+                                    if (newStatus === 'matriculado') {
+                                      updateData.matriculado_at = new Date().toISOString();
+                                      updateData.nao_convertido_at = null;
+                                    } else if (newStatus === 'nao_convertido') {
+                                      updateData.nao_convertido_at = new Date().toISOString();
+                                      updateData.matriculado_at = null;
+                                    } else if (newStatus === 'resolvido') {
                                       updateData.delivered_at = new Date().toISOString();
                                     } else if (newStatus === 'em_negociacao') {
-                                      updateData.ganho_at = null;
-                                      updateData.perdido_at = null;
+                                      updateData.matriculado_at = null;
+                                      updateData.nao_convertido_at = null;
                                     }
                                     
                                     const { error } = await supabase
@@ -3400,23 +3400,23 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                                 className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                               >
                                 <option value="">Selecione...</option>
-                                <option value="em_aberto">Em Aberto</option>
+                                <option value="novo">Em Aberto</option>
                                 <option value="em_negociacao">Em Negociação</option>
-                                <option value="ganho">Ganho</option>
-                                <option value="perdido">Perdido</option>
-                                <option value="entregue">Entregue</option>
+                                <option value="matriculado">Ganho</option>
+                                <option value="nao_convertido">Perdido</option>
+                                <option value="resolvido">Entregue</option>
                               </select>
                               
-                              {firstLead?.status !== 'ganho' && (
+                              {firstLead?.status !== 'matriculado' && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={async () => {
                                     try {
                                       const updateData = { 
-                                        status: 'ganho' as const, 
-                                        ganho_at: new Date().toISOString(),
-                                        perdido_at: null 
+                                        status: 'matriculado' as const, 
+                                        matriculado_at: new Date().toISOString(),
+                                        nao_convertido_at: null 
                                       };
                                       const { error } = await supabase
                                         .from('leads')
@@ -3456,9 +3456,9 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                                 onClick={async () => {
                                   try {
                                     const updateData = { 
-                                      status: 'perdido' as const, 
-                                      perdido_at: new Date().toISOString(),
-                                      ganho_at: null 
+                                      status: 'nao_convertido' as const, 
+                                      nao_convertido_at: new Date().toISOString(),
+                                      matriculado_at: null 
                                     };
                                     const { error } = await supabase
                                       .from('leads')
@@ -3624,7 +3624,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                     </div>
 
                     {/* Valor Pago - apenas para status ganho */}
-                    {firstLead?.status === 'ganho' && firstLead?.valor && (
+                    {firstLead?.status === 'matriculado' && firstLead?.valor && (
                       <div className="mt-4 pt-3 border-t">
                         <div className="flex flex-wrap items-center gap-4">
                           <div className="flex items-center gap-2">
@@ -4302,10 +4302,10 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                       Todos
                     </Button>
                     <Button
-                      variant={statusFilter === 'em_aberto' ? 'default' : 'outline'}
+                      variant={statusFilter === 'novo' ? 'default' : 'outline'}
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => setStatusFilter('em_aberto')}
+                      onClick={() => setStatusFilter('novo')}
                     >
                       Aberto
                     </Button>
@@ -4325,7 +4325,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                     >
                       Ganho/Produzidos
                     </Button>
-                    {(statusFilter === 'em_aberto') && (
+                    {(statusFilter === 'novo') && (
                       <Button
                         variant={followupVencidoFilter ? 'default' : 'outline'}
                         size="sm"
@@ -4417,33 +4417,33 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                       Todos
                     </Button>
                     <Button
-                      variant={statusFilter === 'ganho' ? 'default' : 'outline'}
+                      variant={statusFilter === 'matriculado' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('ganho')}
+                      onClick={() => setStatusFilter('matriculado')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Ganho
                     </Button>
                     <Button
-                      variant={statusFilter === 'produzido' ? 'default' : 'outline'}
+                      variant={statusFilter === 'em_atendimento' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('produzido')}
+                      onClick={() => setStatusFilter('em_atendimento')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Produzido
                     </Button>
                     <Button
-                      variant={statusFilter === 'entregue' ? 'default' : 'outline'}
+                      variant={statusFilter === 'resolvido' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('entregue')}
+                      onClick={() => setStatusFilter('resolvido')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Entregue
                     </Button>
                     <Button
-                      variant={statusFilter === 'perdido' ? 'default' : 'outline'}
+                      variant={statusFilter === 'nao_convertido' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('perdido')}
+                      onClick={() => setStatusFilter('nao_convertido')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Perdido
@@ -4591,12 +4591,12 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                       onClick={() => {
                         const filteredLeads = leadGroups.map(group => allLeads.find(l => l.id === group.leadId)).filter(Boolean);
                         const statusMap: Record<string, string> = {
-                          em_aberto: 'Em Aberto',
-                          em_negociacao: 'Negociação',
-                          ganho: 'Ganho',
-                          perdido: 'Perdido',
-                          entregue: 'Entregue',
-                          produzido: 'Produzido',
+                          novo: 'Novo',
+                          em_atendimento: 'Em Atendimento',
+                          em_negociacao: 'Em Negociação',
+                          matriculado: 'Matriculado',
+                          nao_convertido: 'Não Convertido',
+                          resolvido: 'Resolvido',
                         };
                         const leadsText = filteredLeads.map((lead, index) => {
                           const parts = [`${index + 1}. ${lead?.name}`];
@@ -4835,7 +4835,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
           )}
 
           {/* Box de Valores em Aberto */}
-          {statusFilter === 'em_aberto' && (() => {
+          {statusFilter === 'novo' && (() => {
             const hasAnyValue = emAbertoTotal.brl > 0 || emAbertoTotal.usd > 0 || emAbertoTotal.eur > 0;
             if (!hasAnyValue) return null;
             const BRL_TO_EUR = 0.18;
@@ -5032,7 +5032,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
           })()}
 
           {/* Box de Valores a Receber */}
-          {(statusFilter === 'ganho' || statusFilter === 'ganho_produzido') && (() => {
+          {(statusFilter === 'matriculado' || statusFilter === 'ganho_produzido') && (() => {
             
             
             const totals = leadGroups.reduce((acc, group) => {
@@ -5156,7 +5156,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
           })()}
 
           {/* Box de Valores - Entregues */}
-          {statusFilter === 'entregue' && (() => {
+          {statusFilter === 'resolvido' && (() => {
             // Taxa de câmbio BRL para USD (atualizar manualmente conforme necessário)
             const BRL_TO_USD = 0.20; // 1 BRL = 0.20 USD (aproximadamente 1 USD = 5 BRL)
             
@@ -5377,9 +5377,9 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                       const previousStatus = lead.status;
                       const previousData = { 
                         status: lead.status,
-                        ganho_at: lead.ganho_at,
-                        perdido_at: lead.perdido_at,
-                        produzido_at: lead.produzido_at,
+                        matriculado_at: lead.matriculado_at,
+                        nao_convertido_at: lead.nao_convertido_at,
+                        resolvido_at: lead.resolvido_at,
                         delivered_at: lead.delivered_at,
                         negociacao_at: lead.negociacao_at,
                         reopened_at: lead.reopened_at
@@ -5389,14 +5389,14 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                       const updateData = buildStatusUpdateData(status as LeadStatus, lead);
 
                       const statusLabel =
-                        status === 'em_aberto'
+                        status === 'novo'
                           ? 'em aberto'
-                          : status === 'ganho'
-                            ? 'ganho'
-                            : status === 'perdido'
-                              ? 'perdido'
-                              : status === 'entregue'
-                                ? 'entregue'
+                          : status === 'matriculado'
+                            ? 'matriculado'
+                            : status === 'nao_convertido'
+                              ? 'nao_convertido'
+                              : status === 'resolvido'
+                                ? 'resolvido'
                                 : 'em negociação';
 
                       // Update otimista - remove da lista imediatamente
@@ -5419,7 +5419,7 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                         if (error) throw error;
 
                         // Se marcou como entregue e é cliente recorrente, oferecer nova oportunidade
-                        if (status === 'entregue' && lead.is_recurring) {
+                        if (status === 'resolvido' && lead.is_recurring) {
                           setPendingDeliveredLeadId(leadId);
                           setShowNewOpportunityDialog(true);
                         }
@@ -6018,8 +6018,8 @@ expected_payment_date: ${lead.data_proximo_pagamento || 'N/A'}`;
                     valor: sourceLead.valor,
                     moeda: (sourceLead.moeda || 'BRL') as 'BRL' | 'USD' | 'EUR',
                     is_recurring: true,
-                    status: 'ganho' as const,
-                    ganho_at: now,
+                    status: 'matriculado' as const,
+                    matriculado_at: now,
                     data_proximo_pagamento: lastBusinessDay,
                     source: sourceLead.source,
                     description: sourceLead.description,

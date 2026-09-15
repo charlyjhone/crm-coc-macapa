@@ -52,8 +52,8 @@ interface Lead {
   reopened_at?: string | null;
   last_outbound_message_at?: string | null;
   last_inbound_message_at?: string | null;
-  ganho_at?: string | null;
-  produzido_at?: string | null;
+  matriculado_at?: string | null;
+  resolvido_at?: string | null;
   // Campos de diagnóstico IA
   ai_diagnosis?: string | null;
   ai_close_probability?: number | null;
@@ -94,7 +94,7 @@ interface LeadCardProps {
   formatDate: (date: string) => string;
   getTimeAgo: (date: string) => string;
   onArchive?: (leadId: string) => Promise<void>;
-  onStatusChange?: (leadId: string, status: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido') => Promise<void>;
+  onStatusChange?: (leadId: string, status: 'novo' | 'em_atendimento' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido') => Promise<void>;
   // Pre-computed data to avoid DB queries in card
   lastInboundMessage?: LastMessage | null;
   lastOutboundMessage?: LastMessage | null;
@@ -108,15 +108,15 @@ interface LeadCardProps {
   onSendToTiffany?: (leadId: string) => void;
 }
 
-type StatusType = 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido';
+type StatusType = 'novo' | 'em_atendimento' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido';
 
 const statusLabels: Record<StatusType, string> = {
-  em_aberto: 'Em Aberto',
-  em_negociacao: 'Negociação',
-  ganho: 'Ganho',
-  perdido: 'Perdido',
-  produzido: 'Produzido',
-  entregue: 'Entregue',
+  novo: 'Novo',
+  em_atendimento: 'Em Atendimento',
+  em_negociacao: 'Em Negociação',
+  matriculado: 'Matriculado',
+  nao_convertido: 'Não Convertido',
+  resolvido: 'Resolvido',
 };
 
 const LeadCardComponent = ({
@@ -378,7 +378,7 @@ const LeadCardComponent = ({
   };
 
   // Check if payment is overdue
-  const isPaymentOverdue = (lead.status === 'ganho' || lead.status === 'produzido') && 
+  const isPaymentOverdue = lead.status === 'matriculado' && 
     lead.data_proximo_pagamento && 
     lead.valor_pago !== null && 
     lead.valor_pago !== undefined && 
@@ -460,27 +460,27 @@ const LeadCardComponent = ({
                     <Badge 
                       variant="outline" 
                       className={`text-xs whitespace-nowrap ${
-                        lead.status === 'em_aberto' 
+                        lead.status === 'novo' 
                           ? 'bg-slate-100 text-slate-700 border-slate-300' 
-                          : lead.status === 'em_negociacao' 
+                          : lead.status === 'em_atendimento'
                             ? 'bg-blue-100 text-blue-700 border-blue-300'
-                            : lead.status === 'ganho' 
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : lead.status === 'produzido'
-                                ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                : lead.status === 'entregue'
-                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                  : lead.status === 'perdido'
+                            : lead.status === 'em_negociacao' 
+                              ? 'bg-amber-100 text-amber-700 border-amber-300'
+                              : lead.status === 'matriculado' 
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : lead.status === 'resolvido'
+                                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                                  : lead.status === 'nao_convertido'
                                     ? 'bg-red-100 text-red-700 border-red-300'
                                     : 'bg-gray-100 text-gray-700 border-gray-300'
                       }`}
                     >
-                      {lead.status === 'em_aberto' && 'Em Aberto'}
-                      {lead.status === 'em_negociacao' && 'Negociação'}
-                      {lead.status === 'ganho' && 'Ganho'}
-                      {lead.status === 'produzido' && 'Produzido'}
-                      {lead.status === 'entregue' && 'Entregue'}
-                      {lead.status === 'perdido' && 'Perdido'}
+                      {lead.status === 'novo' && 'Novo'}
+                      {lead.status === 'em_atendimento' && 'Em Atendimento'}
+                      {lead.status === 'em_negociacao' && 'Em Negociação'}
+                      {lead.status === 'matriculado' && 'Matriculado'}
+                      {lead.status === 'resolvido' && 'Resolvido'}
+                      {lead.status === 'nao_convertido' && 'Não Convertido'}
                     </Badge>
                   )}
 
@@ -519,12 +519,7 @@ const LeadCardComponent = ({
                                     }).format(opp.valor)}
                                   </p>
                                 )}
-                                {opp.produto && (
-                                  <p className="text-muted-foreground capitalize">
-                                    🎯 {opp.produto}
-                                  </p>
-                                )}
-                                {!opp.delivered_at && !opp.valor && !opp.produto && (
+                                {!opp.delivered_at && !opp.valor && (
                                   <p className="text-muted-foreground italic">Sem detalhes disponíveis</p>
                                 )}
                               </div>
@@ -547,13 +542,13 @@ const LeadCardComponent = ({
                 </div>
               </div>
               
-              {/* Valor, Próximo Pagamento e Produto lado a lado no topo direito */}
-              {(lead.valor || lead.produto || lead.data_proximo_pagamento) && (
+              {/* Valor e Próximo Pagamento lado a lado no topo direito */}
+              {(lead.valor || lead.data_proximo_pagamento) && (
                 <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto justify-start sm:justify-end">
                   {lead.valor && (
                     <>
-                      {/* Show total and remaining amount for won/produzido leads */}
-                      {(lead.status === 'ganho' || lead.status === 'produzido') && lead.valor_pago !== null && lead.valor_pago !== undefined && lead.valor_pago > 0 && lead.valor_pago < lead.valor ? (
+                      {/* Show total and remaining amount for matriculado leads */}
+                      {lead.status === 'matriculado' && lead.valor_pago !== null && lead.valor_pago !== undefined && lead.valor_pago > 0 && lead.valor_pago < lead.valor ? (
                         <>
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
                             💰 Total: {lead.moeda === 'USD' ? 'USD' : lead.moeda === 'EUR' ? 'EUR' : 'R$'} {lead.valor.toLocaleString(lead.moeda === 'USD' ? 'en-US' : lead.moeda === 'EUR' ? 'de-DE' : 'pt-BR')}
@@ -562,7 +557,7 @@ const LeadCardComponent = ({
                             💰 A receber: {lead.moeda === 'USD' ? 'USD' : lead.moeda === 'EUR' ? 'EUR' : 'R$'} {(lead.valor - lead.valor_pago).toLocaleString(lead.moeda === 'USD' ? 'en-US' : lead.moeda === 'EUR' ? 'de-DE' : 'pt-BR')}
                           </Badge>
                         </>
-                      ) : (lead.status === 'ganho' || lead.status === 'produzido') && lead.valor_pago !== null && lead.valor_pago !== undefined && lead.valor_pago >= lead.valor ? (
+                      ) : lead.status === 'matriculado' && lead.valor_pago !== null && lead.valor_pago !== undefined && lead.valor_pago >= lead.valor ? (
                         <Badge variant="outline" className="text-xs whitespace-nowrap bg-green-50 text-green-700 border-green-300">
                           ✓ Pago: {lead.moeda === 'USD' ? 'USD' : lead.moeda === 'EUR' ? 'EUR' : 'R$'} {lead.valor.toLocaleString(lead.moeda === 'USD' ? 'en-US' : lead.moeda === 'EUR' ? 'de-DE' : 'pt-BR')}
                         </Badge>
@@ -573,8 +568,8 @@ const LeadCardComponent = ({
                       )}
                     </>
                   )}
-                  {/* Show next payment date for won/produced leads */}
-                  {(lead.status === 'ganho' || lead.status === 'produzido') && lead.data_proximo_pagamento && (
+                  {/* Show next payment date for matriculado leads */}
+                  {lead.status === 'matriculado' && lead.data_proximo_pagamento && (
                     <Badge 
                       variant="outline" 
                       className={`text-xs whitespace-nowrap ${
@@ -584,18 +579,6 @@ const LeadCardComponent = ({
                       }`}
                     >
                       📅 {isPaymentOverdue ? '⚠️ ' : ''}Próx. Pgto: {new Date(lead.data_proximo_pagamento).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    </Badge>
-                  )}
-                  {lead.produto && (
-                    <Badge variant="secondary" className="text-xs capitalize whitespace-nowrap">
-                      <span className="flex items-center gap-1">
-                        {lead.produto}
-                        {lead.produto === 'publicidade' && lead.publicidade_subtipo && (
-                          <span className="text-[10px] opacity-70 lowercase">
-                            ({lead.publicidade_subtipo === 'longo' ? 'Longo' : lead.publicidade_subtipo === 'curto' ? 'Curto' : lead.publicidade_subtipo === 'insercao' ? 'Inserção' : lead.publicidade_subtipo === 'longo_curto' ? 'Longo+Curto' : lead.publicidade_subtipo === 'linkedin' ? 'LinkedIn' : lead.publicidade_subtipo === 'newsletter' ? 'Newsletter' : lead.publicidade_subtipo}{lead.publicidade_quantidade ? ` x${lead.publicidade_quantidade}` : ''})
-                          </span>
-                        )}
-                      </span>
                     </Badge>
                   )}
                 </div>
@@ -942,25 +925,25 @@ const LeadCardComponent = ({
               {/* Status buttons - só mostra botões para status diferentes do atual */}
               {onStatusChange && (
                 <>
-                  {/* Em Aberto - só mostra se NÃO estiver em_aberto e NÃO for ganho/produzido/entregue */}
-                  {lead.status !== 'em_aberto' && lead.status !== null && lead.status !== undefined && lead.status !== 'ganho' && lead.status !== 'produzido' && lead.status !== 'entregue' && (
+                  {/* Em Atendimento - volta pro fluxo ativo */}
+                  {lead.status !== 'em_atendimento' && lead.status !== 'matriculado' && lead.status !== 'nao_convertido' && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300 w-full sm:w-auto"
-                      onClick={(e) => handleStatusChange('em_aberto', e)}
+                      onClick={(e) => handleStatusChange('em_atendimento', e)}
                     >
-                      <span className="hidden sm:inline">Em Aberto</span>
-                      <span className="sm:hidden">Aberto</span>
+                      <span className="hidden sm:inline">Em Atendimento</span>
+                      <span className="sm:hidden">Atend.</span>
                     </Button>
                   )}
-                  
+
                   {/* Em Negociação - só mostra se NÃO estiver em_negociacao */}
                   {lead.status !== 'em_negociacao' && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 w-full sm:w-auto"
+                      className="h-7 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300 w-full sm:w-auto"
                       onClick={(e) => handleStatusChange('em_negociacao', e)}
                     >
                       <MessageCircle className="h-3 w-3 mr-1" />
@@ -968,59 +951,44 @@ const LeadCardComponent = ({
                       <span className="sm:hidden">Neg.</span>
                     </Button>
                   )}
-                  
-                  {/* Ganho - só mostra se NÃO estiver ganho */}
-                  {lead.status !== 'ganho' && (
+
+                  {/* Matriculado - só mostra se NÃO estiver matriculado */}
+                  {lead.status !== 'matriculado' && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-300 w-full sm:w-auto"
-                      onClick={(e) => handleStatusChange('ganho', e)}
+                      onClick={(e) => handleStatusChange('matriculado', e)}
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      Ganho
+                      Matriculado
                     </Button>
                   )}
-                  
-                  {/* Perdido - só mostra se NÃO estiver perdido */}
-                  {lead.status !== 'perdido' && (
+
+                  {/* Não Convertido - só mostra se NÃO estiver nao_convertido */}
+                  {lead.status !== 'nao_convertido' && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-300 w-full sm:w-auto"
-                      onClick={(e) => handleStatusChange('perdido', e)}
+                      onClick={(e) => handleStatusChange('nao_convertido', e)}
                     >
                       <XCircle className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Perdido</span>
-                      <span className="sm:hidden">Perd.</span>
+                      <span className="hidden sm:inline">Não Convertido</span>
+                      <span className="sm:hidden">Não Conv.</span>
                     </Button>
                   )}
-                  
-                  {/* Produzido - só mostra para leads ganhos */}
-                  {lead.status === 'ganho' && (
+
+                  {/* Resolvido - dúvida pontual encerrada, sem intenção de matrícula */}
+                  {lead.status !== 'resolvido' && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300 w-full sm:w-auto"
-                      onClick={(e) => handleStatusChange('produzido', e)}
+                      className="h-7 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300 w-full sm:w-auto"
+                      onClick={(e) => handleStatusChange('resolvido', e)}
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Produzido</span>
-                      <span className="sm:hidden">Prod.</span>
-                    </Button>
-                  )}
-                  
-                  {/* Entregue - só mostra para leads ganhos ou produzidos */}
-                  {(lead.status === 'ganho' || lead.status === 'produzido') && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-300 w-full sm:w-auto"
-                      onClick={(e) => handleStatusChange('entregue', e)}
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Entregue</span>
-                      <span className="sm:hidden">Ent.</span>
+                      Resolvido
                     </Button>
                   )}
                 </>

@@ -24,9 +24,9 @@ interface Lead {
   name: string;
   status: string | null;
   produto: string | null;
-  ganho_at: string | null;
+  matriculado_at: string | null;
   delivered_at: string | null;
-  produzido_at: string | null;
+  resolvido_at: string | null;
   created_at: string;
   valor: number | null;
   moeda: string | null;
@@ -38,10 +38,10 @@ interface DailyLead {
   status: string | null;
   created_at: string;
   negociacao_at: string | null;
-  ganho_at: string | null;
-  perdido_at: string | null;
+  matriculado_at: string | null;
+  nao_convertido_at: string | null;
   delivered_at: string | null;
-  produzido_at: string | null;
+  resolvido_at: string | null;
   valor: number | null;
   valor_pago: number | null;
   moeda: string | null;
@@ -187,19 +187,19 @@ export default function Insights() {
       const [closedRes, openRes, allRes] = await Promise.all([
         supabase
           .from('leads')
-          .select('id, name, status, produto, ganho_at, delivered_at, produzido_at, created_at, valor, moeda, archived, unclassified')
-          .in('status', ['ganho', 'entregue', 'produzido'])
+          .select('id, name, status, produto, matriculado_at, delivered_at, resolvido_at, created_at, valor, moeda, archived, unclassified')
+          .in('status', ['matriculado', 'resolvido', 'em_atendimento'])
           .or('archived.is.null,archived.eq.false')
           .or('unclassified.is.null,unclassified.eq.false'),
         supabase
           .from('leads')
-          .select('id, name, status, produto, ganho_at, delivered_at, produzido_at, created_at, valor, moeda, archived, unclassified')
-          .in('status', ['em_aberto', 'em_negociacao'])
+          .select('id, name, status, produto, matriculado_at, delivered_at, resolvido_at, created_at, valor, moeda, archived, unclassified')
+          .in('status', ['novo', 'em_negociacao'])
           .or('archived.is.null,archived.eq.false')
           .or('unclassified.is.null,unclassified.eq.false'),
         supabase
           .from('leads')
-          .select('id, name, status, created_at, negociacao_at, ganho_at, perdido_at, delivered_at, produzido_at, valor, valor_pago, moeda, ai_close_probability, ai_next_step, ai_diagnosis, ai_diagnosis_reason, archived, unclassified')
+          .select('id, name, status, created_at, negociacao_at, matriculado_at, nao_convertido_at, delivered_at, resolvido_at, valor, valor_pago, moeda, ai_close_probability, ai_next_step, ai_diagnosis, ai_diagnosis_reason, archived, unclassified')
           .or('archived.is.null,archived.eq.false')
           .or('unclassified.is.null,unclassified.eq.false'),
       ]);
@@ -216,7 +216,7 @@ export default function Insights() {
       const yStart = startOfDay(subDays(now, 1)).toISOString();
       const yEnd = endOfDay(subDays(now, 1)).toISOString();
 
-      const activeStatuses = ['em_aberto', 'em_negociacao', 'ganho', 'produzido'];
+      const activeStatuses = ['novo', 'em_negociacao', 'matriculado', 'em_atendimento'];
       const activeLeadIds = (allRes.data || [])
         .filter(l => l.status && activeStatuses.includes(l.status) && !l.archived && !l.unclassified)
         .map(l => l.id);
@@ -333,7 +333,7 @@ export default function Insights() {
     return intervals;
   }, [monthsToShow]);
 
-  const processCountData = (leads: Lead[], dateField: 'ganho_at' | 'delivered_at' | 'produzido_at' | 'created_at', fallbackField: 'created_at' | null = null): MonthlyData[] => {
+  const processCountData = (leads: Lead[], dateField: 'matriculado_at' | 'delivered_at' | 'resolvido_at' | 'created_at', fallbackField: 'created_at' | null = null): MonthlyData[] => {
     return getMonthIntervals.map(interval => {
       const monthData: MonthlyData = {
         month: interval.key,
@@ -384,7 +384,7 @@ export default function Insights() {
     });
   };
 
-  const processRevenueData = (leads: Lead[], dateField: 'ganho_at' | 'delivered_at' | 'produzido_at' | 'created_at', fallbackField: 'created_at' | null = null): MonthlyRevenueData[] => {
+  const processRevenueData = (leads: Lead[], dateField: 'matriculado_at' | 'delivered_at' | 'resolvido_at' | 'created_at', fallbackField: 'created_at' | null = null): MonthlyRevenueData[] => {
     return getMonthIntervals.map(interval => {
       const monthData: MonthlyRevenueData = {
         month: interval.key,
@@ -438,13 +438,13 @@ export default function Insights() {
 
   // Count data - filter by date field not null, not by status
   const wonCountData = useMemo(() => {
-    const wonLeads = leads.filter(l => l.ganho_at !== null);
-    return processCountData(wonLeads, 'ganho_at', null);
+    const wonLeads = leads.filter(l => l.matriculado_at !== null);
+    return processCountData(wonLeads, 'matriculado_at', null);
   }, [leads, getMonthIntervals]);
 
   const producedCountData = useMemo(() => {
-    const producedLeads = leads.filter(l => l.produzido_at !== null);
-    return processCountData(producedLeads, 'produzido_at', null);
+    const producedLeads = leads.filter(l => l.resolvido_at !== null);
+    return processCountData(producedLeads, 'resolvido_at', null);
   }, [leads, getMonthIntervals]);
 
   const deliveredCountData = useMemo(() => {
@@ -454,13 +454,13 @@ export default function Insights() {
 
   // Revenue data - filter by date field not null, not by status
   const wonRevenueData = useMemo(() => {
-    const wonLeads = leads.filter(l => l.ganho_at !== null);
-    return processRevenueData(wonLeads, 'ganho_at', null);
+    const wonLeads = leads.filter(l => l.matriculado_at !== null);
+    return processRevenueData(wonLeads, 'matriculado_at', null);
   }, [leads, getMonthIntervals]);
 
   const producedRevenueData = useMemo(() => {
-    const producedLeads = leads.filter(l => l.produzido_at !== null);
-    return processRevenueData(producedLeads, 'produzido_at', null);
+    const producedLeads = leads.filter(l => l.resolvido_at !== null);
+    return processRevenueData(producedLeads, 'resolvido_at', null);
   }, [leads, getMonthIntervals]);
 
   const deliveredRevenueData = useMemo(() => {

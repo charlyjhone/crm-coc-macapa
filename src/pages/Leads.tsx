@@ -43,7 +43,7 @@ interface Lead {
   valor?: number | null;
   moeda?: 'BRL' | 'USD' | 'EUR' | null;
   produto?: 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null;
-  status?: 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | 'produzido' | null;
+  status?: 'novo' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | 'em_atendimento' | null;
   suggested_followup?: string | null;
   valor_manually_edited?: boolean | null;
   publicidade_subtipo?: string | null;
@@ -152,7 +152,7 @@ const Leads = () => {
   const [diagnosingLeads, setDiagnosingLeads] = useState(false);
   const [diagnosingLeadId, setDiagnosingLeadId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'em_aberto' | 'em_negociacao' | 'ganho' | 'perdido' | 'entregue'>('em_aberto');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'novo' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido'>('novo');
   const [pendingResponseFilter, setPendingResponseFilter] = useState(false);
   const [produtoFilter, setProdutoFilter] = useState<'all' | 'publicidade' | 'palestra' | 'consultoria' | 'palestra_consultoria' | 'documentario'>('all');
   const [editableFollowup, setEditableFollowup] = useState<string>('');
@@ -290,7 +290,7 @@ const Leads = () => {
 
     // Aplicar filtro de status (apenas quando não há pesquisa)
     if (!hasSearch) {
-      if (statusFilter === 'em_aberto') {
+      if (statusFilter === 'novo') {
         // Em Aberto: mostra apenas em_negociacao, exclui ganho, perdido e entregue
         filteredLeads = filteredLeads.filter(lead =>
           lead.status === 'em_negociacao'
@@ -830,7 +830,7 @@ const Leads = () => {
           last_inbound_message: lastInbound || undefined,
           produto: lead.produto as 'palestra' | 'consultoria' | 'mentoria' | 'treinamento' | 'publicidade' | 'documentario' | null,
           moeda: lead.moeda as 'BRL' | 'USD' | 'EUR' | null,
-          status: lead.status as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null,
+          status: lead.status as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null,
         };
       }));
 
@@ -1995,13 +1995,13 @@ const Leads = () => {
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'ganho' })
+        .update({ status: 'matriculado' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'ganho' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'matriculado' } : l
       ));
 
       toast({
@@ -2027,13 +2027,13 @@ const Leads = () => {
       
       const { error } = await supabase
         .from('leads')
-        .update({ status: 'perdido' })
+        .update({ status: 'nao_convertido' })
         .in('id', selectedLeadArray);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        selectedLeadArray.includes(l.id) ? { ...l, status: 'perdido' } : l
+        selectedLeadArray.includes(l.id) ? { ...l, status: 'nao_convertido' } : l
       ));
 
       toast({
@@ -2174,7 +2174,7 @@ const Leads = () => {
     try {
       const { error } = await supabase
         .from('leads')
-        .update({ status: statusValue as 'em_negociacao' | 'ganho' | 'perdido' | 'entregue' | null })
+        .update({ status: statusValue as 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido' | null })
         .eq('id', lead.id);
 
       if (error) throw error;
@@ -2483,11 +2483,11 @@ const Leads = () => {
                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           >
                             <option value="">Selecione...</option>
-                            <option value="em_aberto">Em Aberto</option>
+                            <option value="novo">Em Aberto</option>
                             <option value="em_negociacao">Em Negociação</option>
-                            <option value="ganho">Ganho</option>
-                            <option value="perdido">Perdido</option>
-                            <option value="entregue">Entregue</option>
+                            <option value="matriculado">Ganho</option>
+                            <option value="nao_convertido">Perdido</option>
+                            <option value="resolvido">Entregue</option>
                           </select>
                           <Button size="sm" onClick={handleSaveStatus}>
                             <Save className="h-4 w-4" />
@@ -2501,18 +2501,18 @@ const Leads = () => {
                           {firstLead?.status ? (
                             <Badge 
                               variant={
-                                firstLead.status === 'ganho' ? 'default' : 
-                                firstLead.status === 'entregue' ? 'default' : 
-                                firstLead.status === 'perdido' ? 'destructive' : 
+                                firstLead.status === 'matriculado' ? 'default' : 
+                                firstLead.status === 'resolvido' ? 'default' : 
+                                firstLead.status === 'nao_convertido' ? 'destructive' : 
                                 'secondary'
                               } 
                               className="text-sm"
                             >
-                              {firstLead.status === 'em_aberto' ? 'Em Aberto' :
+                              {firstLead.status === 'novo' ? 'Em Aberto' :
                                firstLead.status === 'em_negociacao' ? 'Em Negociação' : 
-                               firstLead.status === 'ganho' ? 'Ganho' :
-                               firstLead.status === 'entregue' ? 'Entregue' :
-                               firstLead.status === 'perdido' ? 'Perdido' : 'Em Aberto'}
+                               firstLead.status === 'matriculado' ? 'Ganho' :
+                               firstLead.status === 'resolvido' ? 'Entregue' :
+                               firstLead.status === 'nao_convertido' ? 'Perdido' : 'Em Aberto'}
                             </Badge>
                           ) : (
                             <span className="text-sm text-muted-foreground">Não definido</span>
@@ -2535,13 +2535,13 @@ const Leads = () => {
                               try {
                                 const { error } = await supabase
                                   .from('leads')
-                                  .update({ status: 'ganho' })
+                                  .update({ status: 'matriculado' })
                                   .eq('id', firstLead!.id);
 
                                 if (error) throw error;
 
                                 setAllLeads(prev => prev.map(l => 
-                                  l.id === firstLead!.id ? { ...l, status: 'ganho' } : l
+                                  l.id === firstLead!.id ? { ...l, status: 'matriculado' } : l
                                 ));
 
                                 toast({
@@ -2566,13 +2566,13 @@ const Leads = () => {
                               try {
                                 const { error } = await supabase
                                   .from('leads')
-                                  .update({ status: 'perdido' })
+                                  .update({ status: 'nao_convertido' })
                                   .eq('id', firstLead!.id);
 
                                 if (error) throw error;
 
                                 setAllLeads(prev => prev.map(l => 
-                                  l.id === firstLead!.id ? { ...l, status: 'perdido' } : l
+                                  l.id === firstLead!.id ? { ...l, status: 'nao_convertido' } : l
                                 ));
 
                                 toast({
@@ -3339,7 +3339,7 @@ const Leads = () => {
               <p className="text-muted-foreground">
                 {leadGroups.length} oportunidade{leadGroups.length !== 1 ? 's' : ''}
               </p>
-              {statusFilter === 'ganho' && (() => {
+              {statusFilter === 'matriculado' && (() => {
                 const totalValor = leadGroups.reduce((sum, group) => {
                   const lead = allLeads.find(l => l.id === group.leadId);
                   return sum + (lead?.valor || 0);
@@ -3438,9 +3438,9 @@ const Leads = () => {
                   <p className="text-xs text-muted-foreground mb-2">Por Status</p>
                   <div className="flex md:flex-row flex-col gap-2 w-full">
                     <Button
-                      variant={statusFilter === 'em_aberto' ? 'default' : 'outline'}
+                      variant={statusFilter === 'novo' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('em_aberto')}
+                      onClick={() => setStatusFilter('novo')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Em Aberto
@@ -3462,25 +3462,25 @@ const Leads = () => {
                       Em Negociação
                     </Button>
                     <Button
-                      variant={statusFilter === 'ganho' ? 'default' : 'outline'}
+                      variant={statusFilter === 'matriculado' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('ganho')}
+                      onClick={() => setStatusFilter('matriculado')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Ganho
                     </Button>
                     <Button
-                      variant={statusFilter === 'entregue' ? 'default' : 'outline'}
+                      variant={statusFilter === 'resolvido' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('entregue')}
+                      onClick={() => setStatusFilter('resolvido')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Entregue
                     </Button>
                     <Button
-                      variant={statusFilter === 'perdido' ? 'default' : 'outline'}
+                      variant={statusFilter === 'nao_convertido' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setStatusFilter('perdido')}
+                      onClick={() => setStatusFilter('nao_convertido')}
                       className="md:flex-none w-full md:w-auto justify-start"
                     >
                       Perdido

@@ -5,12 +5,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { PendingLead } from "@/hooks/usePendingLeads";
 
 const statusLabels: Record<string, string> = {
-  em_aberto: "Em Aberto",
-  em_negociacao: "Negociação",
-  ganho: "Ganho",
-  produzido: "Produzido",
-  entregue: "Entregue",
-  perdido: "Perdido",
+  novo: "Novo",
+  em_atendimento: "Em Atendimento",
+  em_negociacao: "Em Negociação",
+  matriculado: "Matriculado",
+  resolvido: "Resolvido",
+  nao_convertido: "Não Convertido",
 };
 
 function formatRelative(iso: string) {

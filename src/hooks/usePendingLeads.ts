@@ -65,7 +65,7 @@ export function usePendingLeads() {
         )
         .eq("archived", false)
         .eq("unclassified", false)
-        .in("status", ["em_aberto", "em_negociacao"])
+        .in("status", ["novo", "em_atendimento", "em_negociacao"])
         .not("last_inbound_message_at", "is", null)
         .order("last_inbound_message_at", { ascending: true })
         .limit(1000);

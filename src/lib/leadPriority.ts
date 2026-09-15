@@ -1,13 +1,12 @@
 // Lead scoring determinístico para ordenar o CRM por "com quem eu preciso
 // falar primeiro". Dois modos:
 //
-//  - PIPELINE (em_aberto / em_negociacao): prioriza quem está com a bola no
-//    NOSSO campo (cliente respondeu e espera resposta), negociações ativas,
-//    valor alto e engajamento recente. Leads que sumiram perdem prioridade —
-//    a Susan já está fazendo follow-up automático neles.
+//  - PIPELINE (novo / em_atendimento / em_negociacao): prioriza quem está
+//    com a bola no NOSSO campo (família respondeu e espera resposta),
+//    negociações ativas e engajamento recente.
 //
-//  - GANHOS (ganho / produzido): prioriza obrigações — cliente aguardando
-//    resposta, pagamento vencido, produção parada há muito tempo.
+//  - MATRICULADO: prioriza obrigações — pagamento vencido, mensalidade não
+//    quitada.
 //
 // O score é 0-100, com "reasons" legíveis pra tooltip. Tier: P1 (>=65),
 // P2 (>=40), P3 (resto).
@@ -27,8 +26,8 @@ export interface PriorityLead {
   last_outbound_message_at?: string | null;
   last_interaction?: string | null;
   created_at?: string;
-  ganho_at?: string | null;
-  produzido_at?: string | null;
+  matriculado_at?: string | null;
+  resolvido_at?: string | null;
   delivered_at?: string | null;
   archived?: boolean;
   unclassified?: boolean;
@@ -167,14 +166,7 @@ function wonPriority(lead: PriorityLead): LeadPriority {
     reasons.push('Pagamento não quitado');
   }
 
-  // 3) Produção parada: ganhou e ainda não produziu/entregou
-  if (lead.status === 'ganho' && !lead.produzido_at && !lead.delivered_at) {
-    const dGanho = daysSince(lead.ganho_at) ?? 0;
-    score += Math.min(18, dGanho * 1.2);
-    if (dGanho >= 7) reasons.push(`Ganho há ${Math.floor(dGanho)}d sem produção`);
-  }
-
-  // 4) Frescor da última mensagem do cliente
+  // 3) Frescor da última mensagem do cliente
   if (dInbound !== null) score += Math.max(0, 6 - dInbound);
 
   return { score: clamp(score), tier: tierFor(clamp(score)), reasons };
@@ -186,10 +178,10 @@ function wonPriority(lead: PriorityLead): LeadPriority {
  */
 export function computeLeadPriority(lead: PriorityLead): LeadPriority | null {
   if (!lead || lead.archived || lead.unclassified) return null;
-  const status = lead.status || 'em_aberto';
-  if (status === 'em_aberto' || status === 'em_negociacao') return pipelinePriority(lead);
-  if (status === 'ganho' || status === 'produzido') return wonPriority(lead);
-  return null; // perdido / entregue
+  const status = lead.status || 'novo';
+  if (status === 'novo' || status === 'em_atendimento' || status === 'em_negociacao') return pipelinePriority(lead);
+  if (status === 'matriculado') return wonPriority(lead);
+  return null; // nao_convertido / resolvido
 }
 
 export function priorityTierLabel(tier: 1 | 2 | 3): string {

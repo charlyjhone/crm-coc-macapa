@@ -56,9 +56,9 @@ interface Lead {
   whatsapp_inbound_count: number | null;
   whatsapp_outbound_count: number | null;
   negociacao_at: string | null;
-  ganho_at: string | null;
-  perdido_at: string | null;
-  produzido_at: string | null;
+  matriculado_at: string | null;
+  nao_convertido_at: string | null;
+  resolvido_at: string | null;
   reopened_at: string | null;
   language: string | null;
 }
@@ -100,21 +100,21 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  em_aberto: "Aberto",
-  em_negociacao: "Negociação",
-  ganho: "Ganho",
-  perdido: "Perdido",
-  produzido: "Produzido",
-  entregue: "Entregue",
+  novo: "Novo",
+  em_atendimento: "Em Atendimento",
+  em_negociacao: "Em Negociação",
+  matriculado: "Matriculado",
+  nao_convertido: "Não Convertido",
+  resolvido: "Resolvido",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  em_aberto: "bg-blue-100 text-blue-800",
+  novo: "bg-blue-100 text-blue-800",
+  em_atendimento: "bg-slate-100 text-slate-800",
   em_negociacao: "bg-yellow-100 text-yellow-800",
-  ganho: "bg-green-100 text-green-800",
-  perdido: "bg-red-100 text-red-800",
-  produzido: "bg-purple-100 text-purple-800",
-  entregue: "bg-emerald-100 text-emerald-800",
+  matriculado: "bg-green-100 text-green-800",
+  nao_convertido: "bg-red-100 text-red-800",
+  resolvido: "bg-emerald-100 text-emerald-800",
 };
 
 function formatCurrency(valor: number | null, moeda: string | null) {
@@ -174,7 +174,7 @@ const WorkerMode = () => {
           .select("*")
           .eq("archived", false)
           .eq("unclassified", false)
-          .in("status", ["ganho", "produzido", "em_negociacao", "em_aberto"])
+          .in("status", ["matriculado", "em_atendimento", "em_negociacao", "novo"])
           .order("created_at", { ascending: false }),
         supabase
           .from("worker_actions")
@@ -624,9 +624,9 @@ const WorkerMode = () => {
       const { data, error } = await supabase.functions.invoke("generate-whatsapp-message", {
         body: {
           leadId: currentLead.id,
-          context: currentLead.status === 'ganho'
+          context: currentLead.status === 'matriculado'
             ? "Follow-up sobre pagamento, próximos passos, briefing ou contrato pendente"
-            : currentLead.status === 'produzido'
+            : currentLead.status === 'em_atendimento'
             ? "Follow-up sobre entrega, pagamento pendente ou satisfação"
             : "Follow-up geral sobre o projeto/proposta",
         },
@@ -905,14 +905,14 @@ ${whatsappText || 'Nenhuma'}`;
 
     const daysCreated = differenceInCalendarDays(new Date(), new Date(currentLead.created_at));
     const statusDateMap: Record<string, string | null> = {
-      em_aberto: currentLead.reopened_at || currentLead.created_at,
+      novo: currentLead.reopened_at || currentLead.created_at,
+      em_atendimento: null,
       em_negociacao: currentLead.negociacao_at,
-      ganho: currentLead.ganho_at,
-      produzido: currentLead.produzido_at,
-      entregue: currentLead.delivered_at,
-      perdido: currentLead.perdido_at,
+      matriculado: currentLead.matriculado_at,
+      resolvido: currentLead.resolvido_at,
+      nao_convertido: currentLead.nao_convertido_at,
     };
-    const statusEntryDate = statusDateMap[currentLead.status || 'em_aberto'];
+    const statusEntryDate = statusDateMap[currentLead.status || 'novo'];
     const daysInStatus = statusEntryDate ? differenceInCalendarDays(new Date(), new Date(statusEntryDate)) : null;
 
     return (
@@ -932,8 +932,8 @@ ${whatsappText || 'Nenhuma'}`;
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-sm font-bold truncate">{currentLead.name}</h2>
-                <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[currentLead.status || "em_aberto"] || "bg-muted"}`}>
-                  {STATUS_LABELS[currentLead.status || "em_aberto"]}
+                <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[currentLead.status || "novo"] || "bg-muted"}`}>
+                  {STATUS_LABELS[currentLead.status || "novo"]}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground truncate">
@@ -1056,38 +1056,38 @@ ${whatsappText || 'Nenhuma'}`;
 
         {/* Status buttons + Skip - pinned to bottom */}
         <div className="mt-auto px-3 py-2 border-t shrink-0">
-          <div className={`grid gap-1.5 ${currentLead.status === "em_aberto" ? "grid-cols-4" : "grid-cols-3"}`}>
-            {currentLead.status === "em_aberto" ? (
+          <div className={`grid gap-1.5 ${currentLead.status === "novo" ? "grid-cols-4" : "grid-cols-3"}`}>
+            {currentLead.status === "novo" ? (
               <>
                 <Button size="default" className="text-xs h-12 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold" onClick={() => changeStatus("em_negociacao")} disabled={!!changingStatus}>
                   {changingStatus === "em_negociacao" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowRight className="h-4 w-4" /><span className="hidden min-[380px]:inline ml-1">Negoc.</span></>}
                 </Button>
-                <Button size="default" className="text-xs h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("ganho")} disabled={!!changingStatus}>
-                  {changingStatus === "ganho" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4" /><span className="hidden min-[380px]:inline ml-1">Ganho</span></>}
+                <Button size="default" className="text-xs h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("matriculado")} disabled={!!changingStatus}>
+                  {changingStatus === "matriculado" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4" /><span className="hidden min-[380px]:inline ml-1">Ganho</span></>}
                 </Button>
-                <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                  {changingStatus === "perdido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4" /><span className="hidden min-[380px]:inline ml-1">Perdido</span></>}
+                <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                  {changingStatus === "nao_convertido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4" /><span className="hidden min-[380px]:inline ml-1">Perdido</span></>}
                 </Button>
               </>
             ) : currentLead.status === "em_negociacao" ? (
               <>
-                <Button size="default" className="text-xs h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("ganho")} disabled={!!changingStatus}>
-                  {changingStatus === "ganho" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4 mr-1" />Ganho</>}
+                <Button size="default" className="text-xs h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("matriculado")} disabled={!!changingStatus}>
+                  {changingStatus === "matriculado" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4 mr-1" />Ganho</>}
                 </Button>
-                <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                  {changingStatus === "perdido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4 mr-1" />Perdido</>}
+                <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                  {changingStatus === "nao_convertido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4 mr-1" />Perdido</>}
                 </Button>
               </>
             ) : (
               <>
-                {currentLead.status !== "entregue" && (
-                  <Button size="default" className="text-xs h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => changeStatus("entregue")} disabled={!!changingStatus}>
-                    {changingStatus === "entregue" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PackageCheck className="h-4 w-4 mr-1" />Entregue</>}
+                {currentLead.status !== "resolvido" && (
+                  <Button size="default" className="text-xs h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => changeStatus("resolvido")} disabled={!!changingStatus}>
+                    {changingStatus === "resolvido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PackageCheck className="h-4 w-4 mr-1" />Entregue</>}
                   </Button>
                 )}
-                {currentLead.status !== "perdido" && (
-                  <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                    {changingStatus === "perdido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4 mr-1" />Perdido</>}
+                {currentLead.status !== "nao_convertido" && (
+                  <Button size="default" className="text-xs h-12 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                    {changingStatus === "nao_convertido" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4 mr-1" />Perdido</>}
                   </Button>
                 )}
               </>
@@ -1208,8 +1208,8 @@ ${whatsappText || 'Nenhuma'}`;
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-lg font-bold truncate">{currentLead.name}</h2>
-                      <Badge className={`text-xs ${STATUS_COLORS[currentLead.status || "em_aberto"] || "bg-muted"}`}>
-                        {STATUS_LABELS[currentLead.status || "em_aberto"] || currentLead.status}
+                      <Badge className={`text-xs ${STATUS_COLORS[currentLead.status || "novo"] || "bg-muted"}`}>
+                        {STATUS_LABELS[currentLead.status || "novo"] || currentLead.status}
                       </Badge>
                       {currentLead.is_recurring && (
                         <TooltipProvider delayDuration={200}>
@@ -1285,16 +1285,16 @@ ${whatsappText || 'Nenhuma'}`;
 
                 {(() => {
                   const statusDateMap: Record<string, string | null> = {
-                    em_aberto: currentLead.reopened_at || currentLead.created_at,
+                    novo: currentLead.reopened_at || currentLead.created_at,
+                    em_atendimento: null,
                     em_negociacao: currentLead.negociacao_at,
-                    ganho: currentLead.ganho_at,
-                    produzido: currentLead.produzido_at,
-                    entregue: currentLead.delivered_at,
-                    perdido: currentLead.perdido_at,
+                    matriculado: currentLead.matriculado_at,
+                    resolvido: currentLead.resolvido_at,
+                    nao_convertido: currentLead.nao_convertido_at,
                   };
-                  const statusEntryDate = statusDateMap[currentLead.status || 'em_aberto'];
+                  const statusEntryDate = statusDateMap[currentLead.status || 'novo'];
                   const daysInStatus = statusEntryDate ? differenceInCalendarDays(new Date(), new Date(statusEntryDate)) : null;
-                  const statusLabels: Record<string, string> = { em_aberto: "Aberto", em_negociacao: "Negoc.", ganho: "Ganho", produzido: "Produzido", entregue: "Entregue", perdido: "Perdido" };
+                  const statusLabels: Record<string, string> = { novo: "Novo", em_atendimento: "Atend.", em_negociacao: "Negoc.", matriculado: "Matriculado", resolvido: "Resolvido", nao_convertido: "Não Conv." };
                   const totalEmails = (currentLead.email_inbound_count || 0) + (currentLead.email_outbound_count || 0);
                   const totalWhatsapp = (currentLead.whatsapp_inbound_count || 0) + (currentLead.whatsapp_outbound_count || 0);
                   const daysCreated = differenceInCalendarDays(new Date(), new Date(currentLead.created_at));
@@ -1304,7 +1304,7 @@ ${whatsappText || 'Nenhuma'}`;
                     { label: "Prob.", value: currentLead.ai_close_probability != null ? `${currentLead.ai_close_probability}%` : null, show: currentLead.ai_close_probability != null, color: (currentLead.ai_close_probability || 0) >= 60 ? "text-green-600" : (currentLead.ai_close_probability || 0) >= 40 ? "text-yellow-600" : "text-red-600" },
                     { label: "Pago", value: currentLead.valor_pago ? formatCurrency(currentLead.valor_pago, currentLead.moeda) : null, show: !!currentLead.valor_pago },
                     { label: "Criado", value: `${daysCreated}d`, show: true, tooltip: format(new Date(currentLead.created_at), "dd/MM/yyyy") },
-                    { label: statusLabels[currentLead.status || 'em_aberto'] || "Status", value: daysInStatus != null ? `${daysInStatus}d` : "—", show: true },
+                    { label: statusLabels[currentLead.status || 'novo'] || "Status", value: daysInStatus != null ? `${daysInStatus}d` : "—", show: true },
                     { label: "E-mail", value: totalEmails > 0 ? `${currentLead.email_inbound_count || 0}↓ ${currentLead.email_outbound_count || 0}↑` : null, show: totalEmails > 0 },
                     { label: "WhatsApp", value: totalWhatsapp > 0 ? `${currentLead.whatsapp_inbound_count || 0}↓ ${currentLead.whatsapp_outbound_count || 0}↑` : null, show: totalWhatsapp > 0 },
                   ].filter(m => m.show);
@@ -1523,38 +1523,38 @@ ${whatsappText || 'Nenhuma'}`;
               )}
             </div>
 
-            <div className={`grid gap-2 mt-auto ${currentLead?.status === "em_aberto" ? "grid-cols-4" : "grid-cols-3"}`}>
-              {currentLead?.status === "em_aberto" ? (
+            <div className={`grid gap-2 mt-auto ${currentLead?.status === "novo" ? "grid-cols-4" : "grid-cols-3"}`}>
+              {currentLead?.status === "novo" ? (
                 <>
                   <Button size="lg" className="text-base h-16 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold" onClick={() => changeStatus("em_negociacao")} disabled={!!changingStatus}>
                     {changingStatus === "em_negociacao" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <ArrowRight className="h-5 w-5 mr-1" />} Negociação
                   </Button>
-                  <Button size="lg" className="text-base h-16 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("ganho")} disabled={!!changingStatus}>
-                    {changingStatus === "ganho" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <CheckCircle className="h-5 w-5 mr-1" />} Ganho
+                  <Button size="lg" className="text-base h-16 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("matriculado")} disabled={!!changingStatus}>
+                    {changingStatus === "matriculado" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <CheckCircle className="h-5 w-5 mr-1" />} Ganho
                   </Button>
-                  <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                    {changingStatus === "perdido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
+                  <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                    {changingStatus === "nao_convertido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
                   </Button>
                 </>
               ) : currentLead?.status === "em_negociacao" ? (
                 <>
-                  <Button size="lg" className="text-base h-16 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("ganho")} disabled={!!changingStatus}>
-                    {changingStatus === "ganho" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <CheckCircle className="h-5 w-5 mr-1" />} Ganho
+                  <Button size="lg" className="text-base h-16 bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => changeStatus("matriculado")} disabled={!!changingStatus}>
+                    {changingStatus === "matriculado" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <CheckCircle className="h-5 w-5 mr-1" />} Ganho
                   </Button>
-                  <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                    {changingStatus === "perdido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
+                  <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                    {changingStatus === "nao_convertido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
                   </Button>
                 </>
               ) : (
                 <>
-                  {currentLead?.status !== "entregue" && (
-                    <Button size="lg" className="text-base h-16 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => changeStatus("entregue")} disabled={!!changingStatus}>
-                      {changingStatus === "entregue" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <PackageCheck className="h-5 w-5 mr-1" />} Entregue
+                  {currentLead?.status !== "resolvido" && (
+                    <Button size="lg" className="text-base h-16 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => changeStatus("resolvido")} disabled={!!changingStatus}>
+                      {changingStatus === "resolvido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <PackageCheck className="h-5 w-5 mr-1" />} Entregue
                     </Button>
                   )}
-                  {currentLead?.status !== "perdido" && (
-                    <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("perdido")} disabled={!!changingStatus}>
-                      {changingStatus === "perdido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
+                  {currentLead?.status !== "nao_convertido" && (
+                    <Button size="lg" className="text-base h-16 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => changeStatus("nao_convertido")} disabled={!!changingStatus}>
+                      {changingStatus === "nao_convertido" ? <Loader2 className="h-5 w-5 animate-spin mr-1" /> : <XCircle className="h-5 w-5 mr-1" />} Perdido
                     </Button>
                   )}
                 </>
