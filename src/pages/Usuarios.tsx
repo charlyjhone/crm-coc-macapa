@@ -220,7 +220,7 @@ export default function Usuarios() {
               </div>
               <div>
                 <Label>Senha</Label>
-                <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="text" placeholder="qualquer senha" />
+                <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="qualquer senha" autoComplete="new-password" />
               </div>
             </div>
             <DialogFooter>
@@ -312,7 +312,7 @@ export default function Usuarios() {
           <DialogHeader>
             <DialogTitle>Alterar senha — {pwUser?.name || pwUser?.email}</DialogTitle>
           </DialogHeader>
-          <Input value={pwValue} onChange={(e) => setPwValue(e.target.value)} type="text" placeholder="nova senha" />
+          <Input value={pwValue} onChange={(e) => setPwValue(e.target.value)} type="password" placeholder="nova senha" autoComplete="new-password" />
           <DialogFooter>
             <Button variant="outline" onClick={() => setPwUser(null)}>Cancelar</Button>
             <Button onClick={updatePassword}>Salvar</Button>
