@@ -3,11 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Trash2, KeyRound, UserPlus, Activity } from "lucide-react";
+import { Loader2, Trash2, KeyRound, UserPlus, Activity, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +19,12 @@ import {
 interface UserRow {
   id: string;
   email: string;
+  name: string | null;
   created_at: string;
   last_sign_in_at: string | null;
   last_seen_at: string | null;
   last_path: string | null;
   roles: string[];
-  products: string[];
 }
 
 interface ActivityRow {
@@ -41,15 +40,18 @@ interface ActivityRow {
 
 export default function Usuarios() {
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [products, setProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newProducts, setNewProducts] = useState<string[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [pwUser, setPwUser] = useState<UserRow | null>(null);
   const [pwValue, setPwValue] = useState("");
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [activityUser, setActivityUser] = useState<UserRow | null>(null);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -108,7 +110,6 @@ export default function Usuarios() {
       toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
     } else {
       setUsers(data.users || []);
-      setProducts(data.available_products || []);
     }
     setLoading(false);
   };
@@ -117,10 +118,6 @@ export default function Usuarios() {
     load();
   }, []);
 
-  const toggle = (arr: string[], setArr: (v: string[]) => void, p: string) => {
-    setArr(arr.includes(p) ? arr.filter((x) => x !== p) : [...arr, p]);
-  };
-
   const createUser = async () => {
     if (!newEmail || !newPassword) {
       toast({ title: "Preencha email e senha", variant: "destructive" });
@@ -128,7 +125,7 @@ export default function Usuarios() {
     }
     setCreating(true);
     const { error } = await supabase.functions.invoke("admin-manage-users", {
-      body: { action: "create", email: newEmail, password: newPassword, products: newProducts },
+      body: { action: "create", email: newEmail, password: newPassword, name: newName || null },
     });
     setCreating(false);
     if (error) {
@@ -136,22 +133,33 @@ export default function Usuarios() {
       return;
     }
     toast({ title: "Usuário criado" });
+    setNewName("");
     setNewEmail("");
     setNewPassword("");
-    setNewProducts([]);
     setCreateOpen(false);
     load();
   };
 
-  const updateProducts = async (u: UserRow, next: string[]) => {
+  const openEdit = (u: UserRow) => {
+    setEditUser(u);
+    setEditName(u.name || "");
+    setEditEmail(u.email || "");
+  };
+
+  const saveProfile = async () => {
+    if (!editUser) return;
+    setSavingProfile(true);
     const { error } = await supabase.functions.invoke("admin-manage-users", {
-      body: { action: "update_products", user_id: u.id, products: next },
+      body: { action: "update_profile", user_id: editUser.id, name: editName, email: editEmail },
     });
+    setSavingProfile(false);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
     }
-    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, products: next } : x)));
+    toast({ title: "Perfil atualizado" });
+    setEditUser(null);
+    load();
   };
 
   const updatePassword = async () => {
@@ -187,7 +195,7 @@ export default function Usuarios() {
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-sm text-muted-foreground">
-            Crie e gerencie acessos por produto. Apenas o admin acessa esta área.
+            Crie e gerencie os acessos da equipe ao CRM. Apenas o admin acessa esta área.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -203,26 +211,16 @@ export default function Usuarios() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
+                <Label>Nome</Label>
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome da pessoa" />
+              </div>
+              <div>
                 <Label>Email</Label>
                 <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} type="email" />
               </div>
               <div>
                 <Label>Senha</Label>
                 <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="text" placeholder="qualquer senha" />
-              </div>
-              <div>
-                <Label className="mb-2 block">Produtos com acesso</Label>
-                <div className="space-y-2">
-                  {products.map((p) => (
-                    <label key={p} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={newProducts.includes(p)}
-                        onCheckedChange={() => toggle(newProducts, setNewProducts, p)}
-                      />
-                      <span className="capitalize">{p}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
             </div>
             <DialogFooter>
@@ -249,15 +247,20 @@ export default function Usuarios() {
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-base">{u.email}</CardTitle>
+                        <CardTitle className="text-base">{u.name || u.email}</CardTitle>
                         {isAdmin && <Badge>admin</Badge>}
                       </div>
+                      {u.name && <p className="text-xs text-muted-foreground">{u.email}</p>}
                       <p className="text-xs text-muted-foreground">
                         Último acesso: {formatDate(u.last_seen_at || u.last_sign_in_at)}
                         {u.last_path ? ` — ${u.last_path}` : ""}
                       </p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        Editar
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => openActivities(u)}>
                         <Activity className="h-3.5 w-3.5 mr-1" />
                         Atividades
@@ -274,39 +277,40 @@ export default function Usuarios() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  {isAdmin ? (
-                    <p className="text-xs text-muted-foreground">Admin tem acesso a todos os produtos.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {products.map((p) => {
-                        const checked = u.products.includes(p);
-                        return (
-                          <label key={p} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={() => {
-                                const next = checked ? u.products.filter((x) => x !== p) : [...u.products, p];
-                                updateProducts(u, next);
-                              }}
-                            />
-                            <span className="capitalize">{p}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
               </Card>
             );
           })}
         </div>
       )}
 
+      <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nome</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nome da pessoa" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} type="email" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>
+            <Button onClick={saveProfile} disabled={savingProfile}>
+              {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!pwUser} onOpenChange={(o) => !o && setPwUser(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Alterar senha — {pwUser?.email}</DialogTitle>
+            <DialogTitle>Alterar senha — {pwUser?.name || pwUser?.email}</DialogTitle>
           </DialogHeader>
           <Input value={pwValue} onChange={(e) => setPwValue(e.target.value)} type="text" placeholder="nova senha" />
           <DialogFooter>
@@ -319,7 +323,7 @@ export default function Usuarios() {
       <Dialog open={!!activityUser} onOpenChange={(o) => !o && setActivityUser(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Atividades — {activityUser?.email}</DialogTitle>
+            <DialogTitle>Atividades — {activityUser?.name || activityUser?.email}</DialogTitle>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 -mx-6 px-6">
             {loadingActivities ? (

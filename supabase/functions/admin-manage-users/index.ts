@@ -6,8 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const PRODUCTS = ["publicidade", "consultoria", "palestra", "mentoria", "treinamento", "documentario"];
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -54,9 +52,8 @@ Deno.serve(async (req) => {
       const { data: usersList, error } = await admin.auth.admin.listUsers({ perPage: 200 });
       if (error) throw error;
       const ids = (usersList.users || []).map((u) => u.id);
-      const [{ data: roles }, { data: prods }, { data: presence }] = await Promise.all([
+      const [{ data: roles }, { data: presence }] = await Promise.all([
         admin.from("user_roles").select("user_id, role").in("user_id", ids),
-        admin.from("user_product_access").select("user_id, produto").in("user_id", ids),
         admin.from("user_presence").select("user_id, last_seen_at, last_path").in("user_id", ids),
       ]);
       const rolesMap = new Map<string, string[]>();
@@ -65,25 +62,19 @@ Deno.serve(async (req) => {
         arr.push(r.role);
         rolesMap.set(r.user_id, arr);
       });
-      const prodMap = new Map<string, string[]>();
-      (prods || []).forEach((p: any) => {
-        const arr = prodMap.get(p.user_id) || [];
-        arr.push(p.produto);
-        prodMap.set(p.user_id, arr);
-      });
       const presenceMap = new Map<string, { last_seen_at: string; last_path: string | null }>();
       (presence || []).forEach((p: any) => presenceMap.set(p.user_id, { last_seen_at: p.last_seen_at, last_path: p.last_path }));
       const users = (usersList.users || []).map((u) => ({
         id: u.id,
         email: u.email,
+        name: (u.user_metadata as any)?.full_name || null,
         created_at: u.created_at,
         last_sign_in_at: (u as any).last_sign_in_at || null,
         last_seen_at: presenceMap.get(u.id)?.last_seen_at || null,
         last_path: presenceMap.get(u.id)?.last_path || null,
         roles: rolesMap.get(u.id) || [],
-        products: prodMap.get(u.id) || [],
       }));
-      return new Response(JSON.stringify({ users, available_products: PRODUCTS }), {
+      return new Response(JSON.stringify({ users }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -116,7 +107,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const { email, password, products = [] } = body;
+      const { email, password, name } = body;
       if (!email || !password) {
         return new Response(JSON.stringify({ error: "email_e_senha_obrigatorios" }), {
           status: 400,
@@ -127,29 +118,25 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
+        user_metadata: name ? { full_name: name } : undefined,
       });
       if (createErr) throw createErr;
       const newUserId = created.user.id;
       await admin.from("user_roles").insert({ user_id: newUserId, role: "user" });
-      if (Array.isArray(products) && products.length > 0) {
-        await admin.from("user_product_access").insert(
-          products.map((p: string) => ({ user_id: newUserId, produto: p }))
-        );
-      }
       return new Response(JSON.stringify({ ok: true, user_id: newUserId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (action === "update_products") {
-      const { user_id, products = [] } = body;
+    if (action === "update_profile") {
+      const { user_id, name, email } = body;
       if (!user_id) throw new Error("user_id obrigatório");
-      await admin.from("user_product_access").delete().eq("user_id", user_id);
-      if (Array.isArray(products) && products.length > 0) {
-        await admin.from("user_product_access").insert(
-          products.map((p: string) => ({ user_id, produto: p }))
-        );
-      }
+      const update: Record<string, unknown> = {};
+      if (typeof email === "string" && email.trim()) update.email = email.trim();
+      if (typeof name === "string") update.user_metadata = { full_name: name.trim() || null };
+      if (Object.keys(update).length === 0) throw new Error("nada para atualizar");
+      const { error } = await admin.auth.admin.updateUserById(user_id, update as any);
+      if (error) throw error;
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
