@@ -3029,3 +3029,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Vamos efetuar as correções e remover tudo que foi mencionado ao outro sistema, porque esse sistema foi replicado.
 
 **Ação:** Criada branch isolada de correção; protegidas funções privilegiadas e MCP; autenticado webhook Z-API; reduzido contexto enviado à IA; removidos módulos e páginas exclusivos do sistema original; substituídos identidade, prompts, configurações e documentação pelo escopo do CRM escolar. Nenhum deploy realizado.
+
+
+### [15:03] Prompt
+> Pronto, vamos em frente com as atualizações e melhorias. Depois disso eu quero verificar se o visual está bom ou podemos melhorar ainda mais.
+
+**Ação:** Adicionada validação automática no GitHub, versionada a política de autenticação das Edge Functions e iniciada a segunda auditoria para substituir regras legadas ainda presentes nas telas. A avaliação visual foi separada para ocorrer após a estabilização técnica.
