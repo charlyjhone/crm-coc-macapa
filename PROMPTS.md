@@ -3019,3 +3019,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Vamos fazer isso então, quero melhorar seguindo suas dicas.
 
 **Ação Codex:** Iniciada a adaptação segura do CRM existente para captação e matrículas escolares. Criados o modelo relacional de responsáveis, alunos e oportunidades, controle de vagas, visitas, tarefas, previsão ponderada e o plano técnico em `docs/CRM_ESCOLAR_ADAPTACAO.md`, preservando leads e históricos atuais.
+
+
+### [16:04] Prompt
+> Vamos continuar..
+
+**Ação Codex:** Criada e integrada a primeira interface escolar do CRM: painel executivo de captação com confirmadas, previsão ponderada, oportunidades, alta possibilidade, ações atrasadas, funil e ocupação/vagas. A página inicial e a navegação foram ajustadas, mantendo a tela legada acessível e sem usar dados fictícios.
