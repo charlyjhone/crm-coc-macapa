@@ -501,6 +501,93 @@ $;
 revoke all on function public.update_school_visit_status(uuid,text,text,text,text) from public;
 grant execute on function public.update_school_visit_status(uuid,text,text,text,text) to authenticated;
 
+create or replace function public.create_enrollment_task(
+  p_opportunity_id uuid,
+  p_title text,
+  p_due_at timestamptz default null,
+  p_priority text default 'normal'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_task_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Usuário não autenticado'; end if;
+  if nullif(trim(p_title), '') is null then raise exception 'Informe a tarefa'; end if;
+  if p_priority not in ('baixa','normal','alta','urgente') then raise exception 'Prioridade inválida'; end if;
+  if not exists (select 1 from public.enrollment_opportunities where id = p_opportunity_id) then
+    raise exception 'Oportunidade não encontrada';
+  end if;
+
+  insert into public.enrollment_tasks(
+    opportunity_id, title, due_at, priority, assigned_to
+  ) values (
+    p_opportunity_id, trim(p_title), p_due_at, p_priority, auth.uid()
+  ) returning id into v_task_id;
+
+  update public.enrollment_opportunities
+  set next_action = trim(p_title),
+      next_action_at = p_due_at,
+      updated_at = now()
+  where id = p_opportunity_id;
+
+  return v_task_id;
+end;
+$;
+
+revoke all on function public.create_enrollment_task(uuid,text,timestamptz,text) from public;
+grant execute on function public.create_enrollment_task(uuid,text,timestamptz,text) to authenticated;
+
+create or replace function public.complete_enrollment_task(
+  p_task_id uuid,
+  p_next_action text default null,
+  p_next_action_at timestamptz default null,
+  p_next_priority text default 'normal'
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_opportunity_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Usuário não autenticado'; end if;
+  if p_next_priority not in ('baixa','normal','alta','urgente') then raise exception 'Prioridade inválida'; end if;
+
+  select opportunity_id into v_opportunity_id
+  from public.enrollment_tasks
+  where id = p_task_id and status <> 'concluida'
+  for update;
+
+  if v_opportunity_id is null then raise exception 'Tarefa não encontrada ou já concluída'; end if;
+
+  update public.enrollment_tasks
+  set status = 'concluida', completed_at = now(), updated_at = now()
+  where id = p_task_id;
+
+  if nullif(trim(p_next_action), '') is not null then
+    insert into public.enrollment_tasks(
+      opportunity_id, title, due_at, priority, assigned_to
+    ) values (
+      v_opportunity_id, trim(p_next_action), p_next_action_at, p_next_priority, auth.uid()
+    );
+  end if;
+
+  update public.enrollment_opportunities
+  set next_action = nullif(trim(p_next_action), ''),
+      next_action_at = case when nullif(trim(p_next_action), '') is null then null else p_next_action_at end,
+      updated_at = now()
+  where id = v_opportunity_id;
+end;
+$;
+
+revoke all on function public.complete_enrollment_task(uuid,text,timestamptz,text) from public;
+grant execute on function public.complete_enrollment_task(uuid,text,timestamptz,text) to authenticated;
+
 comment on table public.guardians is 'Responsáveis e contatos adultos da família.';
 comment on table public.students is 'Alunos ou candidatos, separados dos responsáveis.';
 comment on table public.enrollment_opportunities is 'Uma intenção de matrícula por aluno, ciclo, série, turno e unidade.';
