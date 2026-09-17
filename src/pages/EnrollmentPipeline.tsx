@@ -58,7 +58,7 @@ const EnrollmentPipeline = () => {
   );
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-white">
       <header className="border-b bg-background px-5 py-5 md:px-8">
         <div className="mx-auto max-w-[1600px]">
           <p className="text-sm font-medium text-primary">Jornada de matrícula</p>
