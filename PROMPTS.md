@@ -3025,3 +3025,14 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Vamos continuar..
 
 **Ação Codex:** Criada e integrada a primeira interface escolar do CRM: painel executivo de captação com confirmadas, previsão ponderada, oportunidades, alta possibilidade, ações atrasadas, funil e ocupação/vagas. A página inicial e a navegação foram ajustadas, mantendo a tela legada acessível e sem usar dados fictícios.
+
+
+### [16:06] Prompt
+> vamos avançar
+
+**Ação Codex:** Implementadas as telas de Famílias e Alunos e Funil de Matrículas, com consultas ao novo modelo escolar, estados seguros antes da migração e integração à navegação principal.
+
+### [16:08] Prompt
+> E depois quero ver uma prévia de como está ficando
+
+**Ação Codex:** Preparada uma prévia visual interativa das três telas escolares já implementadas: Visão da Direção, Funil de Matrículas e Famílias e Alunos, usando dados explicitamente ilustrativos para avaliação do layout.
