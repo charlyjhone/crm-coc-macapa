@@ -145,6 +145,19 @@ create table if not exists public.enrollment_tasks (
 );
 create index if not exists enrollment_tasks_due_idx on public.enrollment_tasks(due_at, status);
 
+create table if not exists public.enrollment_stage_history (
+  id uuid primary key default gen_random_uuid(),
+  opportunity_id uuid not null references public.enrollment_opportunities(id) on delete cascade,
+  previous_stage text,
+  new_stage text not null,
+  next_action text,
+  next_action_at timestamptz,
+  changed_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists enrollment_stage_history_opportunity_idx
+  on public.enrollment_stage_history(opportunity_id, created_at desc);
+
 create or replace view public.enrollment_forecast
 with (security_invoker = true) as
 select
@@ -176,13 +189,15 @@ alter table public.enrollment_opportunities enable row level security;
 alter table public.school_capacity enable row level security;
 alter table public.school_visits enable row level security;
 alter table public.enrollment_tasks enable row level security;
+alter table public.enrollment_stage_history enable row level security;
 
 do $$
 declare t text;
 begin
   foreach t in array array[
     'school_units','guardians','students','student_guardians',
-    'enrollment_opportunities','school_capacity','school_visits','enrollment_tasks'
+    'enrollment_opportunities','school_capacity','school_visits','enrollment_tasks',
+    'enrollment_stage_history'
   ]
   loop
     execute format('drop policy if exists "authenticated_access" on public.%I', t);
@@ -278,6 +293,93 @@ $;
 
 revoke all on function public.create_school_enrollment(text,text,text,text,integer,text,text,boolean,text) from public;
 grant execute on function public.create_school_enrollment(text,text,text,text,integer,text,text,boolean,text) to authenticated;
+
+create or replace function public.update_enrollment_progress(
+  p_opportunity_id uuid,
+  p_stage text,
+  p_next_action text default null,
+  p_next_action_at timestamptz default null,
+  p_loss_reason text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_previous_stage text;
+  v_score smallint;
+begin
+  if auth.uid() is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+  if p_stage not in (
+    'novo_interessado','tentativa_contato','contato_realizado','qualificado',
+    'visita_agendada','visita_realizada','condicoes_apresentadas',
+    'documentacao_pendente','matricula_em_conclusao','matriculado',
+    'nutricao','perdido'
+  ) then
+    raise exception 'Etapa inválida';
+  end if;
+  if p_stage = 'perdido' and nullif(trim(p_loss_reason), '') is null then
+    raise exception 'Informe o motivo da perda';
+  end if;
+
+  select stage into v_previous_stage
+  from public.enrollment_opportunities
+  where id = p_opportunity_id
+  for update;
+
+  if v_previous_stage is null then
+    raise exception 'Oportunidade não encontrada';
+  end if;
+
+  v_score := case p_stage
+    when 'novo_interessado' then 10
+    when 'tentativa_contato' then 15
+    when 'contato_realizado' then 30
+    when 'qualificado' then 50
+    when 'visita_agendada' then 65
+    when 'visita_realizada' then 75
+    when 'condicoes_apresentadas' then 80
+    when 'documentacao_pendente' then 88
+    when 'matricula_em_conclusao' then 95
+    when 'matriculado' then 100
+    when 'nutricao' then 25
+    when 'perdido' then 0
+  end;
+
+  update public.enrollment_opportunities
+  set stage = p_stage,
+      probability_score = v_score,
+      next_action = nullif(trim(p_next_action), ''),
+      next_action_at = p_next_action_at,
+      loss_reason = case when p_stage = 'perdido' then trim(p_loss_reason) else null end,
+      loss_notes = case when p_stage = 'perdido' then loss_notes else null end,
+      lost_at = case when p_stage = 'perdido' then now() else null end,
+      enrolled_at = case when p_stage = 'matriculado' then coalesce(enrolled_at, now()) else null end,
+      status_updated_at = now(),
+      updated_at = now()
+  where id = p_opportunity_id;
+
+  insert into public.enrollment_stage_history(
+    opportunity_id, previous_stage, new_stage, next_action, next_action_at, changed_by
+  ) values (
+    p_opportunity_id, v_previous_stage, p_stage,
+    nullif(trim(p_next_action), ''), p_next_action_at, auth.uid()
+  );
+
+  return jsonb_build_object(
+    'opportunity_id', p_opportunity_id,
+    'previous_stage', v_previous_stage,
+    'new_stage', p_stage,
+    'probability_score', v_score
+  );
+end;
+$;
+
+revoke all on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) from public;
+grant execute on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) to authenticated;
 
 comment on table public.guardians is 'Responsáveis e contatos adultos da família.';
 comment on table public.students is 'Alunos ou candidatos, separados dos responsáveis.';
