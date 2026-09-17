@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <AppTopNav />
       <main className="min-w-0">{children}</main>
     </div>
