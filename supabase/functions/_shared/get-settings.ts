@@ -9,10 +9,10 @@ export interface SystemSettings {
 }
 
 const DEFAULTS: SystemSettings = {
-  susan_name: 'Susan Whitfield',
-  susan_email: 'susan@inventormiguel.link',
-  company_name: 'Miguel Fernandes',
-  company_email: 'miguel@inventormiguel.com',
+  susan_name: 'Atendimento COC Macapá Norte',
+  susan_email: 'atendimento@cocmacapa.com.br',
+  company_name: 'COC Macapá Norte',
+  company_email: 'atendimento@cocmacapa.com.br',
 };
 
 /**
