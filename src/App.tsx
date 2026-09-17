@@ -5,9 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AppTopNav } from "@/components/AppTopNav";
 import Opportunities from "./pages/Opportunities";
 import CaptacaoDashboard from "./pages/CaptacaoDashboard";
 import Families from "./pages/Families";
@@ -30,15 +28,10 @@ const queryClient = new QueryClient();
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <main className="flex-1 min-w-0">
-          <SidebarTrigger className="md:hidden fixed top-2 left-2 z-50 bg-background/90 backdrop-blur border shadow-sm" />
-          {children}
-        </main>
-      </div>
-    </SidebarProvider>
+    <div className="min-h-screen bg-slate-50">
+      <AppTopNav />
+      <main className="min-w-0">{children}</main>
+    </div>
   </ProtectedRoute>
 );
 
