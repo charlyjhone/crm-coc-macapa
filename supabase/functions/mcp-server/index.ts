@@ -9,11 +9,11 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 function getSupabase() {
   const client = createClient(supabaseUrl, supabaseServiceKey);
   // Marca todas as ações via MCP no log de atividade
-  setActivityContext(client, { source: 'mcp', actor: 'manus' }).catch(() => {});
+  setActivityContext(client, { source: 'mcp', actor: 'crm-assistant' }).catch(() => {});
   return client;
 }
 
-const APP_BASE_URL = "https://autolead.inventormiguel.com";
+const APP_BASE_URL = Deno.env.get("CRM_APP_BASE_URL") || "https://crm.cocmacapa.com.br";
 const leadUrl = (id: string) => `${APP_BASE_URL}/opportunity/${id}`;
 function withLeadUrl<T extends { id?: string } | null | undefined>(row: T): T {
   if (!row || !row.id) return row;
@@ -104,6 +104,18 @@ async function attachAttachmentUrls(sb: any, messages: any[]): Promise<any[]> {
 }
 
 const app = new Hono();
+
+app.use("*", async (c, next) => {
+  const expected = Deno.env.get("MCP_SERVER_TOKEN") || "";
+  const supplied = (c.req.header("authorization") || "").replace(/^Bearer\\s+/i, "").trim();
+  if (!expected || supplied.length !== expected.length) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ supplied.charCodeAt(i);
+  if (diff !== 0) return c.json({ error: "unauthorized" }, 401);
+  await next();
+});
 
 const mcpServer = new McpServer({
   name: "autolead-mcp",
