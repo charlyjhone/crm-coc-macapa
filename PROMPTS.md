@@ -3036,3 +3036,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > E depois quero ver uma prévia de como está ficando
 
 **Ação Codex:** Preparada uma prévia visual interativa das três telas escolares já implementadas: Visão da Direção, Funil de Matrículas e Famílias e Alunos, usando dados explicitamente ilustrativos para avaliação do layout.
+
+
+### [16:15] Prompt
+> Ficou bom mas acho que poderiamos utilizar o mesmo modelo de layout do aimedu
+
+**Ação Codex:** Analisado o sistema visual atual do repositório AIMEDU e substituída a casca lateral do CRM por navegação superior inspirada no AIMEDU: marca verde, menus agrupados, busca e perfil. Funcionalidades e dados dos dois projetos continuam independentes. A prévia visual também foi atualizada.
