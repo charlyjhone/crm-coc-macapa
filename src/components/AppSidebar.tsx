@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Archive, TrendingUp, FileText, Layers, LogOut, Zap, Mail, Briefcase, BellDot, RefreshCw, Users, LayoutDashboard } from "lucide-react";
+import { Archive, TrendingUp, FileText, Layers, LogOut, Zap, Mail, Briefcase, BellDot, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -24,6 +24,8 @@ import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   { title: "Visão da Direção", url: "/captacao", icon: LayoutDashboard },
+  { title: "Funil de Matrículas", url: "/matriculas", icon: GraduationCap },
+  { title: "Famílias e Alunos", url: "/familias", icon: ContactRound },
   { title: "Inbox", url: "/inbox", icon: Mail },
   { title: "Pendentes", url: "/pendentes", icon: BellDot, showBadge: true },
   { title: "Oportunidades", url: "/opportunities", icon: Briefcase },
