@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CalendarClock, GraduationCap, Target, UserRound } from "lucide-react";
+import { OpportunityProgressDialog } from "@/components/school/OpportunityProgressDialog";
 
 type Opportunity = {
   id: string;
@@ -38,6 +39,7 @@ const probabilityStyle = (score: number) => {
 const EnrollmentPipeline = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [foundationPending, setFoundationPending] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -50,7 +52,7 @@ const EnrollmentPipeline = () => {
       else setOpportunities(data || []);
     };
     load();
-  }, []);
+  }, [refreshKey]);
 
   const grouped = useMemo(
     () => Object.fromEntries(columns.map((column) => [column.key, opportunities.filter((item) => item.stage === column.key)])),
@@ -62,8 +64,8 @@ const EnrollmentPipeline = () => {
       <header className="border-b bg-background px-5 py-5 md:px-8">
         <div className="mx-auto max-w-[1600px]">
           <p className="text-sm font-medium text-primary">Jornada de matrícula</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">Funil de captação</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Funil de captação</h1>
+          <p className="mt-1 text-sm text-slate-600">
             Cada aluno aparece uma única vez por oportunidade, série, turno e ano letivo.
           </p>
         </div>
@@ -122,6 +124,10 @@ const EnrollmentPipeline = () => {
                             </p>
                           )}
                         </div>
+                        <OpportunityProgressDialog
+                          opportunity={opportunity}
+                          onUpdated={() => setRefreshKey((value) => value + 1)}
+                        />
                       </CardContent>
                     </Card>
                   ))}
