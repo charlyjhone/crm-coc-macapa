@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BellDot,
+  CalendarDays,
   ChevronDown,
   ContactRound,
   GraduationCap,
@@ -52,7 +53,7 @@ export function AppTopNav() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
-  const schoolActive = ["/captacao", "/matriculas", "/familias", "/"].includes(location.pathname);
+  const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/"].includes(location.pathname);
   const serviceActive = ["/inbox", "/pendentes", "/opportunities"].some((path) =>
     location.pathname.startsWith(path),
   );
@@ -99,6 +100,12 @@ export function AppTopNav() {
                 <Link to="/familias" className="flex items-center gap-3">
                   <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><ContactRound className="h-4 w-4" /></span>
                   Famílias e alunos
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg p-3">
+                <Link to="/visitas" className="flex items-center gap-3">
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><CalendarDays className="h-4 w-4" /></span>
+                  Visitas escolares
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
