@@ -33,6 +33,7 @@ Secrets necessários incluem:
 - `LOVABLE_API_KEY`
 - `OPENAI_API_KEY` quando a transcrição OpenAI estiver ativa
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
 
 Buckets com documentos e anexos devem permanecer privados e usar URLs assinadas.
 
