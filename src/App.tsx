@@ -10,6 +10,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import Opportunities from "./pages/Opportunities";
 import CaptacaoDashboard from "./pages/CaptacaoDashboard";
+import Families from "./pages/Families";
+import EnrollmentPipeline from "./pages/EnrollmentPipeline";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import Unclassified from "./pages/Unclassified";
 import Archived from "./pages/Archived";
@@ -51,6 +53,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
             <Route path="/captacao" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
+            <Route path="/matriculas" element={<ProtectedLayout><EnrollmentPipeline /></ProtectedLayout>} />
+            <Route path="/familias" element={<ProtectedLayout><Families /></ProtectedLayout>} />
             <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
             <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
