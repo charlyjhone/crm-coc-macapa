@@ -3084,3 +3084,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Perfeito, vamos avançando.
 
 **Ação Codex:** Tornado o Kanban operacional com atualização auditada de etapa, próxima ação e data. Matrícula concluída passa a 100%; perda passa a 0% e exige motivo. Todas as mudanças são registradas no histórico da oportunidade.
+
+
+### [17:16] Prompt
+> Pronto, vamos em frente.
+
+**Ação Codex:** Implementado o módulo operacional de visitas escolares: agenda, indicadores, agendamento a partir de oportunidades ativas, confirmação, comparecimento, ausência e cancelamento. Visitas realizadas registram impressão, objeções e próximos passos, avançam o funil e criam automaticamente o retorno à família.
