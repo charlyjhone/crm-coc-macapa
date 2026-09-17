@@ -44,6 +44,7 @@ A tabela legada `leads` continuará funcionando durante a transição. `legacy_l
 - [x] Probabilidade e explicação
 - [x] Previsão ponderada
 - [ ] Serviço de migração dos leads atuais
+- [x] Cadastro transacional de família, aluno e oportunidade
 - [ ] Tipos TypeScript gerados após aplicação da migração
 
 ### Fase 2 — Operação
