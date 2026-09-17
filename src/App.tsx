@@ -11,6 +11,7 @@ import CaptacaoDashboard from "./pages/CaptacaoDashboard";
 import Families from "./pages/Families";
 import EnrollmentPipeline from "./pages/EnrollmentPipeline";
 import SchoolVisits from "./pages/SchoolVisits";
+import EnrollmentTasks from "./pages/EnrollmentTasks";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import Unclassified from "./pages/Unclassified";
 import Archived from "./pages/Archived";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/matriculas" element={<ProtectedLayout><EnrollmentPipeline /></ProtectedLayout>} />
             <Route path="/familias" element={<ProtectedLayout><Families /></ProtectedLayout>} />
             <Route path="/visitas" element={<ProtectedLayout><SchoolVisits /></ProtectedLayout>} />
+            <Route path="/tarefas-captacao" element={<ProtectedLayout><EnrollmentTasks /></ProtectedLayout>} />
             <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
             <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
