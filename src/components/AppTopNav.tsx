@@ -67,7 +67,7 @@ export function AppTopNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-background/95 shadow-[0_1px_8px_rgba(16,44,34,0.04)] backdrop-blur">
-      <div className="mx-auto flex min-h-[68px] max-w-[1480px] items-center gap-5 px-4 md:px-7">
+      <div className="mx-auto flex min-h-[68px] max-w-[1480px] flex-wrap items-center gap-x-5 gap-y-0 px-4 py-2 md:flex-nowrap md:px-7 md:py-0">
         <Link to="/captacao" className="flex shrink-0 items-center gap-2 text-xl font-extrabold tracking-tight text-slate-800">
           <span className="flex h-9 w-9 -rotate-12 items-center justify-center rounded-[50%_50%_50%_35%] bg-gradient-to-br from-lime-400 to-emerald-700 text-xs font-extrabold text-white shadow-md shadow-emerald-800/20">
             C
