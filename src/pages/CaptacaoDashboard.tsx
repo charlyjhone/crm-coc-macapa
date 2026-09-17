@@ -109,7 +109,7 @@ const CaptacaoDashboard = () => {
               <School className="h-4 w-4" />
               COC Macapá Norte
             </div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Captação e matrículas</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Captação e matrículas</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Visão executiva das oportunidades, próximas ações e vagas da escola.
             </p>
