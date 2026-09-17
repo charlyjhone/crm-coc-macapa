@@ -3090,3 +3090,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Pronto, vamos em frente.
 
 **Ação Codex:** Implementado o módulo operacional de visitas escolares: agenda, indicadores, agendamento a partir de oportunidades ativas, confirmação, comparecimento, ausência e cancelamento. Visitas realizadas registram impressão, objeções e próximos passos, avançam o funil e criam automaticamente o retorno à família.
+
+
+### [17:32] Prompt
+> vamos continuando.
+
+**Ação Codex:** Implementado o módulo de tarefas e follow-ups da captação escolar. A fila separa ações atrasadas, de hoje, futuras e sem prazo; permite criar tarefas vinculadas ao aluno e concluir um atendimento já agendando o próximo passo. Também foi corrigida uma falha de sintaxe nos delimitadores das funções SQL da migração.
