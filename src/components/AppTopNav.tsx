@@ -126,7 +126,7 @@ export function AppTopNav() {
 
         <div className="ml-auto hidden min-w-0 items-center gap-3 lg:flex">
           <div className="relative w-52">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="search"
               placeholder="Buscar família ou aluno..."
@@ -143,9 +143,9 @@ export function AppTopNav() {
             </span>
             <span className="hidden max-w-36 lg:block">
               <strong className="block truncate text-xs text-slate-800">{user?.email?.split("@")[0] || "Direção"}</strong>
-              <small className="block text-[11px] text-slate-500">{isAdmin ? "Administrador" : "Atendimento"}</small>
+              <small className="block text-[11px] text-slate-600">{isAdmin ? "Administrador" : "Atendimento"}</small>
             </span>
-            <ChevronDown className="hidden h-3 w-3 text-slate-400 lg:block" />
+            <ChevronDown className="hidden h-3 w-3 text-slate-500 lg:block" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 rounded-xl">
             <DropdownMenuLabel>COC Macapá Norte</DropdownMenuLabel>
