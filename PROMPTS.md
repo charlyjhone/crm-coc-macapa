@@ -3048,3 +3048,15 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > As cores estão legais mas estão diferentes do aimedu, o fundo lá é branco.
 
 **Ação Codex:** Corrigido o fundo global e das três novas páginas do CRM para branco, alinhando-o ao AIMEDU. O verde foi mantido apenas em navegação ativa, ícones, etiquetas e indicadores; a prévia foi atualizada.
+
+
+### [16:34] Prompt
+> Ficou melhor mas voce deve corrigir a cor das letras que algumas praticamente sumiram.
+
+**Ação Codex:** Revisado o contraste do sistema visual. A paleta global foi migrada para fundo branco, verde AIMEDU e textos mais escuros; o tema claro também foi preservado quando o navegador prefere modo escuro.
+
+
+### [16:36] Prompt
+> ajuste a cor dos textos pra nao ficar tao claro
+
+**Ação Codex:** Escurecidos os textos secundários, legendas, perfil, busca e navegação. A prévia passou a usar texto principal #102A43 e texto secundário #475569, melhorando a legibilidade.
