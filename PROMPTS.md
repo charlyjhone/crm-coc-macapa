@@ -3011,3 +3011,21 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Deu erro, database error querying schema
 
 **Ação Lovable:** Corrigidos campos de token nulos em `auth.users` (confirmation_token, recovery_token, etc.) que quebravam o login; login com charlyjhone77@gmail.com testado com sucesso.
+
+
+## 2026-09-17
+
+### [14:27] Prompt
+> Podemos conectar no projeto do CRM no GitHub.
+
+**Ação:** Conexão validada com o repositório privado charlyjhone/crm-coc-macapa e iniciada análise somente de leitura.
+
+### [14:31] Prompt
+> Vamos fazer uma análise do CRM e ver o que precisa ser ajustado.
+
+**Ação:** Auditados arquitetura, integrações de IA, WhatsApp, Supabase, segurança, custos e resíduos do sistema replicado. Identificados riscos de autenticação, logs com dados pessoais, contexto excessivo e módulos legados.
+
+### [14:46] Prompt
+> Vamos efetuar as correções e remover tudo que foi mencionado ao outro sistema, porque esse sistema foi replicado.
+
+**Ação:** Criada branch isolada de correção; protegidas funções privilegiadas e MCP; autenticado webhook Z-API; reduzido contexto enviado à IA; removidos módulos e páginas exclusivos do sistema original; substituídos identidade, prompts, configurações e documentação pelo escopo do CRM escolar. Nenhum deploy realizado.
