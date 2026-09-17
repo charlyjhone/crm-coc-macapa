@@ -3078,3 +3078,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Vamos em frente.
 
 **Ação Codex:** Implementado o primeiro fluxo operacional do CRM escolar: função transacional no Supabase e formulário “Nova família” para criar responsável, aluno, vínculo familiar e oportunidade de matrícula juntos. A listagem é atualizada após o cadastro e nenhuma migração automática dos leads antigos foi executada.
+
+
+### [17:06] Prompt
+> Perfeito, vamos avançando.
+
+**Ação Codex:** Tornado o Kanban operacional com atualização auditada de etapa, próxima ação e data. Matrícula concluída passa a 100%; perda passa a 0% e exige motivo. Todas as mudanças são registradas no histórico da oportunidade.
