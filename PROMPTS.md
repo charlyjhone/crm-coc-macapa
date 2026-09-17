@@ -3072,3 +3072,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Quase lá, o texto "Captação e matrículas" está quase transparente.
 
 **Ação Codex:** Fixada explicitamente a cor do título principal em azul-marinho escuro, com opacidade total, tanto na tela real quanto na prévia. O mesmo padrão foi preparado para os demais títulos de página.
+
+
+### [16:59] Prompt
+> Vamos em frente.
+
+**Ação Codex:** Implementado o primeiro fluxo operacional do CRM escolar: função transacional no Supabase e formulário “Nova família” para criar responsável, aluno, vínculo familiar e oportunidade de matrícula juntos. A listagem é atualizada após o cadastro e nenhuma migração automática dos leads antigos foi executada.
