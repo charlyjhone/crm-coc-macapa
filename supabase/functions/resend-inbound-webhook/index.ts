@@ -1737,6 +1737,17 @@ function stripHtmlSimple(html: string): string {
 
 // === MAIN HANDLER ===
 serve(async (req) => {
+  const webhookSecret = Deno.env.get("RESEND_WEBHOOK_SECRET") || "";
+  const suppliedSecret =
+    req.headers.get("x-webhook-secret") ||
+    new URL(req.url).searchParams.get("secret") ||
+    "";
+  if (!webhookSecret || suppliedSecret !== webhookSecret) {
+    return new Response(JSON.stringify({ error: "unauthorized_webhook" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
