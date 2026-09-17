@@ -57,9 +57,9 @@ A tabela legada `leads` continuará funcionando durante a transição. `legacy_l
 
 ### Fase 3 — Gestão
 
-- [ ] Painel executivo
+- [x] Painel executivo inicial
 - [ ] Meta por série e turno
-- [ ] Ocupação e vagas
+- [x] Ocupação e vagas no painel inicial
 - [ ] Conversão por etapa
 - [ ] Conversão por campanha
 - [ ] Custo por matrícula
