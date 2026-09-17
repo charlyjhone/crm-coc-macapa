@@ -67,7 +67,7 @@ serve(async (req) => {
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
-    if ((settings.escola_agente_ativo || "true") !== "true") {
+    if ((settings.escola_agente_ativo || "false") !== "true") {
       return json({ skipped: "agent_disabled" });
     }
 
