@@ -51,6 +51,7 @@ A tabela legada `leads` continuará funcionando durante a transição. `legacy_l
 
 - [x] Tela de famílias e alunos
 - [x] Kanban de matrículas
+- [x] Mudança auditada de etapa e próxima ação
 - [ ] Agenda de visitas
 - [ ] Documentos pendentes
 - [ ] Motivos de perda
