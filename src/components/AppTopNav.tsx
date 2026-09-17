@@ -10,6 +10,7 @@ import {
   LogOut,
   Search,
   Settings,
+  ListChecks,
   Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,7 +54,7 @@ export function AppTopNav() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
-  const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/"].includes(location.pathname);
+  const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/"].includes(location.pathname);
   const serviceActive = ["/inbox", "/pendentes", "/opportunities"].some((path) =>
     location.pathname.startsWith(path),
   );
@@ -106,6 +107,12 @@ export function AppTopNav() {
                 <Link to="/visitas" className="flex items-center gap-3">
                   <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><CalendarDays className="h-4 w-4" /></span>
                   Visitas escolares
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg p-3">
+                <Link to="/tarefas-captacao" className="flex items-center gap-3">
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><ListChecks className="h-4 w-4" /></span>
+                  Tarefas e follow-ups
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
