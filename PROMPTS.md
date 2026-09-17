@@ -3011,3 +3011,11 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Deu erro, database error querying schema
 
 **Ação Lovable:** Corrigidos campos de token nulos em `auth.users` (confirmation_token, recovery_token, etc.) que quebravam o login; login com charlyjhone77@gmail.com testado com sucesso.
+
+
+## 2026-09-17
+
+### [15:59] Prompt
+> Vamos fazer isso então, quero melhorar seguindo suas dicas.
+
+**Ação Codex:** Iniciada a adaptação segura do CRM existente para captação e matrículas escolares. Criados o modelo relacional de responsáveis, alunos e oportunidades, controle de vagas, visitas, tarefas, previsão ponderada e o plano técnico em `docs/CRM_ESCOLAR_ADAPTACAO.md`, preservando leads e históricos atuais.
