@@ -227,7 +227,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_guardian_id uuid;
   v_student_id uuid;
@@ -289,7 +289,7 @@ begin
     'opportunity_id', v_opportunity_id
   );
 end;
-$;
+$$;
 
 revoke all on function public.create_school_enrollment(text,text,text,text,integer,text,text,boolean,text) from public;
 grant execute on function public.create_school_enrollment(text,text,text,text,integer,text,text,boolean,text) to authenticated;
@@ -305,7 +305,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_previous_stage text;
   v_score smallint;
@@ -376,7 +376,7 @@ begin
     'probability_score', v_score
   );
 end;
-$;
+$$;
 
 revoke all on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) from public;
 grant execute on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) to authenticated;
@@ -391,7 +391,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_visit_id uuid;
   v_previous_stage text;
@@ -430,7 +430,7 @@ begin
 
   return v_visit_id;
 end;
-$;
+$$;
 
 revoke all on function public.schedule_school_visit(uuid,timestamptz,text,text) from public;
 grant execute on function public.schedule_school_visit(uuid,timestamptz,text,text) to authenticated;
@@ -446,7 +446,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_opportunity_id uuid;
   v_previous_stage text;
@@ -496,7 +496,7 @@ begin
     where id = v_opportunity_id;
   end if;
 end;
-$;
+$$;
 
 revoke all on function public.update_school_visit_status(uuid,text,text,text,text) from public;
 grant execute on function public.update_school_visit_status(uuid,text,text,text,text) to authenticated;
@@ -511,7 +511,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_task_id uuid;
 begin
@@ -536,7 +536,7 @@ begin
 
   return v_task_id;
 end;
-$;
+$$;
 
 revoke all on function public.create_enrollment_task(uuid,text,timestamptz,text) from public;
 grant execute on function public.create_enrollment_task(uuid,text,timestamptz,text) to authenticated;
@@ -551,7 +551,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_opportunity_id uuid;
 begin
@@ -583,7 +583,7 @@ begin
       updated_at = now()
   where id = v_opportunity_id;
 end;
-$;
+$$;
 
 revoke all on function public.complete_enrollment_task(uuid,text,timestamptz,text) from public;
 grant execute on function public.complete_enrollment_task(uuid,text,timestamptz,text) to authenticated;
