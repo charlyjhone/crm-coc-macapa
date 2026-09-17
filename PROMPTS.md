@@ -3066,3 +3066,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Voce consegue ver que nao da pra ver direito a informação? [captura mostrando números do funil, ocupação e séries quase brancos]
 
 **Ação Codex:** A captura confirmou que valores numéricos e rótulos internos herdavam uma cor quase branca. Foram definidas cores escuras explícitas nos indicadores, números do funil, ocupação, séries, cartões de oportunidades e famílias, tanto no código quanto na prévia.
+
+
+### [16:43] Prompt
+> Quase lá, o texto "Captação e matrículas" está quase transparente.
+
+**Ação Codex:** Fixada explicitamente a cor do título principal em azul-marinho escuro, com opacidade total, tanto na tela real quanto na prévia. O mesmo padrão foi preparado para os demais títulos de página.
