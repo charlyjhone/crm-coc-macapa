@@ -91,8 +91,8 @@ const EnrollmentPipeline = () => {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="font-semibold leading-tight">{opportunity.students?.full_name || "Aluno não identificado"}</p>
-                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <p className="font-semibold leading-tight text-slate-900">{opportunity.students?.full_name || "Aluno não identificado"}</p>
+                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
                               <UserRound className="h-3 w-3" />
                               {opportunity.guardians?.full_name || "Responsável pendente"}
                             </p>
@@ -108,15 +108,15 @@ const EnrollmentPipeline = () => {
                         </div>
 
                         {opportunity.score_explanation && (
-                          <p className="mt-3 flex gap-1.5 text-xs text-muted-foreground">
+                          <p className="mt-3 flex gap-1.5 text-xs text-slate-600">
                             <Target className="mt-0.5 h-3 w-3 shrink-0" />{opportunity.score_explanation}
                           </p>
                         )}
 
                         <div className="mt-3 border-t pt-3">
-                          <p className="text-xs font-medium">{opportunity.next_action || "Definir próxima ação"}</p>
+                          <p className="text-xs font-medium text-slate-800">{opportunity.next_action || "Definir próxima ação"}</p>
                           {opportunity.next_action_at && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
                               <CalendarClock className="h-3 w-3" />
                               {new Date(opportunity.next_action_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
                             </p>
