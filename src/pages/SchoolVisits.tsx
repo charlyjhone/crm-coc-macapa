@@ -96,16 +96,16 @@ const SchoolVisits = () => {
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            ["Hoje", metrics.today, CalendarDays],
-            ["Próximas", metrics.upcoming, Clock3],
-            ["Confirmadas", metrics.confirmed, CheckCircle2],
-            ["Realizadas", metrics.completed, UsersRound],
-          ].map(([label, value, Icon]) => (
-            <Card key={String(label)} className="border-emerald-950/10 shadow-sm">
+            { label: "Hoje", value: metrics.today, icon: CalendarDays },
+            { label: "Próximas", value: metrics.upcoming, icon: Clock3 },
+            { label: "Confirmadas", value: metrics.confirmed, icon: CheckCircle2 },
+            { label: "Realizadas", value: metrics.completed, icon: UsersRound },
+          ].map(({ label, value, icon: Icon }) => (
+            <Card key={label} className="border-emerald-950/10 shadow-sm">
               <CardContent className="flex items-center justify-between p-5">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">{String(label)}</p>
-                  <p className="mt-1 text-3xl font-bold text-slate-950">{String(value)}</p>
+                  <p className="text-sm font-medium text-slate-600">{label}</p>
+                  <p className="mt-1 text-3xl font-bold text-slate-950">{value}</p>
                 </div>
                 <span className="rounded-xl bg-emerald-50 p-3 text-emerald-700"><Icon className="h-5 w-5" /></span>
               </CardContent>
