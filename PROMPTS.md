@@ -3096,3 +3096,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > vamos continuando.
 
 **Ação Codex:** Implementado o módulo de tarefas e follow-ups da captação escolar. A fila separa ações atrasadas, de hoje, futuras e sem prazo; permite criar tarefas vinculadas ao aluno e concluir um atendimento já agendando o próximo passo. Também foi corrigida uma falha de sintaxe nos delimitadores das funções SQL da migração.
+
+
+### [17:41] Prompt
+> pronto, vamos em frente.
+
+**Ação Codex:** Implementado o painel de origem e conversão da captação. A nova tela compara canais e campanhas por interessados, qualificados, visitas, matrículas, conversão e previsão ponderada, sem dados fictícios, e foi integrada ao menu de Captação.
