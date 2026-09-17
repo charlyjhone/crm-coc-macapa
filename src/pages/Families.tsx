@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AlertCircle, GraduationCap, Mail, Phone, Search, UserRound, Users } from "lucide-react";
+import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
 
 type Guardian = {
   id: string;
@@ -23,6 +24,7 @@ const Families = () => {
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [query, setQuery] = useState("");
   const [foundationPending, setFoundationPending] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -34,7 +36,7 @@ const Families = () => {
       else setGuardians(data || []);
     };
     load();
-  }, []);
+  }, [refreshKey]);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("pt-BR");
@@ -59,12 +61,15 @@ const Families = () => {
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b bg-background px-5 py-5 md:px-8">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-medium text-primary">Relacionamento escolar</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">Famílias e alunos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Um cadastro familiar, com cada aluno e oportunidade de matrícula vinculados corretamente.
-          </p>
+        <div className="mx-auto flex max-w-7xl items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-primary">Relacionamento escolar</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Famílias e alunos</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Um cadastro familiar, com cada aluno e oportunidade de matrícula vinculados corretamente.
+            </p>
+          </div>
+          <NewFamilyDialog onCreated={() => setRefreshKey((value) => value + 1)} />
         </div>
       </header>
 
