@@ -8,6 +8,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
+import { authorizeRequest, unauthorizedResponse } from "../_shared/authorize-request.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
+  const auth = await authorizeRequest(req, supabaseUrl, serviceKey);
+  if (!auth.authorized) return unauthorizedResponse(corsHeaders);
 
   try {
     const payload = await req.json().catch(() => ({}));
@@ -178,7 +181,7 @@ Responda SOMENTE com JSON válido:
       const detail = await aiRes.text();
       console.error("Erro no gateway de IA:", aiRes.status, detail);
       await supabase.from("leads").update({ triage_status: "aguardando_secretaria", handoff_at: new Date().toISOString(), handoff_reason: "Falha do agente de IA" }).eq("id", leadId!);
-      return json({ error: "ai_gateway_error", status: aiRes.status, detail }, aiRes.status === 429 || aiRes.status >= 500 ? 503 : 500);
+      return json({ error: "ai_gateway_error", status: aiRes.status }, aiRes.status === 429 || aiRes.status >= 500 ? 503 : 500);
     }
 
     const aiJson = await aiRes.json();
