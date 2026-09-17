@@ -3,21 +3,15 @@
 
 import { generateMessageId, normalizeMessageIdForDb } from "./email-threading.ts";
 
-const TEAM_EMAILS = [
-  "team@inventorteam.com",
-  "team@inventosdigitais.com.br",
-  "mi@inventosdigitais.com.br",
-  "tito@inventosdigitais.com.br",
-  "tito@inventorteam.com",
-];
+const TEAM_EMAILS = ["atendimento@cocmacapa.com.br"];
 
 // Domínios internos cuja presença em To/CC já significa que não precisamos
 // disparar "loop-in". IMPORTANTE: NÃO usar match por localpart em qualquer
 // domínio — um lead real chamado team@empresa.com seria tratado como o
 // Equipe e nunca receberia o loop-in (bug apontado pelo scanner do Lovable).
-const TEAM_DOMAINS = ["inventorteam.com", "inventorteam.link"];
+const TEAM_DOMAINS = ["cocmacapa.com.br"];
 
-const ASSISTANT_HINTS = ["assistant@", "sara@", "@cloudmailin.net"];
+const ASSISTANT_HINTS = ["atendimento@", "@cloudmailin.net"];
 
 function cleanAddr(raw: string): string {
   if (!raw) return "";
@@ -101,7 +95,7 @@ export interface LoopInEquipeInput {
   assistantEmail: string;
   assistantName: string;
   companyName: string;
-  companyEmail: string; // ex: team@inventorteam.com
+  companyEmail: string; // ex: atendimento@cocmacapa.com.br
   systemUserEmails: string[];
 }
 
