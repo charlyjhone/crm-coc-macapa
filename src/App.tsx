@@ -9,6 +9,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import Opportunities from "./pages/Opportunities";
+import CaptacaoDashboard from "./pages/CaptacaoDashboard";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import Unclassified from "./pages/Unclassified";
 import Archived from "./pages/Archived";
@@ -48,7 +49,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
+            <Route path="/" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
+            <Route path="/captacao" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
             <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
             <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
