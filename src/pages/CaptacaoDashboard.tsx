@@ -101,7 +101,7 @@ const CaptacaoDashboard = () => {
     opportunities.filter((item) => item.stage === stage).length;
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-white">
       <header className="border-b bg-background px-5 py-5 md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
