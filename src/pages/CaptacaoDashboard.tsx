@@ -165,7 +165,7 @@ const CaptacaoDashboard = () => {
                       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         {index + 1}
                       </span>
-                      <span className="text-2xl font-bold">{stageCount(key)}</span>
+                      <span className="text-2xl font-bold text-slate-900">{stageCount(key)}</span>
                     </div>
                     <p className="mt-3 text-sm font-medium">{label}</p>
                   </div>
@@ -181,7 +181,7 @@ const CaptacaoDashboard = () => {
             <CardContent className="space-y-4">
               <div>
                 <div className="flex items-end justify-between">
-                  <span className="text-3xl font-bold">{metrics.occupiedSeats}</span>
+                  <span className="text-3xl font-bold text-slate-900">{metrics.occupiedSeats}</span>
                   <span className="text-sm text-muted-foreground">de {metrics.totalSeats} vagas</span>
                 </div>
                 <Progress
@@ -194,7 +194,7 @@ const CaptacaoDashboard = () => {
                   const used = capacity.enrolled_seats + capacity.reserved_seats;
                   const available = Math.max(0, capacity.total_seats - used);
                   return (
-                    <div key={capacity.id} className="flex items-center justify-between text-sm">
+                    <div key={capacity.id} className="flex items-center justify-between text-sm text-slate-700">
                       <span>{capacity.grade} · {capacity.shift}</span>
                       <Badge variant={available <= 2 ? "destructive" : "secondary"}>
                         {available} vagas
@@ -233,14 +233,14 @@ const MetricCard = ({
     <CardContent className="p-5">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-2 text-3xl font-bold">{value}</p>
+          <p className="text-sm font-medium text-slate-700">{title}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
         </div>
         <div className={`rounded-lg p-2 ${attention ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{note}</p>
+      <p className="mt-2 text-xs text-slate-600">{note}</p>
     </CardContent>
   </Card>
 );
