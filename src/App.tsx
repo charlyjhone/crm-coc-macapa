@@ -14,10 +14,8 @@ import Unclassified from "./pages/Unclassified";
 import Archived from "./pages/Archived";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import Proposal from "./pages/Proposal";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
-import WorkerMode from "./pages/WorkerMode";
 import InboxPage from "./pages/Inbox";
 import Pendentes from "./pages/Pendentes";
 import Usuarios from "./pages/Usuarios";
@@ -55,11 +53,9 @@ const App = () => (
             <Route path="/pendentes" element={<ProtectedLayout><Pendentes /></ProtectedLayout>} />
             <Route path="/unclassified" element={<ProtectedLayout><AdminRoute><Unclassified /></AdminRoute></ProtectedLayout>} />
             <Route path="/archived" element={<ProtectedLayout><Archived /></ProtectedLayout>} />
-            <Route path="/proposal" element={<ProtectedRoute><Proposal /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedLayout><AdminRoute><Insights /></AdminRoute></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
-            <Route path="/worker" element={<ProtectedLayout><AdminRoute><WorkerMode /></AdminRoute></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

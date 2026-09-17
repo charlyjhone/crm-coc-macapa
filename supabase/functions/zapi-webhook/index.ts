@@ -14,6 +14,14 @@ serve(async (req) => {
   }
 
   try {
+    const webhookSecret = Deno.env.get('ZAPI_WEBHOOK_SECRET') || '';
+    const suppliedSecret = req.headers.get('x-webhook-secret') || new URL(req.url).searchParams.get('secret') || '';
+    if (!webhookSecret || suppliedSecret !== webhookSecret) {
+      return new Response(JSON.stringify({ error: 'unauthorized_webhook' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     console.log("Z-API webhook received");
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -22,7 +30,7 @@ serve(async (req) => {
     await setActivityContext(supabase, { source: 'webhook:zapi', actor: 'system' });
 
     const payload = await req.json();
-    console.log("Z-API payload:", JSON.stringify(payload, null, 2));
+    console.log("Z-API event:", payload.notification || payload.type || "message", "messageId:", payload.messageId || "unknown");
 
     // ===== EARLY EXIT: Filter out non-message events =====
     const notification = payload.notification || payload.type || '';
@@ -75,14 +83,14 @@ serve(async (req) => {
     const rawContactName = payload.senderName || payload.contactName || payload.name || payload.pushName || payload.notifyName || null;
     const contactName = (direction === 'inbound' && rawContactName) ? rawContactName : null;
     if (contactName) {
-      console.log('Nome do contato (inbound) recebido:', contactName);
+      console.log('Nome de contato recebido no evento inbound');
     }
     
     let isAudio = false;
     const audioUrl = payload.audio?.audioUrl || payload.audioUrl;
     
     if (audioUrl && !message) {
-      console.log('Áudio detectado, URL:', audioUrl);
+      console.log('Áudio detectado para transcrição');
       isAudio = true;
       
       try {
@@ -98,7 +106,7 @@ serve(async (req) => {
         if (transcribeResponse.ok) {
           const { text } = await transcribeResponse.json();
           message = text || '[Áudio não transcrito]';
-          console.log('Áudio transcrito:', message);
+          console.log('Áudio transcrito com sucesso');
         } else {
           console.error('Erro ao transcrever áudio');
           message = '[Mensagem de áudio - erro na transcrição]';
@@ -140,7 +148,7 @@ serve(async (req) => {
       suffix10 = localPhone && localPhone.length >= 10 ? localPhone.slice(-10) : null;
       suffix8 = localPhone && localPhone.length >= 8 ? localPhone.slice(-8) : null;
       
-      console.log('Telefone normalizado:', normalizedPhone, 'local:', localPhone, 'suffix8:', suffix8);
+      console.log('Telefone normalizado para processamento');
     } else if (isLidEvent) {
       console.log('Evento @lid detectado - NÃO será tratado como telefone');
     }

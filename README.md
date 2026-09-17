@@ -1,26 +1,58 @@
-# Remix of Remix of migueSALES
+# CRM COC Macapá Norte
 
-Eu quero fazer um sistema de CRM que cadastra os leads automaticamente por e-mail sempre que um determinado e-mail é enviado para um determinado endereço.
+CRM escolar para captação, atendimento e acompanhamento de famílias interessadas no COC Macapá Norte.
 
-Sempre que esse e-mail for enviado para esse endereço, o sistema vai verificar que esse e-mail foi enviado, do destinatário como o lead e vai mostrar essa lista para o usuário dos leads criados.
+## Escopo
 
-This project was built with [Lovable](https://lovable.dev).
+- Recebimento de contatos por WhatsApp e e-mail
+- Triagem inicial de matrícula, currículo, horário e localização
+- Encaminhamento para a secretaria quando a conversa exigir atendimento humano
+- Histórico unificado de mensagens
+- Gestão de oportunidades e pendências
+- Indicadores de atendimento e conversão
 
-## Build with Lovable
+## Arquitetura
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/33bf98c4-a830-42ea-b1fc-34d586d30729).
+- Frontend: React, TypeScript e Vite
+- Backend: Supabase (PostgreSQL, Auth, Storage e Edge Functions)
+- WhatsApp: Z-API
+- E-mail: Resend
+- IA: gateway configurável para triagem e apoio ao atendimento
+- Transcrição: OpenAI/ElevenLabs, conforme secrets configurados
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Segurança
 
-## Development
+As Edge Functions privilegiadas exigem autenticação. Nunca registre chaves no repositório.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Secrets necessários incluem:
+
+- `INTERNAL_FUNCTION_SECRET`
+- `MCP_SERVER_TOKEN`
+- `ZAPI_WEBHOOK_SECRET`
+- `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`
+- `LOVABLE_API_KEY`
+- `OPENAI_API_KEY` quando a transcrição OpenAI estiver ativa
+- `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
+
+Buckets com documentos e anexos devem permanecer privados e usar URLs assinadas.
+
+## Desenvolvimento
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install
+npm run lint
+npm run build
 ```
+
+O projeto principal está no Supabase identificado em `supabase/config.toml`. Alterações de banco devem ser versionadas em `supabase/migrations`.
+
+## Implantação
+
+Antes de publicar:
+
+1. revisar e aplicar as migrações;
+2. cadastrar os secrets;
+3. confirmar a autenticação dos webhooks;
+4. validar RLS e acesso aos buckets;
+5. executar os testes de WhatsApp, e-mail, triagem e transferência humana.

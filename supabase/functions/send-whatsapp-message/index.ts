@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
+import { authorizeRequest, unauthorizedResponse } from "../_shared/authorize-request.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,11 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auth = await authorizeRequest(req, supabaseUrl, supabaseKey);
+    if (!auth.authorized) return unauthorizedResponse(corsHeaders);
+
     const { phone, message, leadId } = await req.json();
 
     if (!phone || !message) {
@@ -42,8 +48,6 @@ serve(async (req) => {
     let resolvedChatLid: string | null = null;
     if (leadId) {
       try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
         const { data: lead } = await supabase
@@ -165,8 +169,6 @@ serve(async (req) => {
     // Salvar mensagem no banco — associada APENAS ao número de telefone (não ao lead).
     // O lead "vê" a mensagem porque o número está cadastrado nele; o cache é recalculado por trigger.
     {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
       await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: 'miguel' });
 

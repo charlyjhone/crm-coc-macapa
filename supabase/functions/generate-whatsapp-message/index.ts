@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { getPrompt } from "../_shared/get-prompt.ts";
 import { getSettings } from "../_shared/get-settings.ts";
+import { authorizeRequest, unauthorizedResponse } from "../_shared/authorize-request.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,11 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const auth = await authorizeRequest(req, supabaseUrl, supabaseKey);
+    if (!auth.authorized) return unauthorizedResponse(corsHeaders);
+
     const { leadId, context } = await req.json();
 
     if (!leadId || !context) {
@@ -41,8 +47,6 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const settings = await getSettings(['susan_name', 'company_name']);
@@ -62,16 +66,18 @@ serve(async (req) => {
         .from('email_messages')
         .select('*')
         .eq('lead_id', leadId)
-        .order('timestamp', { ascending: true }),
+        .order('timestamp', { ascending: false })
+        .limit(12),
       supabase
         .from('whatsapp_messages')
         .select('*')
         .eq('lead_id', leadId)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: false })
+        .limit(20),
     ]);
 
-    const emails = emailsResult.data;
-    const whatsappMsgs = whatsappResult.data;
+    const emails = (emailsResult.data || []).reverse();
+    const whatsappMsgs = (whatsappResult.data || []).reverse();
 
     // Construir contexto COMPLETO para a IA
     let historico = `=== INFORMAÇÕES DO LEAD ===\n`;
@@ -91,7 +97,7 @@ serve(async (req) => {
         historico += `\n[${idx + 1}] ${direction} em ${new Date(email.timestamp).toLocaleString('pt-BR')}\n`;
         if (email.subject) historico += `Assunto: ${email.subject}\n`;
         const content = email.message || (email.html_body ? stripHtml(email.html_body) : '(sem conteúdo)');
-        historico += `${content}\n---\n`;
+        historico += `${content.slice(0, 2000)}\n---\n`;
       });
     } else {
       historico += '(Nenhum email trocado até o momento)\n';
@@ -104,7 +110,7 @@ serve(async (req) => {
         const direction = msg.direction === 'inbound' ? '📥 LEAD' : `📤 EU (${settings.company_name})`;
         const timestamp = new Date(msg.timestamp || msg.created_at).toLocaleString('pt-BR');
         historico += `\n[${idx + 1}] ${direction} em ${timestamp}\n`;
-        historico += `${msg.message || '(sem conteúdo)'}\n---\n`;
+        historico += `${(msg.message || '(sem conteúdo)').slice(0, 1200)}\n---\n`;
       });
     } else {
       historico += '(Nenhuma mensagem de WhatsApp trocada até o momento)\n';

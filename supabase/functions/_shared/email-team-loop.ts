@@ -1,23 +1,17 @@
-// Shared: quando Susan recebe um email e Miguel NÃO está em To/CC,
-// responde "reply-all" com Miguel em cópia (ack curto no idioma correto).
+// Shared: quando Assistente Escolar recebe um email e Equipe NÃO está em To/CC,
+// responde "reply-all" com Equipe em cópia (ack curto no idioma correto).
 
 import { generateMessageId, normalizeMessageIdForDb } from "./email-threading.ts";
 
-const MIGUEL_EMAILS = [
-  "miguel@inventormiguel.com",
-  "miguel@inventosdigitais.com.br",
-  "mi@inventosdigitais.com.br",
-  "tito@inventosdigitais.com.br",
-  "tito@inventormiguel.com",
-];
+const TEAM_EMAILS = ["atendimento@cocmacapa.com.br"];
 
 // Domínios internos cuja presença em To/CC já significa que não precisamos
 // disparar "loop-in". IMPORTANTE: NÃO usar match por localpart em qualquer
-// domínio — um lead real chamado miguel@empresa.com seria tratado como o
-// Miguel e nunca receberia o loop-in (bug apontado pelo scanner do Lovable).
-const MIGUEL_DOMAINS = ["inventormiguel.com", "inventormiguel.link"];
+// domínio — um lead real chamado team@empresa.com seria tratado como o
+// Equipe e nunca receberia o loop-in (bug apontado pelo scanner do Lovable).
+const TEAM_DOMAINS = ["cocmacapa.com.br"];
 
-const ASSISTANT_HINTS = ["susan@", "sara@", "@cloudmailin.net"];
+const ASSISTANT_HINTS = ["atendimento@", "@cloudmailin.net"];
 
 function cleanAddr(raw: string): string {
   if (!raw) return "";
@@ -25,13 +19,13 @@ function cleanAddr(raw: string): string {
   return (m ? m[1] : String(raw)).trim().toLowerCase();
 }
 
-function isMiguel(addr: string): boolean {
+function isEquipe(addr: string): boolean {
   const a = cleanAddr(addr);
   if (!a) return false;
-  if (MIGUEL_EMAILS.some((m) => a === m)) return true;
+  if (TEAM_EMAILS.some((m) => a === m)) return true;
   const [local, domain] = a.split("@");
   if (!local || !domain) return false;
-  if (MIGUEL_DOMAINS.includes(domain)) return true;
+  if (TEAM_DOMAINS.includes(domain)) return true;
   return false;
 }
 
@@ -87,7 +81,7 @@ function ackMessage(lang: Lang, companyName: string): { body: string; subjectPre
   return map[lang];
 }
 
-export interface LoopInMiguelInput {
+export interface LoopInEquipeInput {
   supabase: any;
   lead: { id: string; name?: string | null; language?: string | null };
   originalFrom: string;
@@ -98,14 +92,14 @@ export interface LoopInMiguelInput {
   inboundMessageId?: string | null;
   priorMessageIds?: string[]; // para References
   resendApiKey: string;
-  susanEmail: string;
-  susanName: string;
+  assistantEmail: string;
+  assistantName: string;
   companyName: string;
-  companyEmail: string; // ex: miguel@inventormiguel.com
+  companyEmail: string; // ex: atendimento@cocmacapa.com.br
   systemUserEmails: string[];
 }
 
-export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
+export async function maybeLoopInEquipe(input: LoopInEquipeInput): Promise<
   { skipped: true; reason: string } | { skipped: false; resendId?: string | null }
 > {
   try {
@@ -113,17 +107,17 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
       supabase, lead,
       originalFrom, originalTo, originalCc,
       subject, bodySample, inboundMessageId, priorMessageIds,
-      resendApiKey, susanEmail, susanName, companyName, companyEmail,
+      resendApiKey, assistantEmail, assistantName, companyName, companyEmail,
       systemUserEmails,
     } = input;
 
     const allRecipients = [...(originalTo || []), ...(originalCc || [])].map(cleanAddr).filter(Boolean);
 
-    if (allRecipients.some(isMiguel)) {
-      return { skipped: true, reason: "miguel_already_in_recipients" };
+    if (allRecipients.some(isEquipe)) {
+      return { skipped: true, reason: "team_already_in_recipients" };
     }
-    if (isMiguel(originalFrom)) {
-      return { skipped: true, reason: "from_miguel" };
+    if (isEquipe(originalFrom)) {
+      return { skipped: true, reason: "from_team" };
     }
 
     // Idempotência: nunca respondemos duas vezes ao mesmo inbound, nem mais
@@ -137,7 +131,7 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
       .gte("timestamp", sixHoursAgo)
       .order("timestamp", { ascending: false })
       .limit(20);
-    const recentLoops = (recent || []).filter((m: any) => m?.raw_data?.loop_in_miguel === true);
+    const recentLoops = (recent || []).filter((m: any) => m?.raw_data?.loop_in_team === true);
     if (inboundMessageId && recentLoops.some((m: any) => m?.raw_data?.in_reply_to_inbound === inboundMessageId)) {
       return { skipped: true, reason: "already_replied_to_this_inbound" };
     }
@@ -163,7 +157,7 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
     const { body, subjectPrefix } = ackMessage(lang, companyName);
     const replySubject = subject && /^re:/i.test(subject) ? subject : `${subjectPrefix} ${subject || ""}`.trim();
 
-    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#333;">${body.replace(/\n/g, "<br>")}<br><br>—<br>${susanName}<br>Executive Assistant to ${companyName}<br>${susanEmail}</div>`;
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#333;">${body.replace(/\n/g, "<br>")}<br><br>—<br>${assistantName}<br>Atendimento ${companyName}<br>${assistantEmail}</div>`;
 
     const headers: Record<string, string> = {};
     const refs = [...(priorMessageIds || []), inboundMessageId].filter(Boolean) as string[];
@@ -171,7 +165,7 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
       headers["In-Reply-To"] = refs[refs.length - 1];
       headers["References"] = refs.join(" ");
     }
-    const outgoingMessageId = generateMessageId(susanEmail);
+    const outgoingMessageId = generateMessageId(assistantEmail);
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -180,7 +174,7 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${susanName} - ${companyName} <${susanEmail}>`,
+        from: `${assistantName} - ${companyName} <${assistantEmail}>`,
         to: toList,
         cc: ccList,
         subject: replySubject,
@@ -192,7 +186,7 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
 
     if (!resp.ok) {
       const err = await resp.text();
-      console.error("[loop-in-miguel] Resend error:", err);
+      console.error("[loop-in-team] Resend error:", err);
       return { skipped: false, resendId: null };
     }
 
@@ -211,21 +205,21 @@ export async function maybeLoopInMiguel(input: LoopInMiguelInput): Promise<
       recipients_to: toList,
       recipients_cc: ccList,
       raw_data: {
-        loop_in_miguel: true,
+        loop_in_team: true,
         in_reply_to_inbound: inboundMessageId || null,
         language: lang,
         resend_id: resendId,
         headers: { "Message-ID": outgoingMessageId, ...headers },
-        from: susanEmail,
+        from: assistantEmail,
         to: toList,
         cc: ccList,
       },
     });
 
-    console.log(`[loop-in-miguel] Reply enviado para lead ${lead.id} (${lang}), Miguel em CC.`);
+    console.log(`[loop-in-team] Reply enviado para lead ${lead.id} (${lang}), Equipe em CC.`);
     return { skipped: false, resendId };
   } catch (e) {
-    console.error("[loop-in-miguel] falhou:", e);
+    console.error("[loop-in-team] falhou:", e);
     return { skipped: true, reason: "error" };
   }
 }

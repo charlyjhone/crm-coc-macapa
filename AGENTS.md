@@ -1,36 +1,47 @@
-# AGENTS.md — Regras Operacionais do Projeto
+# AGENTS.md — Regras Operacionais do CRM Escolar
 
-Este documento define regras obrigatórias para qualquer agente (Lovable, Codex, etc.) que atue neste repositório.
+## 1. Escopo
 
-## 1. Log de Prompts (`PROMPTS.md`) — OBRIGATÓRIO
+Este repositório pertence exclusivamente ao CRM COC Macapá Norte. Não introduza nomes, regras, prompts, domínios, produtos ou automações de outros projetos.
 
-**Toda mensagem do usuário deve ser registrada em `PROMPTS.md` na MESMA resposta em que é processada.** Sem exceção.
+## 2. Log de prompts
 
-Formato (anexar ao final da seção do dia, criando o cabeçalho `## YYYY-MM-DD` se necessário):
+Toda solicitação que resulte em alteração no repositório deve ser registrada em `PROMPTS.md` na mesma entrega.
 
-```
+Formato:
+
+```md
 ### [HH:MM] Prompt
-> Texto literal do prompt do usuário (pode truncar se muito longo, mas preserve o sentido).
+> Resumo fiel da solicitação.
 
-**Ação Lovable:** Resumo curto (1–3 linhas) do que foi feito, arquivos principais tocados.
+**Ação:** resumo do que foi alterado e dos arquivos principais.
 ```
 
-Regras:
-- Use o horário local em formato 24h.
-- Nunca pular um prompt, mesmo que seja pergunta curta, follow-up ou correção.
-- Se esquecer em uma resposta, recuperar na próxima incluindo os prompts faltantes.
-- Não reescrever entradas antigas — apenas anexar.
+Use o horário local de Macapá (`America/Belem`). Apenas anexe novas entradas; não reescreva o histórico.
 
-## 2. Checklist de Deploy / Publish
+## 3. Segurança
 
-Antes de sinalizar ao usuário que algo está pronto para publicar, ou ao receber pedido de deploy/publish, o agente DEVE:
+- Nunca grave secrets, tokens, senhas ou chaves administrativas no GitHub.
+- Funções com `SUPABASE_SERVICE_ROLE_KEY` devem autenticar cada requisição.
+- Webhooks devem validar segredo ou assinatura.
+- Não registre mensagens, telefones, e-mails, documentos ou payloads completos nos logs.
+- Anexos e documentos devem usar buckets privados e URLs assinadas.
+- Preserve RLS e o princípio do menor privilégio.
 
-1. Verificar se todos os prompts da sessão atual estão registrados em `PROMPTS.md`.
-2. Se faltar algum, adicionar imediatamente antes de prosseguir.
-3. Confirmar ao usuário ("Prompts sincronizados em PROMPTS.md") junto com o aviso de publish.
+## 4. IA e atendimento
 
-## 3. Outras regras operacionais
+- Utilize somente informações oficiais cadastradas para a escola.
+- Nunca invente preço, vaga, condição comercial, prazo ou documento necessário.
+- Transfira para uma pessoa quando houver negociação, desconto, situação individual do aluno, dúvida não cadastrada ou pedido explícito.
+- Registre modelo, uso e custo estimado das chamadas de IA.
+- Minimize os dados pessoais e o histórico enviados ao provedor.
 
-- Voz da Susan em comunicações automatizadas (e-mail/WhatsApp em nome dela): 1ª pessoa, sem bajulação, Miguel sempre em 3ª pessoa.
-- Nunca colocar o mesmo e-mail e WhatsApp duplicados — se o lead tiver WhatsApp, evitar enviar e-mail automaticamente para um endereço sintético.
-- Mais regras específicas do produto vivem em `mem://index.md` (memória do projeto).
+## 5. Deploy
+
+Não faça deploy automático. Antes de publicar:
+
+1. sincronize `PROMPTS.md`;
+2. valide lint e build;
+3. revise migrações e secrets obrigatórios;
+4. teste WhatsApp, e-mail e handoff;
+5. informe claramente qualquer ação manual necessária.
