@@ -381,6 +381,126 @@ $;
 revoke all on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) from public;
 grant execute on function public.update_enrollment_progress(uuid,text,text,timestamptz,text) to authenticated;
 
+create or replace function public.schedule_school_visit(
+  p_opportunity_id uuid,
+  p_scheduled_at timestamptz,
+  p_participants text default null,
+  p_notes text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_visit_id uuid;
+  v_previous_stage text;
+begin
+  if auth.uid() is null then raise exception 'Usuário não autenticado'; end if;
+  if p_scheduled_at is null then raise exception 'Informe a data da visita'; end if;
+
+  select stage into v_previous_stage
+  from public.enrollment_opportunities
+  where id = p_opportunity_id
+  for update;
+  if v_previous_stage is null then raise exception 'Oportunidade não encontrada'; end if;
+
+  insert into public.school_visits(
+    opportunity_id, scheduled_at, participants, follow_up_notes, assigned_to
+  ) values (
+    p_opportunity_id, p_scheduled_at, nullif(trim(p_participants), ''),
+    nullif(trim(p_notes), ''), auth.uid()
+  ) returning id into v_visit_id;
+
+  update public.enrollment_opportunities
+  set stage = 'visita_agendada',
+      probability_score = greatest(probability_score, 65),
+      next_action = 'Confirmar visita com a família',
+      next_action_at = p_scheduled_at - interval '1 day',
+      status_updated_at = now(),
+      updated_at = now()
+  where id = p_opportunity_id;
+
+  insert into public.enrollment_stage_history(
+    opportunity_id, previous_stage, new_stage, next_action, next_action_at, changed_by
+  ) values (
+    p_opportunity_id, v_previous_stage, 'visita_agendada',
+    'Confirmar visita com a família', p_scheduled_at - interval '1 day', auth.uid()
+  );
+
+  return v_visit_id;
+end;
+$;
+
+revoke all on function public.schedule_school_visit(uuid,timestamptz,text,text) from public;
+grant execute on function public.schedule_school_visit(uuid,timestamptz,text,text) to authenticated;
+
+create or replace function public.update_school_visit_status(
+  p_visit_id uuid,
+  p_status text,
+  p_family_impression text default null,
+  p_objections text default null,
+  p_follow_up_notes text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_opportunity_id uuid;
+  v_previous_stage text;
+begin
+  if auth.uid() is null then raise exception 'Usuário não autenticado'; end if;
+  if p_status not in ('agendada','confirmada','realizada','faltou','cancelada','reagendada') then
+    raise exception 'Status de visita inválido';
+  end if;
+
+  select opportunity_id into v_opportunity_id
+  from public.school_visits where id = p_visit_id for update;
+  if v_opportunity_id is null then raise exception 'Visita não encontrada'; end if;
+
+  update public.school_visits
+  set status = p_status,
+      family_impression = nullif(trim(p_family_impression), ''),
+      objections = nullif(trim(p_objections), ''),
+      follow_up_notes = nullif(trim(p_follow_up_notes), ''),
+      completed_at = case when p_status = 'realizada' then now() else completed_at end,
+      updated_at = now()
+  where id = p_visit_id;
+
+  if p_status = 'realizada' then
+    select stage into v_previous_stage from public.enrollment_opportunities
+    where id = v_opportunity_id for update;
+
+    update public.enrollment_opportunities
+    set stage = 'visita_realizada',
+        probability_score = greatest(probability_score, 75),
+        next_action = 'Realizar retorno após a visita',
+        next_action_at = now() + interval '1 day',
+        status_updated_at = now(),
+        updated_at = now()
+    where id = v_opportunity_id;
+
+    insert into public.enrollment_stage_history(
+      opportunity_id, previous_stage, new_stage, next_action, next_action_at, changed_by
+    ) values (
+      v_opportunity_id, v_previous_stage, 'visita_realizada',
+      'Realizar retorno após a visita', now() + interval '1 day', auth.uid()
+    );
+  elsif p_status in ('faltou','cancelada') then
+    update public.enrollment_opportunities
+    set next_action = case when p_status = 'faltou' then 'Reagendar visita' else 'Retomar contato com a família' end,
+        next_action_at = now() + interval '1 day',
+        updated_at = now()
+    where id = v_opportunity_id;
+  end if;
+end;
+$;
+
+revoke all on function public.update_school_visit_status(uuid,text,text,text,text) from public;
+grant execute on function public.update_school_visit_status(uuid,text,text,text,text) to authenticated;
+
 comment on table public.guardians is 'Responsáveis e contatos adultos da família.';
 comment on table public.students is 'Alunos ou candidatos, separados dos responsáveis.';
 comment on table public.enrollment_opportunities is 'Uma intenção de matrícula por aluno, ciclo, série, turno e unidade.';
