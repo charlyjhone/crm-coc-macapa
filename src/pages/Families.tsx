@@ -111,7 +111,7 @@ const Families = () => {
                   <div className="flex gap-3">
                     <div className="rounded-full bg-muted p-2.5"><UserRound className="h-5 w-5" /></div>
                     <div>
-                      <h2 className="font-semibold">{guardian.preferred_name || guardian.full_name}</h2>
+                      <h2 className="font-semibold text-slate-900">{guardian.preferred_name || guardian.full_name}</h2>
                       {guardian.preferred_name && <p className="text-xs text-muted-foreground">{guardian.full_name}</p>}
                     </div>
                   </div>
@@ -128,7 +128,7 @@ const Families = () => {
                   <div className="space-y-2">
                     {(guardian.student_guardians || []).map((link) => (
                       <div key={link.students?.id} className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2">
-                        <span className="text-sm font-medium">{link.students?.full_name}</span>
+                        <span className="text-sm font-medium text-slate-900">{link.students?.full_name}</span>
                         <span className="text-xs text-muted-foreground">{link.relationship || "Responsável"}{link.is_primary ? " · principal" : ""}</span>
                       </div>
                     ))}
