@@ -3060,3 +3060,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > ajuste a cor dos textos pra nao ficar tao claro
 
 **Ação Codex:** Escurecidos os textos secundários, legendas, perfil, busca e navegação. A prévia passou a usar texto principal #102A43 e texto secundário #475569, melhorando a legibilidade.
+
+
+### [16:40] Prompt
+> Voce consegue ver que nao da pra ver direito a informação? [captura mostrando números do funil, ocupação e séries quase brancos]
+
+**Ação Codex:** A captura confirmou que valores numéricos e rótulos internos herdavam uma cor quase branca. Foram definidas cores escuras explícitas nos indicadores, números do funil, ocupação, séries, cartões de oportunidades e famílias, tanto no código quanto na prévia.
