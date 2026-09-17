@@ -3042,3 +3042,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Ficou bom mas acho que poderiamos utilizar o mesmo modelo de layout do aimedu
 
 **Ação Codex:** Analisado o sistema visual atual do repositório AIMEDU e substituída a casca lateral do CRM por navegação superior inspirada no AIMEDU: marca verde, menus agrupados, busca e perfil. Funcionalidades e dados dos dois projetos continuam independentes. A prévia visual também foi atualizada.
+
+
+### [16:18] Prompt
+> As cores estão legais mas estão diferentes do aimedu, o fundo lá é branco.
+
+**Ação Codex:** Corrigido o fundo global e das três novas páginas do CRM para branco, alinhando-o ao AIMEDU. O verde foi mantido apenas em navegação ativa, ícones, etiquetas e indicadores; a prévia foi atualizada.
