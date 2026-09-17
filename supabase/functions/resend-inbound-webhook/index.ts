@@ -12,17 +12,17 @@ const corsHeaders = {
 };
 
 // These will be overridden by system_settings at runtime
-let SUSAN_EMAIL = 'susan@inventormiguel.link';
-let SUSAN_NAME = 'Susan Whitfield';
-let COMPANY_NAME = 'Miguel Fernandes';
-let COMPANY_EMAIL = 'miguel@inventormiguel.com';
-const MIGUEL_EMAILS = [
-  'miguel@inventormiguel.com',
-  'miguel@inventosdigitais.com.br',
+let ASSISTANT_EMAIL = 'assistant@inventorteam.link';
+let ASSISTANT_NAME = 'Atendimento COC Macapá Norte';
+let COMPANY_NAME = 'COC Macapá Norte';
+let COMPANY_EMAIL = 'team@inventorteam.com';
+const TEAM_EMAILS = [
+  'team@inventorteam.com',
+  'team@inventosdigitais.com.br',
 ];
-const INTERNAL_ASSISTANT_EMAILS = ['susan@inventormiguel.link'];
-let IGNORED_EMAILS: string[] = [...INTERNAL_ASSISTANT_EMAILS, ...MIGUEL_EMAILS];
-const INTERNAL_DOMAINS = ['inventosdigitais.com.br', 'inventormiguel.com', 'inventormiguel.link'];
+const INTERNAL_ASSISTANT_EMAILS = ['assistant@inventorteam.link'];
+let IGNORED_EMAILS: string[] = [...INTERNAL_ASSISTANT_EMAILS, ...TEAM_EMAILS];
+const INTERNAL_DOMAINS = ['inventosdigitais.com.br', 'inventorteam.com', 'inventorteam.link'];
 const isInternalDomain = (email: string) => INTERNAL_DOMAINS.some(d => email.toLowerCase().endsWith(`@${d}`));
 // Sistema users (funcionários) — populado a cada request a partir do auth.users
 let SYSTEM_USER_EMAILS: string[] = [];
@@ -257,8 +257,8 @@ async function findExistingLead(supabase: any, emails: string[]): Promise<any | 
   return null;
 }
 
-// Strip Miguel's preamble from a forwarded email and return just the original client message.
-// When Miguel forwards to Susan with an instruction like "susan, manda a proposta",
+// Strip Equipe's preamble from a forwarded email and return just the original client message.
+// When Equipe forwards to Assistente Escolar with an instruction like "assistant, manda a proposta",
 // the actual client content lives below a quote marker ("On <date>, X wrote:", "Em <data>... escreveu:",
 // "----- Original Message -----", "De: ..."). This returns that quoted block, cleaned.
 function extractForwardedClientMessage(text: string, html: string): { text: string; html: string; isForwarded: boolean } {
@@ -305,7 +305,7 @@ function extractForwardedClientMessage(text: string, html: string): { text: stri
 
   if (cleaned.length < 20) return { text, html, isForwarded: false };
 
-  console.log('✂️ Stripped Miguel preamble. Original len:', raw.length, '→ extracted:', cleaned.length);
+  console.log('✂️ Stripped Equipe preamble. Original len:', raw.length, '→ extracted:', cleaned.length);
   return { text: cleaned, html: '', isForwarded: true };
 }
 
@@ -536,34 +536,34 @@ async function processEmailAttachments(supabase: any, resendApiKey: string, rese
   }
 }
 
-// --- Intent analysis: does Miguel want Susan to take action? ---
+// --- Intent analysis: does Equipe want Assistente Escolar to take action? ---
 async function analyzeIntent(
   emailContent: string, emailSubject: string, LOVABLE_API_KEY: string
 ): Promise<boolean> {
-  console.log('Analyzing Miguel intent...');
-  const defaultIntentPrompt = `Analyze this email that involves Miguel Fernandes and/or his assistant Susan.
+  console.log('Analyzing Equipe intent...');
+  const defaultIntentPrompt = `Analyze this email that involves COC Macapá Norte and/or his assistant Assistente Escolar.
 
-Your job is to determine: Is Miguel INSTRUCTING Susan to take action (send a proposal, reply to the client, etc.)?
+Your job is to determine: Is Equipe INSTRUCTING Assistente Escolar to take action (send a proposal, reply to the client, etc.)?
 
 CRITICAL DISTINCTION:
-1. If Miguel is writing DIRECTLY TO THE CLIENT (e.g. accepting an offer, negotiating, asking for a briefing, responding to a question) — even if Susan is in CC — this means Miguel handled it himself. Susan should NOT respond. Return false.
-2. If Miguel is FORWARDING an email TO Susan with instructions (e.g. "Susan, manda a proposta", "envia pra ele", "faz o contato comercial", "segue com a proposta") — Susan should act. Return true.
-3. If Miguel is simply CC'ing Susan on a conversation he is handling directly with the client — Susan should NOT respond. Return false.
+1. If Equipe is writing DIRECTLY TO THE CLIENT (e.g. accepting an offer, negotiating, asking for a briefing, responding to a question) — even if Assistente Escolar is in CC — this means Equipe handled it himself. Assistente Escolar should NOT respond. Return false.
+2. If Equipe is FORWARDING an email TO Assistente Escolar with instructions (e.g. "Assistente Escolar, manda a proposta", "envia pra ele", "faz o contato comercial", "segue com a proposta") — Assistente Escolar should act. Return true.
+3. If Equipe is simply CC'ing Assistente Escolar on a conversation he is handling directly with the client — Assistente Escolar should NOT respond. Return false.
 
-KEY SIGNALS that Miguel is handling it himself (return FALSE):
-- Miguel addresses the client by name in the email
-- Miguel accepts/rejects/negotiates terms directly
-- Miguel asks the client for something (briefing, information, etc.)
+KEY SIGNALS that Equipe is handling it himself (return FALSE):
+- Equipe addresses the client by name in the email
+- Equipe accepts/rejects/negotiates terms directly
+- Equipe asks the client for something (briefing, information, etc.)
 - The email tone is a direct conversation with the client
-- Susan is only in CC for visibility
+- Assistente Escolar is only in CC for visibility
 
-KEY SIGNALS that Miguel wants Susan to act (return TRUE):
-- Miguel addresses Susan directly ("Susan, ...", "Hey Susan")
-- Miguel gives explicit instructions ("manda", "envia", "faz", "segue com")
-- Miguel forwards an email with instructions for Susan to follow up
+KEY SIGNALS that Equipe wants Assistente Escolar to act (return TRUE):
+- Equipe addresses Assistente Escolar directly ("Assistente Escolar, ...", "Hey Assistente Escolar")
+- Equipe gives explicit instructions ("manda", "envia", "faz", "segue com")
+- Equipe forwards an email with instructions for Assistente Escolar to follow up
 - The email is clearly an internal instruction, not a client-facing message
 
-When in doubt, return FALSE. It's better for Susan to not respond than to respond incorrectly.
+When in doubt, return FALSE. It's better for Assistente Escolar to not respond than to respond incorrectly.
 
 Subject: {emailSubject}
 
@@ -591,11 +591,11 @@ Content:
         type: 'function',
         function: {
           name: 'analyze_intent',
-          description: 'Determine if Miguel is instructing Susan to send a proposal or take action',
+          description: 'Determine if Equipe is instructing Assistente Escolar to send a proposal or take action',
           parameters: {
             type: 'object',
             properties: {
-              should_send_proposal: { type: 'boolean', description: 'True ONLY if Miguel is explicitly instructing Susan to send a proposal/quote/price to the client. False if Miguel is handling the communication himself.' },
+              should_send_proposal: { type: 'boolean', description: 'True ONLY if Equipe is explicitly instructing Assistente Escolar to send a proposal/quote/price to the client. False if Equipe is handling the communication himself.' },
               reasoning: { type: 'string', description: 'Brief explanation of why this intent was determined' },
             },
             required: ['should_send_proposal', 'reasoning'],
@@ -637,7 +637,7 @@ Is the client asking for any of the following:
 - Reach numbers / engagement metrics
 - Portfolio / case studies / previous work
 - Rate card / pricing table / media table
-- Information about Miguel's audience, followers, or content performance
+- Information about Equipe's audience, followers, or content performance
 
 This is specifically about the client REQUESTING information/data, not about declining or accepting a proposal.
 
@@ -770,14 +770,14 @@ async function generateMediaKitReply(
 ): Promise<{ subject: string; body: string }> {
   console.log('Generating Media Kit reply for lead:', lead.name);
 
-  const defaultMediaKitReplyPrompt = `You are ${SUSAN_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
+  const defaultMediaKitReplyPrompt = `You are ${ASSISTANT_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
 
 A client has asked for demographics, Media Kit, reach numbers, portfolio, or similar information. You need to reply sending the Media Kit link.
 
 CRITICAL LANGUAGE RULE: Analyze the ENTIRE email history below. Identify the language the CLIENT uses in their messages. Write your ENTIRE reply in that SAME language.
 
 INSTRUCTIONS:
-- Write as ${SUSAN_NAME}, ${COMPANY_NAME}'s assistant, in first person
+- Write as ${ASSISTANT_NAME}, ${COMPANY_NAME}'s assistant, in first person
 - Show enthusiasm - say that ${COMPANY_NAME} would love this partnership
 - Share the Media Kit link: {mediaKitLink}
 - Say the link contains all the information they need (demographics, reach, audience data, previous partnerships, etc.)
@@ -797,7 +797,7 @@ Subject: [subject line in the client's language]
 [body - just the new message, no signature]`;
 
   const prompt = await getPrompt("24", defaultMediaKitReplyPrompt, {
-    susanName: SUSAN_NAME,
+    assistantName: ASSISTANT_NAME,
     companyName: COMPANY_NAME,
     leadName: lead.name,
     emailHistory,
@@ -922,20 +922,20 @@ async function generateRejectionReply(
 ): Promise<{ subject: string; body: string }> {
   console.log('Generating rejection counter-reply for lead:', lead.name);
 
-  const defaultRejectionPrompt = `You are ${SUSAN_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
+  const defaultRejectionPrompt = `You are ${ASSISTANT_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
 
 A client has raised a BUDGET OBJECTION to a partnership proposal (price above their budget, or awaiting internal budget confirmation). You need to write a persuasive counter-reply with a specific negotiation strategy.
 
 CRITICAL LANGUAGE RULE: Analyze the ENTIRE email history below. Identify the language the CLIENT uses in their messages. Write your ENTIRE reply in that SAME language. Do NOT write in a different language than the client.
 
 NEGOTIATION STRATEGY (follow this order):
-1. Open warmly: Miguel genuinely loved their product — it has strong resonance with his audience (creators and AI/tech enthusiasts) — and he really wants to make this partnership happen.
+1. Open warmly: Equipe genuinely loved their product — it has strong resonance with his audience (creators and AI/tech enthusiasts) — and he really wants to make this partnership happen.
 2. MAIN MOVE — same value, longer commitment: propose keeping the proposed value per piece, but structuring a LONGER-TERM collaboration (multiple contents over several months). Explain briefly WHY this is the ideal format: recurring partnerships perform much better than one-off posts — the audience builds familiarity and trust with the product over repeated exposure, which is what actually converts.
-3. ALTERNATIVE — their number: if a longer-term commitment isn't possible right now, ask directly how they would like to structure it and what budget they DO have available, so you can bring a tailored proposal to Miguel and make this work.
+3. ALTERNATIVE — their number: if a longer-term commitment isn't possible right now, ask directly how they would like to structure it and what budget they DO have available, so you can bring a tailored proposal to Equipe and make this work.
 4. Close with genuine eagerness to find a path together.
 
 STYLE:
-- Write as Susan, Miguel's assistant, in first person
+- Write as Assistente Escolar, Equipe's assistant, in first person
 - Persuasive but respectful — never aggressive, never desperate
 - Maximum 8-10 lines for the body
 - Do NOT invent numbers, metrics or facts that are not in the history
@@ -966,7 +966,7 @@ Subject: [subject line in the client's language]
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: `You are ${SUSAN_NAME} writing professional emails. You MUST write in the same language the client uses in the conversation history.` },
+        { role: 'system', content: `You are ${ASSISTANT_NAME} writing professional emails. You MUST write in the same language the client uses in the conversation history.` },
         { role: 'user', content: prompt },
       ],
     }),
@@ -1079,12 +1079,12 @@ Conversation history:
   };
 
   // Trava determinística do lowball: só vale se o valor do cliente for <= 25%
-  // do que NÓS propusemos (regra do Miguel: "10x abaixo" merece a contra do dobro).
+  // do que NÓS propusemos (regra do Equipe: "10x abaixo" merece a contra do dobro).
   if (intent.type === 'lowball_counter') {
     const isRealLowball = intent.counter_amount > 0 && intent.our_last_amount > 0
       && intent.counter_amount <= intent.our_last_amount * 0.25;
     if (!isRealLowball) {
-      // Contraproposta razoável → decisão do Miguel, não automação
+      // Contraproposta razoável → decisão do Equipe, não automação
       intent.type = intent.counter_amount > 0 ? 'none' : 'budget_objection';
     }
   }
@@ -1100,20 +1100,20 @@ async function generateLowballReply(
   const counterOffer = `${sym} ${intent.counter_amount.toLocaleString('en-US')}`;
   const doubledOffer = `${sym} ${(intent.counter_amount * 2).toLocaleString('en-US')}`;
 
-  const defaultPrompt = `You are ${SUSAN_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
+  const defaultPrompt = `You are ${ASSISTANT_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
 
-The client counter-offered {counterOffer} — drastically below our original proposal. Miguel's standing negotiation play for this situation: accept to move forward on a FIRST collaboration if they can reach DOUBLE their offer, with a specific lighter package.
+The client counter-offered {counterOffer} — drastically below our original proposal. Equipe's standing negotiation play for this situation: accept to move forward on a FIRST collaboration if they can reach DOUBLE their offer, with a specific lighter package.
 
 CRITICAL LANGUAGE RULE: Analyze the ENTIRE email history below. Identify the language the CLIENT uses. Write your ENTIRE reply in that SAME language.
 
 MESSAGE STRUCTURE (follow exactly):
-1. Say you spoke with Miguel: he genuinely loves the product and really wants to bring it to his audience in a first collaboration.
+1. Say you spoke with Equipe: he genuinely loves the product and really wants to bring it to his audience in a first collaboration.
 2. Be transparent: {counterOffer} is far below his usual partnership investment — but because he believes in the fit, he can make a first collaboration work at {doubledOffer}.
-3. For that amount, the package is: ONE short video distributed across YouTube Shorts, TikTok and Instagram Reels, PLUS a mention in Miguel's newsletter (50,000 subscribers, ~20% open rate) with placement on inventormiguel.com — the largest curated AI catalog in Portuguese, 30,000+ monthly visitors.
+3. For that amount, the package is: ONE short video distributed across YouTube Shorts, TikTok and Instagram Reels, PLUS a mention in Equipe's newsletter (50,000 subscribers, ~20% open rate) with placement on inventorteam.com — the largest curated AI catalog in Portuguese, 30,000+ monthly visitors.
 4. If they can meet {doubledOffer}, you'll move straight to contract. Ask for a quick confirmation.
 
 STYLE:
-- First person as Susan, warm and confident — never desperate, never offended by the low offer
+- First person as Assistente Escolar, warm and confident — never desperate, never offended by the low offer
 - Maximum 8-10 lines
 - Do NOT invent metrics beyond the newsletter numbers above
 - DO NOT include any signature
@@ -1143,20 +1143,20 @@ Subject: [subject line in the client's language]
 async function generateQuoteReply(
   lead: any, emailHistory: string, LOVABLE_API_KEY: string
 ): Promise<{ subject: string; body: string }> {
-  const defaultPrompt = `You are ${SUSAN_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
+  const defaultPrompt = `You are ${ASSISTANT_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
 
 The client explicitly asked for our quote/pricing and we haven't given a number yet. Send the quote — do NOT stall or ask more questions before giving prices.
 
-STANDARD RATE CARD (Miguel's anchors — adapt to the scope discussed in the thread):
+STANDARD RATE CARD (Equipe's anchors — adapt to the scope discussed in the thread):
 - Dedicated YouTube video (review/integration): US$ 3,000
 - Pack of 3 short videos (Shorts/TikTok/Reels): US$ 3,000
-- 1 short video (distributed on YouTube Shorts + TikTok + Instagram Reels) + mention in Miguel's newsletter (50,000 subscribers, ~20% open rate) with placement on inventormiguel.com, the largest curated AI catalog in Portuguese (30,000+ monthly visitors): US$ 1,500
+- 1 short video (distributed on YouTube Shorts + TikTok + Instagram Reels) + mention in Equipe's newsletter (50,000 subscribers, ~20% open rate) with placement on inventorteam.com, the largest curated AI catalog in Portuguese (30,000+ monthly visitors): US$ 1,500
 
 CRITICAL LANGUAGE RULE: Analyze the ENTIRE email history below. Identify the language the CLIENT uses. Write your ENTIRE reply in that SAME language.
 
 INSTRUCTIONS:
 - Quote ONLY the format(s) the client discussed in the thread; if unclear, present the dedicated video and the short+newsletter options
-- Mention that Miguel loved the product and wants to make this work for his audience
+- Mention that Equipe loved the product and wants to make this work for his audience
 - Add that for longer-term collaborations (multiple contents over months) there's room to build a better package — recurring partnerships perform best
 - Invite them to confirm scope so you can move to contract
 - Maximum 10-12 lines
@@ -1185,20 +1185,20 @@ Subject: [subject line in the client's language]
 async function generateCallRequestReply(
   lead: any, emailHistory: string, LOVABLE_API_KEY: string
 ): Promise<{ subject: string; body: string }> {
-  const defaultPrompt = `You are ${SUSAN_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
+  const defaultPrompt = `You are ${ASSISTANT_NAME}, executive assistant to ${COMPANY_NAME}, a content creator and AI keynote speaker.
 
-The client asked to schedule a call as the next step. Miguel's standing play: do NOT book yet — first extract how the partnership actually works, so Miguel can assess viability before anyone spends time on a call that may not be feasible.
+The client asked to schedule a call as the next step. Equipe's standing play: do NOT book yet — first extract how the partnership actually works, so Equipe can assess viability before anyone spends time on a call that may not be feasible.
 
 CRITICAL LANGUAGE RULE: Analyze the ENTIRE email history below. Identify the language the CLIENT uses. Write your ENTIRE reply in that SAME language.
 
 MESSAGE STRUCTURE (follow exactly):
-1. Thank them; say Miguel really liked the product and you will check his calendar availability.
+1. Thank them; say Equipe really liked the product and you will check his calendar availability.
 2. BEFORE booking, ask them to briefly share how they usually structure partnerships with other creators: fixed fee for the content, affiliate/commission only, or a hybrid — and the typical ranges/budgets involved.
-3. Frame it as respect for THEIR time: Miguel likes to assess fit upfront so nobody spends a call on a partnership that might not be viable — with that context, the call (if booked) becomes a decision call, much more productive.
-4. Close warmly, saying that with that info you will come back right away with Miguel's availability.
+3. Frame it as respect for THEIR time: Equipe likes to assess fit upfront so nobody spends a call on a partnership that might not be viable — with that context, the call (if booked) becomes a decision call, much more productive.
+4. Close warmly, saying that with that info you will come back right away with Equipe's availability.
 
 STYLE:
-- First person as Susan, warm, efficient, protective of everyone's time — never dismissive of the call
+- First person as Assistente Escolar, warm, efficient, protective of everyone's time — never dismissive of the call
 - Maximum 8-10 lines
 - Do NOT invent numbers or facts beyond the history and the audience block below
 - DO NOT include any signature
@@ -1232,7 +1232,7 @@ async function generateReplyFromPrompt(
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: `You are ${SUSAN_NAME} writing professional emails. You MUST write in the same language the client uses in the conversation history.` },
+        { role: 'system', content: `You are ${ASSISTANT_NAME} writing professional emails. You MUST write in the same language the client uses in the conversation history.` },
         { role: 'user', content: prompt },
       ],
     }),
@@ -1267,7 +1267,7 @@ interface ProposalParams {
   toAddresses: string[];
   ccAddresses: string[];
   data: any; // original payload for threading
-  createOnly?: boolean; // true = create lead + save Miguel's outbound, no Susan proposal
+  createOnly?: boolean; // true = create lead + save Equipe's outbound, no Assistente Escolar proposal
 }
 
 async function generateAndSendProposal(params: ProposalParams): Promise<{
@@ -1282,10 +1282,10 @@ async function generateAndSendProposal(params: ProposalParams): Promise<{
     fromRaw, toAddresses, ccAddresses, data, createOnly,
   } = params;
 
-  // IMPORTANT: quando é um encaminhamento do Miguel para a Susan, o preâmbulo
-  // do Miguel costuma estar em português ("Susan, manda a proposta...") mesmo
+  // IMPORTANT: quando é um encaminhamento do Equipe para a Assistente Escolar, o preâmbulo
+  // do Equipe costuma estar em português ("Assistente Escolar, manda a proposta...") mesmo
   // quando a mensagem original do cliente é em inglês. Se passarmos o email
-  // inteiro para a IA, ela detecta português e a Susan responde no idioma
+  // inteiro para a IA, ela detecta português e a Assistente Escolar responde no idioma
   // errado. Extraímos primeiro a mensagem ORIGINAL do cliente e usamos ela
   // para a extração de idioma / info.
   const _rawContent = emailText || emailHtml;
@@ -1294,26 +1294,26 @@ async function generateAndSendProposal(params: ProposalParams): Promise<{
     ? _forwardExtract.text
     : _rawContent;
   if (_forwardExtract.isForwarded) {
-    console.log('🌐 Using forwarded client body for language/info extraction (isolated from Miguel preamble).');
+    console.log('🌐 Using forwarded client body for language/info extraction (isolated from Equipe preamble).');
   }
 
   // 1. Extract client info via AI
-  const defaultExtractionPrompt = `Analyze the following email thread. This is an email forwarded by Miguel Fernandes to his assistant Susan.
-Miguel is forwarding a client's email asking Susan to generate a proposal.
+  const defaultExtractionPrompt = `Analyze the following email thread. This is an email forwarded by COC Macapá Norte to his assistant Assistente Escolar.
+Equipe is forwarding a client's email asking Assistente Escolar to generate a proposal.
 
 From: {from}
 To: {to}
 CC: {cc}
 Subject: {subject}
 
-Email content (this is the CLIENT's original message, not Miguel's forward preamble):
+Email content (this is the CLIENT's original message, not Equipe's forward preamble):
 {emailContent}
 
 Extract the following information:
-1. The client's first name (just the first name, e.g. "John" not "John Smith") - this is the person who originally sent the email to Miguel, NOT Miguel Fernandes himself. Look for names in the email signature, greeting, or CC field. If the body is empty, try to find the name from the CC email address or Subject.
+1. The client's first name (just the first name, e.g. "John" not "John Smith") - this is the person who originally sent the email to Equipe, NOT COC Macapá Norte himself. Look for names in the email signature, greeting, or CC field. If the body is empty, try to find the name from the CC email address or Subject.
 2. The client's full name for formal records. If you cannot determine a real name, use the company name or a clean version of the email handle (e.g. "parcerias@company.com" -> use the company name).
 3. The company/organization name if mentioned (check email domain, subject, or body)
-4. The predominant language THE CLIENT ORIGINALLY WROTE IN. Detect from the client's own body and signature above. IGNORE any Portuguese preamble/instruction Miguel may have added when forwarding — the response must match the CLIENT's language, not Miguel's. If the client wrote in English, return "English", even if Miguel's forward text was in Portuguese.
+4. The predominant language THE CLIENT ORIGINALLY WROTE IN. Detect from the client's own body and signature above. IGNORE any Portuguese preamble/instruction Equipe may have added when forwarding — the response must match the CLIENT's language, not Equipe's. If the client wrote in English, return "English", even if Equipe's forward text was in Portuguese.
 5. What the client is requesting (the scope/details of what they want - infer from subject if body is empty)
 6. The PRODUCT TYPE being requested. Classify as one of:
    - "publicidade": ad/sponsorship/branded content/post/story/video/review/parceria de mídia/divulgação em redes sociais
@@ -1403,8 +1403,8 @@ Extract the following information:
 
   if (!finalLeadId) {
     // GUARD: bloquear criação se cliente identificado for um contato interno
-    // (endereços @inventormiguel.link/.com, @inventosdigitais.com.br ou nomes
-    // contendo "InventorMiguel" / "Inventos Digitais").
+    // (endereços @inventorteam.link/.com, @inventosdigitais.com.br ou nomes
+    // contendo "InventorEquipe" / "Inventos Digitais").
     const { isInternalEmail, isInternalName } = await import("../_shared/internal-contacts.ts");
     const anyInternalEmail = (clientEmails || []).some((e: string) => isInternalEmail(e));
     if (anyInternalEmail || isInternalName(leadName) || isInternalName(clientName) || isInternalName(companyName)) {
@@ -1418,13 +1418,13 @@ Extract the following information:
       email: clientEmails[0],
       status: 'em_aberto',
       origem: 'email',
-      source: createOnly ? 'miguel-direct' : 'susan-webhook',
+      source: createOnly ? 'team-direct' : 'assistant-webhook',
       description: `${companyName ? companyName + ' - ' : ''}${scope}`,
     };
     if (['publicidade', 'palestra', 'mentoria', 'consultoria', 'treinamento'].includes(productType)) {
       leadInsert.produto = productType;
     }
-    // Only set the canned proposal value for publicidade leads (Susan flow).
+    // Only set the canned proposal value for publicidade leads (Assistente Escolar flow).
     if (isPublicidade && !createOnly) {
       leadInsert.valor = PROPOSAL_VALUE;
       leadInsert.moeda = PROPOSAL_CURRENCY;
@@ -1447,7 +1447,7 @@ Extract the following information:
     const extracted = extractForwardedClientMessage(emailText, emailHtml);
 
     if (createOnly) {
-      // Miguel wrote directly to the client → save HIS email as outbound (not inbound)
+      // Equipe wrote directly to the client → save HIS email as outbound (not inbound)
       await saveOutboundEmail(
         supabase,
         finalLeadId,
@@ -1458,7 +1458,7 @@ Extract the following information:
         data.message_id || data.messageId || null
       );
 
-      // If Miguel's email is a forward, also save the forwarded client's original
+      // If Equipe's email is a forward, also save the forwarded client's original
       // content as an inbound message so the lead history includes what the client sent.
       if (extracted.isForwarded) {
         await saveInboundEmail(
@@ -1472,13 +1472,13 @@ Extract the following information:
         );
       }
     } else {
-      // Save inbound email for new leads — strip Miguel's forward preamble so the saved
-      // inbound message is the client's actual content, not Miguel's "susan, manda a proposta".
+      // Save inbound email for new leads — strip Equipe's forward preamble so the saved
+      // inbound message is the client's actual content, not Equipe's "assistant, manda a proposta".
       await saveInboundEmail(supabase, finalLeadId, emailSubject, extracted.text, extracted.html || emailHtml, data.created_at || new Date().toISOString(), data.message_id || data.messageId || null);
     }
   }
 
-  // createOnly mode: lead + outbound email saved, no Susan automation. Return.
+  // createOnly mode: lead + outbound email saved, no Assistente Escolar automation. Return.
   if (createOnly) {
     return {
       success: true,
@@ -1488,9 +1488,9 @@ Extract the following information:
     };
   }
 
-  // GATE: Susan only sends automated proposals (with price) for publicidade leads.
+  // GATE: Assistente Escolar only sends automated proposals (with price) for publicidade leads.
   // For palestra/keynote/consultoria/etc, create the lead but DO NOT send any email —
-  // Miguel handles pricing and the reply manually.
+  // Equipe handles pricing and the reply manually.
   if (!isPublicidade) {
     console.log(`⏭️ Product type is "${productType}" (not publicidade). Lead created, NO proposal email sent.`);
     return {
@@ -1511,7 +1511,7 @@ Extract the following information:
     ? 'Escreva TODO o email em portugues brasileiro.'
     : `Escreva o email em ${clientLanguage}.`;
 
-  const defaultProposalPrompt = `Voce e Susan, assistente executiva de Miguel Fernandes, palestrante e especialista em IA.
+  const defaultProposalPrompt = `Voce e Assistente Escolar, assistente executiva de COC Macapá Norte, palestrante e especialista em IA.
 
 Escreva um email para o cliente enviando a proposta de parceria.
 
@@ -1525,15 +1525,15 @@ DADOS:
 REGRAS:
 1. {langInstruction}
 2. Cumprimente o cliente pelo primeiro nome: "{clientFirstName}"
-3. Diga que Miguel ADOROU o produto/projeto e viu muito fit com o publico dele
-4. Diga que Miguel quer muito viabilizar essa parceria
+3. Diga que Equipe ADOROU o produto/projeto e viu muito fit com o publico dele
+4. Diga que Equipe quer muito viabilizar essa parceria
 5. Apresente o valor de US$ 3.000 (tres mil dolares) para o escopo solicitado. NAO escreva "dolares americanos", apenas "dolares"
 6. Pergunte como podemos fazer para viabilizar, estimulando o cliente a propor algo mesmo que o valor pareca alto
 7. Peca resposta ate {deadline} pois a agenda de gravacoes esta apertada
-8. Assine como "Susan" - Assistente Executiva de Miguel Fernandes
+8. Assine como "Assistente Escolar" - Assistente Executiva de COC Macapá Norte
 9. NAO inclua prefixo "Subject:" ou "Assunto:" - apenas o corpo
 10. Seja profissional, objetiva e persuasiva - maximo 10 linhas no corpo
-11. REGRA DO MEDIA KIT: SOMENTE inclua o link https://inventormiguel.link/kit se o cliente EXPLICITAMENTE pediu Media Kit, press kit, kit de midia, tabela de precos, numeros do Miguel, portfolio, ou informacoes sobre o alcance do Miguel nas mensagens dele. Se o cliente NAO pediu explicitamente essas informacoes, NAO inclua este link de forma alguma.
+11. REGRA DO MEDIA KIT: SOMENTE inclua o link https://inventorteam.link/kit se o cliente EXPLICITAMENTE pediu Media Kit, press kit, kit de midia, tabela de precos, numeros do Equipe, portfolio, ou informacoes sobre o alcance do Equipe nas mensagens dele. Se o cliente NAO pediu explicitamente essas informacoes, NAO inclua este link de forma alguma.
 
 Formato:
 Subject: [assunto]
@@ -1558,7 +1558,7 @@ Subject: [assunto]
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: `Voce e Susan, assistente executiva de Miguel Fernandes. Escreva emails curtos e objetivos. ${langInstruction}` },
+        { role: 'system', content: `Voce e Assistente Escolar, assistente executiva de COC Macapá Norte. Escreva emails curtos e objetivos. ${langInstruction}` },
         { role: 'user', content: proposalPrompt },
       ],
     }),
@@ -1600,7 +1600,7 @@ Subject: [assunto]
 
     if (allLeadEmails && allLeadEmails.length > 0) {
       emailThreadHtml = allLeadEmails.map((e: any) => {
-        const from = e.direction === 'inbound' ? (clientName || 'Client') : SUSAN_NAME;
+        const from = e.direction === 'inbound' ? (clientName || 'Client') : ASSISTANT_NAME;
         const date = new Date(e.timestamp).toLocaleString();
         const subj = e.subject ? `<strong>Subject:</strong> ${e.subject}<br>` : '';
         const content = (e.html_body || e.message || '').replace(/\n/g, '<br>');
@@ -1634,7 +1634,7 @@ ${emailThreadHtml}`;
   console.log('Sending proposal email via Resend to:', clientEmails);
   const replyHeaders: Record<string, string> = {};
   const messageId = data.message_id || data.messageId;
-  const outgoingMessageId = generateMessageId(SUSAN_EMAIL);
+  const outgoingMessageId = generateMessageId(ASSISTANT_EMAIL);
 
   // Build complete References chain from all resend_message_ids
   if (finalLeadId) {
@@ -1664,7 +1664,7 @@ ${emailThreadHtml}`;
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: `${SUSAN_NAME} - ${COMPANY_NAME} <${SUSAN_EMAIL}>`,
+      from: `${ASSISTANT_NAME} - ${COMPANY_NAME} <${ASSISTANT_EMAIL}>`,
       to: clientEmails,
       cc: [COMPANY_EMAIL],
       subject: replySubject,
@@ -1700,7 +1700,7 @@ ${emailThreadHtml}`;
       raw_data: {
         headers: { 'Message-ID': proposalResendMessageId, ...replyHeaders },
         resend_id: sendData.id || null,
-        from: SUSAN_EMAIL,
+        from: ASSISTANT_EMAIL,
         to: clientEmails,
         cc: [COMPANY_EMAIL],
       },
@@ -1743,20 +1743,20 @@ serve(async (req) => {
 
   try {
     // Load dynamic settings
-    const settings = await getSettings(['susan_name', 'susan_email', 'company_name', 'company_email']);
-    SUSAN_NAME = settings.susan_name;
-    SUSAN_EMAIL = settings.susan_email;
+    const settings = await getSettings(['assistant_name', 'assistant_email', 'company_name', 'company_email']);
+    ASSISTANT_NAME = settings.assistant_name;
+    ASSISTANT_EMAIL = settings.assistant_email;
     COMPANY_NAME = settings.company_name;
     COMPANY_EMAIL = settings.company_email;
 
     // Carrega emails de usuários do sistema (funcionários) para nunca tratá-los como leads
     SYSTEM_USER_EMAILS = await getSystemUserEmails();
-    IGNORED_EMAILS = [...INTERNAL_ASSISTANT_EMAILS, ...MIGUEL_EMAILS, ...SYSTEM_USER_EMAILS];
+    IGNORED_EMAILS = [...INTERNAL_ASSISTANT_EMAILS, ...TEAM_EMAILS, ...SYSTEM_USER_EMAILS];
     console.log(`Loaded ${SYSTEM_USER_EMAILS.length} system user emails to ignore as leads`);
 
     const payload = await req.json();
     console.log('=== RESEND INBOUND WEBHOOK ===');
-    console.log(`Sender identity: ${SUSAN_NAME} <${SUSAN_EMAIL}>`);
+    console.log(`Sender identity: ${ASSISTANT_NAME} <${ASSISTANT_EMAIL}>`);
     console.log('Event type:', payload.type);
 
     if (payload.type !== 'email.received') {
@@ -1777,11 +1777,11 @@ serve(async (req) => {
     const fromRaw: string = data.from || '';
     const allRecipients = [...toAddresses, ...ccAddresses];
 
-    // 1. Check if email is for Susan or Sara (internal assistants), whether in TO or CC.
+    // 1. Check if email is for Assistente Escolar or Sara (internal assistants), whether in TO or CC.
     // Resend can deliver both as arrays or comma-separated header strings, so normalize first.
     const isForAssistant = allRecipients.some(isAssistantRecipient);
     if (!isForAssistant) {
-      console.log('Email not addressed to any assistant (Susan/Sara), ignoring.');
+      console.log('Email not addressed to any assistant (Assistente Escolar/Sara), ignoring.');
       return new Response(JSON.stringify({ ok: true, ignored: true, reason: 'not_for_assistant' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -1821,14 +1821,14 @@ serve(async (req) => {
     console.log('Subject:', emailSubject);
     console.log('Email text length:', emailText.length, 'HTML length:', emailHtml.length);
 
-    // 4. Determine if from Miguel
+    // 4. Determine if from Equipe
     const fromEmailClean = extractCleanEmail(fromRaw);
-    const isFromMiguel = MIGUEL_EMAILS.some(me => fromEmailClean.includes(me));
+    const isFromEquipe = TEAM_EMAILS.some(me => fromEmailClean.includes(me));
 
 
 
-    if (!isFromMiguel) {
-      // === FLOW: Email from client (not Miguel) ===
+    if (!isFromEquipe) {
+      // === FLOW: Email from client (not Equipe) ===
       console.log('Email from external sender:', fromEmailClean);
 
       // Anti-duplicação: procura o lead pelo REMETENTE e também pelos demais
@@ -1845,7 +1845,7 @@ serve(async (req) => {
 
       if (!existingLead) {
         // GUARD: nunca criar oportunidade a partir de endereço interno
-        // (@inventormiguel.link/.com, @inventosdigitais.com.br, etc.)
+        // (@inventorteam.link/.com, @inventosdigitais.com.br, etc.)
         const { isInternalEmail, isInternalName } = await import("../_shared/internal-contacts.ts");
         const fromDisplay = extractDisplayName(fromRaw, fromEmailClean);
         if (isInternalEmail(fromEmailClean) || isInternalName(fromDisplay)) {
@@ -1911,11 +1911,11 @@ serve(async (req) => {
           console.error('Checagem de duplicata por domínio falhou (não fatal):', e);
         }
 
-        // === Loop-in Miguel também no PRIMEIRO email (lead novo): se ele não
-        // estiver em To/CC, Susan responde reply-all colocando Miguel em cópia ===
+        // === Loop-in Equipe também no PRIMEIRO email (lead novo): se ele não
+        // estiver em To/CC, Assistente Escolar responde reply-all colocando Equipe em cópia ===
         try {
-          const { maybeLoopInMiguel } = await import("../_shared/loop-in-miguel.ts");
-          await maybeLoopInMiguel({
+          const { maybeLoopInEquipe } = await import("../_shared/loop-in-team.ts");
+          await maybeLoopInEquipe({
             supabase,
             lead: { id: created.leadId, name: created.leadName, language: null },
             originalFrom: fromEmailClean,
@@ -1926,14 +1926,14 @@ serve(async (req) => {
             inboundMessageId,
             priorMessageIds: [],
             resendApiKey,
-            susanEmail: SUSAN_EMAIL,
-            susanName: SUSAN_NAME,
+            assistantEmail: ASSISTANT_EMAIL,
+            assistantName: ASSISTANT_NAME,
             companyName: COMPANY_NAME,
             companyEmail: COMPANY_EMAIL,
             systemUserEmails: SYSTEM_USER_EMAILS,
           });
         } catch (loopErr) {
-          console.error("Erro ao executar loop-in Miguel em lead novo (não fatal):", loopErr);
+          console.error("Erro ao executar loop-in Equipe em lead novo (não fatal):", loopErr);
         }
 
         return new Response(JSON.stringify({ success: true, created: true, lead_id: created.leadId, lead_name: created.leadName }), {
@@ -1968,13 +1968,13 @@ serve(async (req) => {
         console.error('Extração de telefone falhou (não fatal):', e);
       }
 
-      // === Loop-in Miguel: se ele não estiver em To/CC, Susan responde reply-all com Miguel em cópia ===
+      // === Loop-in Equipe: se ele não estiver em To/CC, Assistente Escolar responde reply-all com Equipe em cópia ===
       try {
-        const { maybeLoopInMiguel } = await import("../_shared/loop-in-miguel.ts");
+        const { maybeLoopInEquipe } = await import("../_shared/loop-in-team.ts");
         const { data: leadForLoop } = await supabase
           .from("leads").select("id, name, language").eq("id", existingLead.id).maybeSingle();
         if (leadForLoop) {
-          await maybeLoopInMiguel({
+          await maybeLoopInEquipe({
             supabase,
             lead: leadForLoop,
             originalFrom: fromEmailClean,
@@ -1985,21 +1985,21 @@ serve(async (req) => {
             inboundMessageId,
             priorMessageIds: [],
             resendApiKey,
-            susanEmail: SUSAN_EMAIL,
-            susanName: SUSAN_NAME,
+            assistantEmail: ASSISTANT_EMAIL,
+            assistantName: ASSISTANT_NAME,
             companyName: COMPANY_NAME,
             companyEmail: COMPANY_EMAIL,
             systemUserEmails: SYSTEM_USER_EMAILS,
           });
         }
       } catch (loopErr) {
-        console.error("Erro ao executar loop-in Miguel (não fatal):", loopErr);
+        console.error("Erro ao executar loop-in Equipe (não fatal):", loopErr);
       }
 
       // === Detectar declínio explícito do cliente (SOMENTE registrar nota) ===
       // IMPORTANTE: NUNCA alterar status para 'perdido' automaticamente.
       // O status 'perdido' é exclusivamente manual, definido pelo usuário.
-      // Aqui apenas registramos uma observação para o Miguel avaliar.
+      // Aqui apenas registramos uma observação para o Equipe avaliar.
       try {
         const noteEligibleStatuses = ['em_aberto', 'em_negociacao'];
         const { data: currentLead } = await supabase
@@ -2019,7 +2019,7 @@ serve(async (req) => {
             .limit(20);
 
           const histText = (histEmails || []).map((e: any) => {
-            const dir = e.direction === 'inbound' ? 'Cliente' : 'Susan';
+            const dir = e.direction === 'inbound' ? 'Cliente' : 'Assistente Escolar';
             const content = (e.message || e.html_body || '').substring(0, 1500);
             return `[${dir} - ${new Date(e.timestamp).toLocaleString()}]\n${e.subject ? 'Assunto: ' + e.subject + '\n' : ''}${content}`;
           }).join('\n\n---\n\n');
@@ -2076,7 +2076,7 @@ serve(async (req) => {
 
         const emails = allEmails || [];
         const emailHistoryText = emails.map((e: any) => {
-          const dir = e.direction === 'inbound' ? 'Client' : 'Susan';
+          const dir = e.direction === 'inbound' ? 'Client' : 'Assistente Escolar';
           const content = (e.message || e.html_body || '').substring(0, 2000);
           return `[${dir} - ${new Date(e.timestamp).toLocaleString()}]\n${e.subject ? 'Subject: ' + e.subject + '\n' : ''}${content}`;
         }).join('\n\n---\n\n');
@@ -2106,7 +2106,7 @@ serve(async (req) => {
           const emailThread = emails
             .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
             .map((e: any) => {
-              const from = e.direction === 'inbound' ? existingLead.name : SUSAN_NAME;
+              const from = e.direction === 'inbound' ? existingLead.name : ASSISTANT_NAME;
               const date = new Date(e.timestamp).toLocaleString();
               const subj = e.subject ? `<strong>Subject:</strong> ${e.subject}<br>` : '';
               const content = (e.html_body || e.message || '').replace(/\n/g, '<br>');
@@ -2119,7 +2119,7 @@ serve(async (req) => {
           const fullBody = `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">
             ${bodyHtml}
             <br><br>
-            <p style="color: #666; font-size: 12px;">—<br>${SUSAN_NAME}<br>Executive Assistant to ${COMPANY_NAME}<br>${SUSAN_EMAIL}</p>
+            <p style="color: #666; font-size: 12px;">—<br>${ASSISTANT_NAME}<br>Atendimento ${COMPANY_NAME}<br>${ASSISTANT_EMAIL}</p>
             ${emailThread}
           </div>`;
 
@@ -2135,7 +2135,7 @@ serve(async (req) => {
           // Threading headers - build complete References chain
           const replyHeaders: Record<string, string> = {};
           const messageId = data.message_id || data.messageId;
-          const outgoingMessageId = generateMessageId(SUSAN_EMAIL);
+          const outgoingMessageId = generateMessageId(ASSISTANT_EMAIL);
           
           const allMsgIds = emails
             .map((e: any) => e.resend_message_id)
@@ -2156,7 +2156,7 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: `${SUSAN_NAME} - ${COMPANY_NAME} <${SUSAN_EMAIL}>`,
+              from: `${ASSISTANT_NAME} - ${COMPANY_NAME} <${ASSISTANT_EMAIL}>`,
               to: uniqueRecipients,
               cc: [COMPANY_EMAIL],
               subject: replySubject,
@@ -2191,7 +2191,7 @@ serve(async (req) => {
                   headers: { 'Message-ID': rejectionResendMsgId, ...replyHeaders },
                   resend_id: sendData.id || null,
                   auto_reply: 'rejection_counter_reply',
-                  from: SUSAN_EMAIL,
+                  from: ASSISTANT_EMAIL,
                   to: uniqueRecipients,
                   cc: [COMPANY_EMAIL],
                 },
@@ -2226,7 +2226,7 @@ serve(async (req) => {
 
         const mkEmailsList = mkEmails || [];
         mediaKitEmailHistory = mkEmailsList.map((e: any) => {
-          const dir = e.direction === 'inbound' ? 'Client' : 'Susan';
+          const dir = e.direction === 'inbound' ? 'Client' : 'Assistente Escolar';
           const content = (e.message || e.html_body || '').substring(0, 2000);
           return `[${dir} - ${new Date(e.timestamp).toLocaleString()}]\n${e.subject ? 'Subject: ' + e.subject + '\n' : ''}${content}`;
         }).join('\n\n---\n\n');
@@ -2238,7 +2238,7 @@ serve(async (req) => {
 
           // Fetch media_kit_link from settings
           const mkSettings = await getSettings(['media_kit_link']);
-          const mediaKitLink = mkSettings.media_kit_link || 'https://inventormiguel.link/kit';
+          const mediaKitLink = mkSettings.media_kit_link || 'https://inventorteam.link/kit';
 
           const { subject, body } = await generateMediaKitReply(existingLead, mediaKitEmailHistory, mediaKitLink, LOVABLE_API_KEY!);
 
@@ -2247,7 +2247,7 @@ serve(async (req) => {
           const emailThread = mkEmailsList
             .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
             .map((e: any) => {
-              const from = e.direction === 'inbound' ? existingLead.name : SUSAN_NAME;
+              const from = e.direction === 'inbound' ? existingLead.name : ASSISTANT_NAME;
               const date = new Date(e.timestamp).toLocaleString();
               const subj = e.subject ? `<strong>Subject:</strong> ${e.subject}<br>` : '';
               const content = (e.html_body || e.message || '').replace(/\n/g, '<br>');
@@ -2260,7 +2260,7 @@ serve(async (req) => {
           const fullBody = `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">
             ${bodyHtml}
             <br><br>
-            <p style="color: #666; font-size: 12px;">—<br>${SUSAN_NAME}<br>Executive Assistant to ${COMPANY_NAME}<br>${SUSAN_EMAIL}</p>
+            <p style="color: #666; font-size: 12px;">—<br>${ASSISTANT_NAME}<br>Atendimento ${COMPANY_NAME}<br>${ASSISTANT_EMAIL}</p>
             ${emailThread}
           </div>`;
 
@@ -2276,7 +2276,7 @@ serve(async (req) => {
           // Threading headers
           const replyHeaders: Record<string, string> = {};
           const messageId = data.message_id || data.messageId;
-          const outgoingMessageId = generateMessageId(SUSAN_EMAIL);
+          const outgoingMessageId = generateMessageId(ASSISTANT_EMAIL);
           
           const allMsgIds = mkEmailsList
             .map((e: any) => e.resend_message_id)
@@ -2297,7 +2297,7 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: `${SUSAN_NAME} - ${COMPANY_NAME} <${SUSAN_EMAIL}>`,
+              from: `${ASSISTANT_NAME} - ${COMPANY_NAME} <${ASSISTANT_EMAIL}>`,
               to: uniqueRecipients,
               cc: [COMPANY_EMAIL],
               subject: replySubject,
@@ -2332,7 +2332,7 @@ serve(async (req) => {
                   headers: { 'Message-ID': mkResendMsgId, ...replyHeaders },
                   resend_id: sendData.id || null,
                   auto_reply: 'media_kit',
-                  from: SUSAN_EMAIL,
+                  from: ASSISTANT_EMAIL,
                   to: uniqueRecipients,
                   cc: [COMPANY_EMAIL],
                 },
@@ -2361,7 +2361,7 @@ serve(async (req) => {
 
         const stEmailsList = stEmails || [];
         const statsEmailHistory = stEmailsList.map((e: any) => {
-          const dir = e.direction === 'inbound' ? 'Client' : 'Susan';
+          const dir = e.direction === 'inbound' ? 'Client' : 'Assistente Escolar';
           const content = (e.message || e.html_body || '').substring(0, 2000);
           return `[${dir} - ${new Date(e.timestamp).toLocaleString()}]\n${e.subject ? 'Subject: ' + e.subject + '\n' : ''}${content}`;
         }).join('\n\n---\n\n');
@@ -2389,19 +2389,19 @@ serve(async (req) => {
           const replyPrompts: Record<string, { subject: string; body: string }> = {
             English: {
               subject: emailSubject?.toLowerCase().startsWith('re:') ? emailSubject : `Re: ${emailSubject || 'Partnership'}`,
-              body: `Hi ${existingLead.name?.split(' ')[0] || 'there'},\n\nPlease find attached a screenshot from Miguel's Instagram insights showing the audience sources, top countries, and profile activity for the last 30 days, along with his most viewed reels.\n\nLet me know if you need anything else.`,
+              body: `Hi ${existingLead.name?.split(' ')[0] || 'there'},\n\nPlease find attached a screenshot from Equipe's Instagram insights showing the audience sources, top countries, and profile activity for the last 30 days, along with his most viewed reels.\n\nLet me know if you need anything else.`,
             },
             Portuguese: {
               subject: emailSubject?.toLowerCase().startsWith('re:') ? emailSubject : `Re: ${emailSubject || 'Parceria'}`,
-              body: `Olá ${existingLead.name?.split(' ')[0] || ''},\n\nSegue em anexo um print das estatísticas do Instagram do Miguel mostrando as fontes de audiência, principais países e atividade de perfil dos últimos 30 dias, junto com os reels mais vistos.\n\nQualquer outra informação que precise é só avisar.`,
+              body: `Olá ${existingLead.name?.split(' ')[0] || ''},\n\nSegue em anexo um print das estatísticas do Instagram do Equipe mostrando as fontes de audiência, principais países e atividade de perfil dos últimos 30 dias, junto com os reels mais vistos.\n\nQualquer outra informação que precise é só avisar.`,
             },
             Spanish: {
               subject: emailSubject?.toLowerCase().startsWith('re:') ? emailSubject : `Re: ${emailSubject || 'Colaboración'}`,
-              body: `Hola ${existingLead.name?.split(' ')[0] || ''},\n\nAdjunto un print de las estadísticas de Instagram de Miguel mostrando las fuentes de audiencia, principales países y actividad de perfil de los últimos 30 días, junto con los reels más vistos.\n\nCualquier otra información que necesites, avísame.`,
+              body: `Hola ${existingLead.name?.split(' ')[0] || ''},\n\nAdjunto un print de las estadísticas de Instagram de Equipe mostrando las fuentes de audiencia, principales países y actividad de perfil de los últimos 30 días, junto con los reels más vistos.\n\nCualquier otra información que necesites, avísame.`,
             },
             French: {
               subject: emailSubject?.toLowerCase().startsWith('re:') ? emailSubject : `Re: ${emailSubject || 'Partenariat'}`,
-              body: `Bonjour ${existingLead.name?.split(' ')[0] || ''},\n\nVeuillez trouver ci-joint une capture des statistiques Instagram de Miguel montrant les sources d'audience, les principaux pays et l'activité du profil des 30 derniers jours, ainsi que les reels les plus vus.\n\nN'hésitez pas si vous avez besoin d'autre chose.`,
+              body: `Bonjour ${existingLead.name?.split(' ')[0] || ''},\n\nVeuillez trouver ci-joint une capture des statistiques Instagram de Equipe montrant les sources d'audience, les principaux pays et l'activité du profil des 30 derniers jours, ainsi que les reels les plus vus.\n\nN'hésitez pas si vous avez besoin d'autre chose.`,
             },
           };
           const { subject: replySubject, body } = replyPrompts[lang] || replyPrompts.English;
@@ -2410,7 +2410,7 @@ serve(async (req) => {
           const fullBody = `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">
             ${bodyHtml}
             <br><br>
-            <p style="color: #666; font-size: 12px;">—<br>${SUSAN_NAME}<br>Executive Assistant to ${COMPANY_NAME}<br>${SUSAN_EMAIL}</p>
+            <p style="color: #666; font-size: 12px;">—<br>${ASSISTANT_NAME}<br>Atendimento ${COMPANY_NAME}<br>${ASSISTANT_EMAIL}</p>
           </div>`;
 
           const recipientEmails = existingLead.emails && existingLead.emails.length > 0
@@ -2421,7 +2421,7 @@ serve(async (req) => {
           // Threading
           const replyHeaders: Record<string, string> = {};
           const messageId = data.message_id || data.messageId;
-          const outgoingMessageId = generateMessageId(SUSAN_EMAIL);
+          const outgoingMessageId = generateMessageId(ASSISTANT_EMAIL);
           const allMsgIds = stEmailsList.map((e: any) => e.resend_message_id).filter(Boolean);
           if (messageId) allMsgIds.push(messageId);
           if (allMsgIds.length > 0) {
@@ -2452,7 +2452,7 @@ serve(async (req) => {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${stResendApiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: `${SUSAN_NAME} - ${COMPANY_NAME} <${SUSAN_EMAIL}>`,
+              from: `${ASSISTANT_NAME} - ${COMPANY_NAME} <${ASSISTANT_EMAIL}>`,
               to: uniqueRecipients,
               cc: [COMPANY_EMAIL],
               subject: replySubject,
@@ -2483,7 +2483,7 @@ serve(async (req) => {
                 headers: { 'Message-ID': outgoingMessageId, ...replyHeaders },
                 resend_id: sendData.id || null,
                 auto_reply: 'stats',
-                from: SUSAN_EMAIL,
+                from: ASSISTANT_EMAIL,
                 to: uniqueRecipients,
                 cc: [COMPANY_EMAIL],
               },
@@ -2506,8 +2506,8 @@ serve(async (req) => {
       );
     }
 
-    // === FLOW: Email from Miguel ===
-    console.log('Email from Miguel, extracting client emails...');
+    // === FLOW: Email from Equipe ===
+    console.log('Email from Equipe, extracting client emails...');
 
     const clientEmails = allRecipients.filter(addr => {
       const clean = addr.replace(/<|>/g, '').trim().toLowerCase();
@@ -2586,8 +2586,8 @@ serve(async (req) => {
 
     console.log('Client emails found:', clientEmails);
 
-    // Fallback 4: se ainda não achamos o cliente (ex.: Miguel respondeu do Outlook
-    // com Susan em BCC, então o envelope só tem susan@ em TO/CC), tenta resolver
+    // Fallback 4: se ainda não achamos o cliente (ex.: Equipe respondeu do Outlook
+    // com Assistente Escolar em BCC, então o envelope só tem assistant@ em TO/CC), tenta resolver
     // o lead via In-Reply-To/References — que apontam para uma mensagem do cliente
     // já registrada em email_messages.
     let leadFromHeaders: any = null;
@@ -2675,7 +2675,7 @@ serve(async (req) => {
       // Associate CC emails to lead
       await associateCCEmailsToLeadSafe(supabase, existingLead.id, clientEmails, existingLead.emails || []);
 
-      // Analyze if Miguel wants to send a proposal
+      // Analyze if Equipe wants to send a proposal
       const emailContent = emailText || emailHtml || '';
       const shouldSend = await analyzeIntent(emailContent, emailSubject, LOVABLE_API_KEY);
 
@@ -2719,7 +2719,7 @@ serve(async (req) => {
       }
 
       if (leadProduto !== 'publicidade') {
-        console.log(`Lead produto is "${leadProduto}", NOT publicidade. Skipping proposal. Susan only sends proposals for publicidade.`);
+        console.log(`Lead produto is "${leadProduto}", NOT publicidade. Skipping proposal. Assistente Escolar only sends proposals for publicidade.`);
         return new Response(
           JSON.stringify({ success: true, associated: true, lead_id: existingLead.id, lead_name: existingLead.name, email_sent: false, intent: 'proposal_skipped_not_publicidade', produto: leadProduto }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -2746,7 +2746,7 @@ serve(async (req) => {
     const shouldSendForNew = await analyzeIntent(emailContent, emailSubject, LOVABLE_API_KEY);
 
     if (!shouldSendForNew) {
-      console.log('Intent: NO proposal requested for new lead. Creating lead (createOnly) and saving Miguel outbound email...');
+      console.log('Intent: NO proposal requested for new lead. Creating lead (createOnly) and saving Equipe outbound email...');
       const createResult = await generateAndSendProposal({
         supabase, resendApiKey, LOVABLE_API_KEY,
         leadId: null,
@@ -2778,7 +2778,7 @@ serve(async (req) => {
       );
     }
 
-    // New lead + intent = true → create lead and send proposal as instructed by Miguel
+    // New lead + intent = true → create lead and send proposal as instructed by Equipe
     console.log('Intent: PROPOSAL requested for NEW lead. Creating lead and sending proposal...');
     const proposalResult = await generateAndSendProposal({
       supabase, resendApiKey, LOVABLE_API_KEY,
