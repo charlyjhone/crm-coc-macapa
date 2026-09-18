@@ -13,6 +13,7 @@ import EnrollmentPipeline from "./pages/EnrollmentPipeline";
 import SchoolVisits from "./pages/SchoolVisits";
 import EnrollmentTasks from "./pages/EnrollmentTasks";
 import AcquisitionAnalytics from "./pages/AcquisitionAnalytics";
+import EnrollmentPossibilities from "./pages/EnrollmentPossibilities";
 import OpportunityDetail from "./pages/OpportunityDetail";
 import Unclassified from "./pages/Unclassified";
 import Archived from "./pages/Archived";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/visitas" element={<ProtectedLayout><SchoolVisits /></ProtectedLayout>} />
             <Route path="/tarefas-captacao" element={<ProtectedLayout><EnrollmentTasks /></ProtectedLayout>} />
             <Route path="/origem-conversao" element={<ProtectedLayout><AcquisitionAnalytics /></ProtectedLayout>} />
+            <Route path="/possibilidades" element={<ProtectedLayout><EnrollmentPossibilities /></ProtectedLayout>} />
             <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
             <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
