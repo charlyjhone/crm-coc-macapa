@@ -3110,3 +3110,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Boa tarde, vamos iniciar os trabalhos? Precisamos terminar as correções e melhorias do crm
 
 **Ação Codex:** Implementado o motor explicável de possibilidade de matrícula e a fila priorizada. A pontuação passa a considerar etapa, visita, objeções, tarefas atrasadas, próxima ação, tempo sem avanço, dados de contato e disponibilidade de vaga; os cálculos são atualizados por gatilhos e podem ser recalculados em lote pela interface.
+
+
+### [14:32] Prompt
+> Vamos em frente
+
+**Ação Codex:** Executada auditoria técnica real da branch escolar. O build de produção compilou 3.498 módulos com sucesso; o lint dos arquivos novos passou sem erros ou avisos. Foram corrigidos avisos de hooks, documentado o uso temporário de tipos ainda não regenerados do Supabase e implementado carregamento sob demanda das páginas, reduzindo o pacote inicial e separando os módulos por rota.
