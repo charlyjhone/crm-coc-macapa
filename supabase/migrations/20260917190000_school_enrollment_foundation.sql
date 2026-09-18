@@ -593,7 +593,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_opportunity public.enrollment_opportunities%rowtype;
   v_guardian public.guardians%rowtype;
@@ -752,7 +752,7 @@ begin
     'explanation', v_explanation
   );
 end;
-$;
+$$;
 
 revoke all on function public.recompute_enrollment_score(uuid) from public;
 grant execute on function public.recompute_enrollment_score(uuid) to authenticated;
@@ -762,7 +762,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_id uuid;
   v_count integer := 0;
@@ -777,7 +777,7 @@ begin
   end loop;
   return v_count;
 end;
-$;
+$$;
 
 revoke all on function public.recompute_all_enrollment_scores() from public;
 grant execute on function public.recompute_all_enrollment_scores() to authenticated;
@@ -787,7 +787,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_opportunity_id uuid;
 begin
@@ -795,7 +795,7 @@ begin
   perform public.recompute_enrollment_score(v_opportunity_id);
   return coalesce(new, old);
 end;
-$;
+$$;
 
 drop trigger if exists refresh_score_after_visit on public.school_visits;
 create trigger refresh_score_after_visit
@@ -812,12 +812,12 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   perform public.recompute_enrollment_score(new.id);
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists refresh_score_after_opportunity_change on public.enrollment_opportunities;
 create trigger refresh_score_after_opportunity_change
