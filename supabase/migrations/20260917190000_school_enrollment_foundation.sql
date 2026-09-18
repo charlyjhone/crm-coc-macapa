@@ -588,6 +588,244 @@ $$;
 revoke all on function public.complete_enrollment_task(uuid,text,timestamptz,text) from public;
 grant execute on function public.complete_enrollment_task(uuid,text,timestamptz,text) to authenticated;
 
+create or replace function public.recompute_enrollment_score(p_opportunity_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_opportunity public.enrollment_opportunities%rowtype;
+  v_guardian public.guardians%rowtype;
+  v_score integer;
+  v_confidence integer := 20;
+  v_explanation text;
+  v_available_seats integer;
+  v_has_capacity boolean := false;
+  v_visit_status text;
+  v_has_objections boolean := false;
+  v_overdue_tasks integer := 0;
+begin
+  select * into v_opportunity
+  from public.enrollment_opportunities
+  where id = p_opportunity_id;
+
+  if not found then raise exception 'Oportunidade não encontrada'; end if;
+
+  if v_opportunity.stage = 'matriculado' then
+    v_score := 100;
+    v_confidence := 100;
+    v_explanation := 'Matrícula concluída.';
+  elsif v_opportunity.stage = 'perdido' then
+    v_score := 0;
+    v_confidence := 100;
+    v_explanation := 'Oportunidade encerrada como perdida.';
+  else
+    v_score := case v_opportunity.stage
+      when 'novo_interessado' then 15
+      when 'tentativa_contato' then 18
+      when 'contato_realizado' then 30
+      when 'qualificado' then 50
+      when 'visita_agendada' then 62
+      when 'visita_realizada' then 72
+      when 'condicoes_apresentadas' then 80
+      when 'documentacao_pendente' then 88
+      when 'matricula_em_conclusao' then 95
+      when 'nutricao' then 25
+      else 10
+    end;
+    v_explanation := 'Etapa atual: ' || replace(v_opportunity.stage, '_', ' ') || '.';
+
+    if v_opportunity.primary_guardian_id is not null then
+      select * into v_guardian from public.guardians where id = v_opportunity.primary_guardian_id;
+      if nullif(trim(v_guardian.phone), '') is not null then
+        v_score := v_score + 3;
+        v_confidence := v_confidence + 15;
+        v_explanation := v_explanation || ' WhatsApp informado.';
+      end if;
+      if nullif(trim(v_guardian.email), '') is not null then
+        v_score := v_score + 2;
+        v_confidence := v_confidence + 10;
+        v_explanation := v_explanation || ' E-mail informado.';
+      end if;
+    end if;
+
+    select status, nullif(trim(objections), '') is not null
+      into v_visit_status, v_has_objections
+    from public.school_visits
+    where opportunity_id = p_opportunity_id
+    order by scheduled_at desc
+    limit 1;
+
+    if v_visit_status is not null then
+      v_confidence := v_confidence + 20;
+      if v_visit_status = 'realizada' then
+        v_score := v_score + 8;
+        v_explanation := v_explanation || ' Visita realizada.';
+      elsif v_visit_status = 'confirmada' then
+        v_score := v_score + 5;
+        v_explanation := v_explanation || ' Visita confirmada.';
+      elsif v_visit_status = 'faltou' then
+        v_score := v_score - 12;
+        v_explanation := v_explanation || ' Família não compareceu à última visita.';
+      elsif v_visit_status = 'cancelada' then
+        v_score := v_score - 8;
+        v_explanation := v_explanation || ' Última visita cancelada.';
+      end if;
+      if v_has_objections then
+        v_score := v_score - 3;
+        v_explanation := v_explanation || ' Existem objeções registradas.';
+      end if;
+    end if;
+
+    select count(*) into v_overdue_tasks
+    from public.enrollment_tasks
+    where opportunity_id = p_opportunity_id
+      and status in ('pendente','em_andamento')
+      and due_at < now();
+
+    if v_overdue_tasks > 0 then
+      v_score := v_score - least(15, 5 + v_overdue_tasks * 3);
+      v_explanation := v_explanation || ' Há ' || v_overdue_tasks || ' tarefa(s) atrasada(s).';
+    elsif nullif(trim(v_opportunity.next_action), '') is not null then
+      v_confidence := v_confidence + 15;
+      v_explanation := v_explanation || ' Próxima ação definida.';
+    else
+      v_score := v_score - 7;
+      v_explanation := v_explanation || ' Próxima ação não definida.';
+    end if;
+
+    if v_opportunity.next_action_at is not null and v_opportunity.next_action_at < now() then
+      v_score := v_score - 5;
+      v_explanation := v_explanation || ' Próxima ação vencida.';
+    end if;
+
+    if v_opportunity.status_updated_at < now() - interval '14 days' then
+      v_score := v_score - 10;
+      v_explanation := v_explanation || ' Sem avanço há mais de 14 dias.';
+    elsif v_opportunity.status_updated_at < now() - interval '7 days' then
+      v_score := v_score - 5;
+      v_explanation := v_explanation || ' Sem avanço há mais de 7 dias.';
+    end if;
+
+    select true, total_seats - reserved_seats - enrolled_seats
+      into v_has_capacity, v_available_seats
+    from public.school_capacity
+    where unit_id is not distinct from v_opportunity.unit_id
+      and academic_year = v_opportunity.academic_year
+      and grade = v_opportunity.desired_grade
+      and shift is not distinct from v_opportunity.desired_shift
+    limit 1;
+
+    if v_has_capacity then
+      v_confidence := v_confidence + 15;
+      if v_available_seats <= 0 then
+        v_score := v_score - 20;
+        v_explanation := v_explanation || ' Sem vaga disponível na turma desejada.';
+      elsif v_available_seats <= 2 then
+        v_score := v_score - 3;
+        v_explanation := v_explanation || ' Últimas vagas na turma.';
+      else
+        v_score := v_score + 3;
+        v_explanation := v_explanation || ' Há vaga disponível.';
+      end if;
+    end if;
+
+    if nullif(trim(v_opportunity.source_channel), '') is not null then
+      v_confidence := v_confidence + 10;
+    end if;
+
+    v_score := greatest(1, least(99, v_score));
+    v_confidence := greatest(20, least(100, v_confidence));
+  end if;
+
+  update public.enrollment_opportunities
+  set probability_score = v_score,
+      data_confidence = v_confidence,
+      score_explanation = v_explanation
+  where id = p_opportunity_id;
+
+  return jsonb_build_object(
+    'opportunity_id', p_opportunity_id,
+    'probability_score', v_score,
+    'data_confidence', v_confidence,
+    'explanation', v_explanation
+  );
+end;
+$;
+
+revoke all on function public.recompute_enrollment_score(uuid) from public;
+grant execute on function public.recompute_enrollment_score(uuid) to authenticated;
+
+create or replace function public.recompute_all_enrollment_scores()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_id uuid;
+  v_count integer := 0;
+begin
+  if auth.uid() is null then raise exception 'Usuário não autenticado'; end if;
+  for v_id in
+    select id from public.enrollment_opportunities
+    where stage not in ('matriculado','perdido')
+  loop
+    perform public.recompute_enrollment_score(v_id);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$;
+
+revoke all on function public.recompute_all_enrollment_scores() from public;
+grant execute on function public.recompute_all_enrollment_scores() to authenticated;
+
+create or replace function public.refresh_related_enrollment_score()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_opportunity_id uuid;
+begin
+  v_opportunity_id := coalesce(new.opportunity_id, old.opportunity_id);
+  perform public.recompute_enrollment_score(v_opportunity_id);
+  return coalesce(new, old);
+end;
+$;
+
+drop trigger if exists refresh_score_after_visit on public.school_visits;
+create trigger refresh_score_after_visit
+after insert or update or delete on public.school_visits
+for each row execute function public.refresh_related_enrollment_score();
+
+drop trigger if exists refresh_score_after_task on public.enrollment_tasks;
+create trigger refresh_score_after_task
+after insert or update or delete on public.enrollment_tasks
+for each row execute function public.refresh_related_enrollment_score();
+
+create or replace function public.refresh_opportunity_score()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  perform public.recompute_enrollment_score(new.id);
+  return new;
+end;
+$;
+
+drop trigger if exists refresh_score_after_opportunity_change on public.enrollment_opportunities;
+create trigger refresh_score_after_opportunity_change
+after insert or update of stage, next_action, next_action_at, primary_guardian_id,
+  desired_grade, desired_shift, unit_id, source_channel, status_updated_at
+on public.enrollment_opportunities
+for each row execute function public.refresh_opportunity_score();
+
 comment on table public.guardians is 'Responsáveis e contatos adultos da família.';
 comment on table public.students is 'Alunos ou candidatos, separados dos responsáveis.';
 comment on table public.enrollment_opportunities is 'Uma intenção de matrícula por aluno, ciclo, série, turno e unidade.';
