@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
+import { useEffect, useState } from "react";
 import { AlertCircle, CalendarCheck2, CalendarClock, CheckCircle2, Clock3, ListChecks, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -55,12 +56,12 @@ const EnrollmentTasks = () => {
   }, [refreshKey]);
 
   const now = new Date();
-  const metrics = useMemo(() => ({
+  const metrics = {
     overdue: tasks.filter((task) => task.due_at && new Date(task.due_at) < now).length,
     today: tasks.filter((task) => task.due_at && sameDay(new Date(task.due_at), now)).length,
     upcoming: tasks.filter((task) => task.due_at && new Date(task.due_at) > now && !sameDay(new Date(task.due_at), now)).length,
     noDeadline: tasks.filter((task) => !task.due_at).length,
-  }), [tasks]);
+  };
 
   return (
     <div className="min-h-screen bg-white">
