@@ -2,33 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sistema de design do CRM COC Macapá Norte.
-   Paleta corporativa/sóbria: azul-marinho + azul-aço + cinza-ardósia.
+/* Sistema visual do CRM COC Macapá Norte.
+   Alinhado ao AIMEDU: fundo branco, verde institucional e textos de alto contraste.
    Todas as cores em HSL, conforme convenção do shadcn/ui. */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 220 26% 14%;
+    --foreground: 205 54% 18%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 26% 14%;
+    --card-foreground: 205 54% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 26% 14%;
+    --popover-foreground: 205 54% 18%;
 
-    /* Azul-aço — ação primária */
-    --primary: 218.8 73.6% 52.5%;
+    /* Verde institucional AIMEDU */
+    --primary: 157 71% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 16% 94%;
-    --secondary-foreground: 211.8 56.3% 17.1%;
+    --secondary: 148 45% 94%;
+    --secondary-foreground: 157 76% 24%;
 
-    --muted: 210 16% 95%;
-    --muted-foreground: 218 16.9% 34.9%;
+    --muted: 150 20% 96%;
+    --muted-foreground: 215 25% 27%;
 
-    --accent: 210 16% 94%;
-    --accent-foreground: 211.8 56.3% 17.1%;
+    --accent: 148 45% 94%;
+    --accent-foreground: 157 76% 24%;
 
     --destructive: 0 60.8% 48%;
     --destructive-foreground: 0 0% 100%;
@@ -39,12 +39,12 @@
     --warning: 35.5 71% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 210 16% 88%;
-    --input: 210 16% 88%;
-    --ring: 218.8 73.6% 52.5%;
+    --border: 150 16% 86%;
+    --input: 150 16% 82%;
+    --ring: 157 71% 32%;
 
     /* Cantos discretos — layout denso, não "SaaS card kit" */
-    --radius: 0.25rem;
+    --radius: 0.75rem;
 
     /* Sidebar — azul-marinho profundo */
     --sidebar-background: 211.8 56.3% 17.1%;
@@ -58,48 +58,30 @@
   }
 
   .dark {
-    --background: 211.8 40% 9%;
-    --foreground: 210 20% 92%;
-
-    --card: 211.8 40% 11%;
-    --card-foreground: 210 20% 92%;
-
-    --popover: 211.8 40% 11%;
-    --popover-foreground: 210 20% 92%;
-
-    --primary: 218.8 73.6% 58%;
-    --primary-foreground: 211.8 56.3% 10%;
-
-    --secondary: 211.8 30% 18%;
-    --secondary-foreground: 210 20% 92%;
-
-    --muted: 211.8 30% 16%;
-    --muted-foreground: 210 12% 65%;
-
-    --accent: 211.8 30% 18%;
-    --accent-foreground: 210 20% 92%;
-
-    --destructive: 0 55% 45%;
+    /* Mantém o tema claro do AIMEDU mesmo quando o navegador prefere escuro. */
+    --background: 0 0% 100%;
+    --foreground: 205 54% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 205 54% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 205 54% 18%;
+    --primary: 157 71% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 148 45% 94%;
+    --secondary-foreground: 157 76% 24%;
+    --muted: 150 20% 96%;
+    --muted-foreground: 215 25% 27%;
+    --accent: 148 45% 94%;
+    --accent-foreground: 157 76% 24%;
+    --destructive: 0 60.8% 48%;
     --destructive-foreground: 0 0% 100%;
-
-    --success: 150 40% 40%;
+    --success: 150 47.8% 35.3%;
     --success-foreground: 0 0% 100%;
-
-    --warning: 35.5 65% 48%;
+    --warning: 35.5 71% 42%;
     --warning-foreground: 0 0% 100%;
-
-    --border: 211.8 30% 20%;
-    --input: 211.8 30% 20%;
-    --ring: 218.8 73.6% 58%;
-
-    --sidebar-background: 211.8 56.3% 10%;
-    --sidebar-foreground: 210 20% 88%;
-    --sidebar-primary: 218.8 73.6% 58%;
-    --sidebar-primary-foreground: 211.8 56.3% 10%;
-    --sidebar-accent: 214.2 40% 18%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 211.8 40% 16%;
-    --sidebar-ring: 218.8 73.6% 58%;
+    --border: 150 16% 86%;
+    --input: 150 16% 82%;
+    --ring: 157 71% 32%;
   }
 }
 

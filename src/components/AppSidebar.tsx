@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Archive, TrendingUp, FileText, Layers, LogOut, Zap, Mail, Briefcase, BellDot, RefreshCw, Users } from "lucide-react";
+import { Archive, TrendingUp, FileText, Layers, LogOut, Zap, Mail, Briefcase, BellDot, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -23,6 +23,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
+  { title: "Visão da Direção", url: "/captacao", icon: LayoutDashboard },
+  { title: "Funil de Matrículas", url: "/matriculas", icon: GraduationCap },
+  { title: "Famílias e Alunos", url: "/familias", icon: ContactRound },
   { title: "Inbox", url: "/inbox", icon: Mail },
   { title: "Pendentes", url: "/pendentes", icon: BellDot, showBadge: true },
   { title: "Oportunidades", url: "/opportunities", icon: Briefcase },
@@ -118,8 +121,11 @@ export function AppSidebar() {
   };
 
   const isActive = (url: string) => {
+    if (url === "/captacao") {
+      return location.pathname === "/" || location.pathname === "/captacao";
+    }
     if (url === "/opportunities") {
-      return location.pathname === "/" || location.pathname === "/opportunities";
+      return location.pathname === "/opportunities";
     }
     return location.pathname.startsWith(url);
   };
@@ -133,7 +139,7 @@ export function AppSidebar() {
               <h1 className="text-base font-semibold tracking-tight text-sidebar-foreground">
                 COC Macapá Norte
               </h1>
-              <p className="text-xs text-sidebar-foreground/70 mt-0.5">CRM · Atendimento</p>
+              <p className="text-xs text-sidebar-foreground/70 mt-0.5">CRM · Captação e Matrículas</p>
             </div>
             <SidebarTrigger className="mt-0.5" />
           </div>

@@ -3011,3 +3011,114 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Deu erro, database error querying schema
 
 **Ação Lovable:** Corrigidos campos de token nulos em `auth.users` (confirmation_token, recovery_token, etc.) que quebravam o login; login com charlyjhone77@gmail.com testado com sucesso.
+
+
+## 2026-09-17
+
+### [15:59] Prompt
+> Vamos fazer isso então, quero melhorar seguindo suas dicas.
+
+**Ação Codex:** Iniciada a adaptação segura do CRM existente para captação e matrículas escolares. Criados o modelo relacional de responsáveis, alunos e oportunidades, controle de vagas, visitas, tarefas, previsão ponderada e o plano técnico em `docs/CRM_ESCOLAR_ADAPTACAO.md`, preservando leads e históricos atuais.
+
+
+### [16:04] Prompt
+> Vamos continuar..
+
+**Ação Codex:** Criada e integrada a primeira interface escolar do CRM: painel executivo de captação com confirmadas, previsão ponderada, oportunidades, alta possibilidade, ações atrasadas, funil e ocupação/vagas. A página inicial e a navegação foram ajustadas, mantendo a tela legada acessível e sem usar dados fictícios.
+
+
+### [16:06] Prompt
+> vamos avançar
+
+**Ação Codex:** Implementadas as telas de Famílias e Alunos e Funil de Matrículas, com consultas ao novo modelo escolar, estados seguros antes da migração e integração à navegação principal.
+
+### [16:08] Prompt
+> E depois quero ver uma prévia de como está ficando
+
+**Ação Codex:** Preparada uma prévia visual interativa das três telas escolares já implementadas: Visão da Direção, Funil de Matrículas e Famílias e Alunos, usando dados explicitamente ilustrativos para avaliação do layout.
+
+
+### [16:15] Prompt
+> Ficou bom mas acho que poderiamos utilizar o mesmo modelo de layout do aimedu
+
+**Ação Codex:** Analisado o sistema visual atual do repositório AIMEDU e substituída a casca lateral do CRM por navegação superior inspirada no AIMEDU: marca verde, menus agrupados, busca e perfil. Funcionalidades e dados dos dois projetos continuam independentes. A prévia visual também foi atualizada.
+
+
+### [16:18] Prompt
+> As cores estão legais mas estão diferentes do aimedu, o fundo lá é branco.
+
+**Ação Codex:** Corrigido o fundo global e das três novas páginas do CRM para branco, alinhando-o ao AIMEDU. O verde foi mantido apenas em navegação ativa, ícones, etiquetas e indicadores; a prévia foi atualizada.
+
+
+### [16:34] Prompt
+> Ficou melhor mas voce deve corrigir a cor das letras que algumas praticamente sumiram.
+
+**Ação Codex:** Revisado o contraste do sistema visual. A paleta global foi migrada para fundo branco, verde AIMEDU e textos mais escuros; o tema claro também foi preservado quando o navegador prefere modo escuro.
+
+
+### [16:36] Prompt
+> ajuste a cor dos textos pra nao ficar tao claro
+
+**Ação Codex:** Escurecidos os textos secundários, legendas, perfil, busca e navegação. A prévia passou a usar texto principal #102A43 e texto secundário #475569, melhorando a legibilidade.
+
+
+### [16:40] Prompt
+> Voce consegue ver que nao da pra ver direito a informação? [captura mostrando números do funil, ocupação e séries quase brancos]
+
+**Ação Codex:** A captura confirmou que valores numéricos e rótulos internos herdavam uma cor quase branca. Foram definidas cores escuras explícitas nos indicadores, números do funil, ocupação, séries, cartões de oportunidades e famílias, tanto no código quanto na prévia.
+
+
+### [16:43] Prompt
+> Quase lá, o texto "Captação e matrículas" está quase transparente.
+
+**Ação Codex:** Fixada explicitamente a cor do título principal em azul-marinho escuro, com opacidade total, tanto na tela real quanto na prévia. O mesmo padrão foi preparado para os demais títulos de página.
+
+
+### [16:59] Prompt
+> Vamos em frente.
+
+**Ação Codex:** Implementado o primeiro fluxo operacional do CRM escolar: função transacional no Supabase e formulário “Nova família” para criar responsável, aluno, vínculo familiar e oportunidade de matrícula juntos. A listagem é atualizada após o cadastro e nenhuma migração automática dos leads antigos foi executada.
+
+
+### [17:06] Prompt
+> Perfeito, vamos avançando.
+
+**Ação Codex:** Tornado o Kanban operacional com atualização auditada de etapa, próxima ação e data. Matrícula concluída passa a 100%; perda passa a 0% e exige motivo. Todas as mudanças são registradas no histórico da oportunidade.
+
+
+### [17:16] Prompt
+> Pronto, vamos em frente.
+
+**Ação Codex:** Implementado o módulo operacional de visitas escolares: agenda, indicadores, agendamento a partir de oportunidades ativas, confirmação, comparecimento, ausência e cancelamento. Visitas realizadas registram impressão, objeções e próximos passos, avançam o funil e criam automaticamente o retorno à família.
+
+
+### [17:32] Prompt
+> vamos continuando.
+
+**Ação Codex:** Implementado o módulo de tarefas e follow-ups da captação escolar. A fila separa ações atrasadas, de hoje, futuras e sem prazo; permite criar tarefas vinculadas ao aluno e concluir um atendimento já agendando o próximo passo. Também foi corrigida uma falha de sintaxe nos delimitadores das funções SQL da migração.
+
+
+### [17:41] Prompt
+> pronto, vamos em frente.
+
+**Ação Codex:** Implementado o painel de origem e conversão da captação. A nova tela compara canais e campanhas por interessados, qualificados, visitas, matrículas, conversão e previsão ponderada, sem dados fictícios, e foi integrada ao menu de Captação.
+
+
+## 2026-09-18
+
+### [14:19] Prompt
+> Boa tarde, vamos iniciar os trabalhos? Precisamos terminar as correções e melhorias do crm
+
+**Ação Codex:** Implementado o motor explicável de possibilidade de matrícula e a fila priorizada. A pontuação passa a considerar etapa, visita, objeções, tarefas atrasadas, próxima ação, tempo sem avanço, dados de contato e disponibilidade de vaga; os cálculos são atualizados por gatilhos e podem ser recalculados em lote pela interface.
+
+
+### [14:32] Prompt
+> Vamos em frente
+
+**Ação Codex:** Executada auditoria técnica real da branch escolar. O build de produção compilou 3.498 módulos com sucesso; o lint dos arquivos novos passou sem erros ou avisos. Foram corrigidos avisos de hooks, documentado o uso temporário de tipos ainda não regenerados do Supabase e implementado carregamento sob demanda das páginas, reduzindo o pacote inicial e separando os módulos por rota.
+
+
+### [14:36] Prompt
+> Vamos em frente, precisamos terminar para fazer teste.
+
+**Ação Codex:** Preparada a etapa de homologação. Confirmada a ausência de sessão/token Supabase neste ambiente; por segurança, nenhuma tentativa de alterar o banco foi feita. Adicionados um pré-voo SQL somente leitura e um roteiro completo para testar cadastro, funil, visitas, tarefas, possibilidades, conversão, responsividade e preservação do CRM legado.
