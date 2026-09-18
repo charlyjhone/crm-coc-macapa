@@ -3116,3 +3116,9 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > Vamos em frente
 
 **Ação Codex:** Executada auditoria técnica real da branch escolar. O build de produção compilou 3.498 módulos com sucesso; o lint dos arquivos novos passou sem erros ou avisos. Foram corrigidos avisos de hooks, documentado o uso temporário de tipos ainda não regenerados do Supabase e implementado carregamento sob demanda das páginas, reduzindo o pacote inicial e separando os módulos por rota.
+
+
+### [14:36] Prompt
+> Vamos em frente, precisamos terminar para fazer teste.
+
+**Ação Codex:** Preparada a etapa de homologação. Confirmada a ausência de sessão/token Supabase neste ambiente; por segurança, nenhuma tentativa de alterar o banco foi feita. Adicionados um pré-voo SQL somente leitura e um roteiro completo para testar cadastro, funil, visitas, tarefas, possibilidades, conversão, responsividade e preservação do CRM legado.
