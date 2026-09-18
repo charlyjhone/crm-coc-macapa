@@ -3102,3 +3102,11 @@ Histórico de prompts do usuário neste projeto, com resumo da ação executada 
 > pronto, vamos em frente.
 
 **Ação Codex:** Implementado o painel de origem e conversão da captação. A nova tela compara canais e campanhas por interessados, qualificados, visitas, matrículas, conversão e previsão ponderada, sem dados fictícios, e foi integrada ao menu de Captação.
+
+
+## 2026-09-18
+
+### [14:19] Prompt
+> Boa tarde, vamos iniciar os trabalhos? Precisamos terminar as correções e melhorias do crm
+
+**Ação Codex:** Implementado o motor explicável de possibilidade de matrícula e a fila priorizada. A pontuação passa a considerar etapa, visita, objeções, tarefas atrasadas, próxima ação, tempo sem avanço, dados de contato e disponibilidade de vaga; os cálculos são atualizados por gatilhos e podem ser recalculados em lote pela interface.
