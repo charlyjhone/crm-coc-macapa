@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
+import { useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Clock3, MapPin, UserRound, UsersRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -66,12 +67,12 @@ const SchoolVisits = () => {
   }, [refreshKey]);
 
   const now = new Date();
-  const metrics = useMemo(() => ({
+  const metrics = {
     today: visits.filter((visit) => isSameDay(new Date(visit.scheduled_at), now)).length,
     upcoming: visits.filter((visit) => new Date(visit.scheduled_at) >= now && ["agendada", "confirmada", "reagendada"].includes(visit.status)).length,
     confirmed: visits.filter((visit) => visit.status === "confirmada").length,
     completed: visits.filter((visit) => visit.status === "realizada").length,
-  }), [visits]);
+  };
 
   return (
     <div className="min-h-screen bg-white">
