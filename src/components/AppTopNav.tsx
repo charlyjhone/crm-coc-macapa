@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Search,
+  Target,
   Settings,
   ListChecks,
   Users,
@@ -55,7 +56,7 @@ export function AppTopNav() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
-  const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/"].includes(location.pathname);
+  const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/possibilidades", "/"].includes(location.pathname);
   const serviceActive = ["/inbox", "/pendentes", "/opportunities"].some((path) =>
     location.pathname.startsWith(path),
   );
@@ -120,6 +121,12 @@ export function AppTopNav() {
                 <Link to="/origem-conversao" className="flex items-center gap-3">
                   <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><BarChart3 className="h-4 w-4" /></span>
                   Origem e conversão
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg p-3">
+                <Link to="/possibilidades" className="flex items-center gap-3">
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><Target className="h-4 w-4" /></span>
+                  Possibilidades de matrícula
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
