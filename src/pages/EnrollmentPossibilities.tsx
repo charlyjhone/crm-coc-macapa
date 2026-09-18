@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, BrainCircuit, CalendarClock, RefreshCw, ShieldCheck, Target, TrendingUp, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
