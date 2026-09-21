@@ -12,15 +12,7 @@ interface SettingsMap {
 }
 
 const SETTINGS_KEYS = [
-  "susan_name",
-  "susan_email",
-  "company_name",
-  "company_email",
-  "media_kit_link",
-  "proposal_template_path",
-  "proposal_total_slides",
-  "proposal_insert_slides",
-  "webhook_resend_url",
+  "escola_nome",
   "webhook_zapi_url",
 ];
 
@@ -93,8 +85,7 @@ const GeneralSettingsTab = () => {
   };
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-  const resendWebhookUrl = `${supabaseUrl}/functions/v1/resend-inbound-webhook`;
-  const zapiWebhookUrl = `${supabaseUrl}/functions/v1/zapi-webhook`;
+    const zapiWebhookUrl = `${supabaseUrl}/functions/v1/zapi-webhook`;
 
   if (loading) {
     return (
@@ -106,131 +97,22 @@ const GeneralSettingsTab = () => {
 
   return (
     <div className="space-y-8">
-      {/* Susan */}
+      {/* Escola */}
       <section className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">Assistente Virtual (Susan)</h3>
+          <h3 className="text-sm font-semibold">COC Macapá Norte</h3>
           <p className="text-xs text-muted-foreground">
-            Nome e email da assistente que envia propostas e follow-ups automaticamente.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="susan_name">Nome</Label>
-            <Input
-              id="susan_name"
-              value={settings.susan_name || ""}
-              onChange={(e) => updateSetting("susan_name", e.target.value)}
-              placeholder="Susan Whitfield"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="susan_email">Email</Label>
-            <Input
-              id="susan_email"
-              type="email"
-              value={settings.susan_email || ""}
-              onChange={(e) => updateSetting("susan_email", e.target.value)}
-              placeholder="susan@inventormiguel.link"
-            />
-          </div>
-        </div>
-      </section>
-
-      <Separator />
-
-      {/* Company */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">Empresa / Prestador de Serviço</h3>
-          <p className="text-xs text-muted-foreground">
-            Nome e email principal de quem está oferecendo os serviços (palestra, consultoria, etc.).
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="company_name">Nome</Label>
-            <Input
-              id="company_name"
-              value={settings.company_name || ""}
-              onChange={(e) => updateSetting("company_name", e.target.value)}
-              placeholder="Miguel Fernandes"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="company_email">Email</Label>
-            <Input
-              id="company_email"
-              type="email"
-              value={settings.company_email || ""}
-              onChange={(e) => updateSetting("company_email", e.target.value)}
-              placeholder="miguel@inventormiguel.com"
-            />
-          </div>
-        </div>
-      </section>
-
-      <Separator />
-
-      {/* Media Kit */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">Media Kit</h3>
-          <p className="text-xs text-muted-foreground">
-            Link do media kit compartilhado com marcas quando solicitado.
+            Configurações gerais da integração do CRM escolar.
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="media_kit_link">Link do Media Kit</Label>
+          <Label htmlFor="escola_nome">Nome da escola</Label>
           <Input
-            id="media_kit_link"
-            type="url"
-            value={settings.media_kit_link || ""}
-            onChange={(e) => updateSetting("media_kit_link", e.target.value)}
-            placeholder="https://inventormiguel.link/kit"
+            id="escola_nome"
+            value={settings.escola_nome || ""}
+            onChange={(e) => updateSetting("escola_nome", e.target.value)}
+            placeholder="COC Macapá Norte"
           />
-        </div>
-      </section>
-
-      <Separator />
-
-      {/* Proposal Template */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">Proposta Comercial (PDF)</h3>
-          <p className="text-xs text-muted-foreground">
-            Configuração do template PDF usado para gerar propostas de palestra.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="proposal_template_path">Caminho do Template (Storage)</Label>
-            <Input
-              id="proposal_template_path"
-              value={settings.proposal_template_path || ""}
-              onChange={(e) => updateSetting("proposal_template_path", e.target.value)}
-              placeholder="proposal-templates/template.pdf"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="proposal_total_slides">Total de Slides</Label>
-            <Input
-              id="proposal_total_slides"
-              type="number"
-              value={settings.proposal_total_slides || ""}
-              onChange={(e) => updateSetting("proposal_total_slides", e.target.value)}
-              placeholder="32"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="proposal_insert_slides">Slides para Inserir (ex: 30,31,32)</Label>
-            <Input
-              id="proposal_insert_slides"
-              value={settings.proposal_insert_slides || ""}
-              onChange={(e) => updateSetting("proposal_insert_slides", e.target.value)}
-              placeholder="30,31,32"
-            />
-          </div>
         </div>
       </section>
 
@@ -245,31 +127,6 @@ const GeneralSettingsTab = () => {
           </p>
         </div>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Webhook do Resend (Inbound Email)</Label>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={resendWebhookUrl}
-                className="font-mono text-xs bg-muted"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => copyToClipboard(resendWebhookUrl, "resend")}
-              >
-                {copiedKey === "resend" ? (
-                  <Check className="h-4 w-4 text-primary" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Configure este URL no Resend → Webhooks → Inbound Email para receber emails automaticamente.
-            </p>
-          </div>
           <div className="space-y-2">
             <Label>Webhook do ZAPI (WhatsApp)</Label>
             <div className="flex gap-2">
@@ -308,13 +165,7 @@ const GeneralSettingsTab = () => {
             As seguintes chaves de API são configuradas diretamente no backend e não podem ser alteradas por aqui.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-md border border-border bg-muted/50 p-4 space-y-1">
-            <p className="text-sm font-medium">Resend API Key</p>
-            <p className="text-xs text-muted-foreground">
-              Usada para envio e recebimento de emails. Configure via painel do backend (Secrets).
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-4">
           <div className="rounded-md border border-border bg-muted/50 p-4 space-y-1">
             <p className="text-sm font-medium">ZAPI (Instance ID, Token, Client Token)</p>
             <p className="text-xs text-muted-foreground">

@@ -1,10 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Archive, TrendingUp, FileText, Layers, LogOut, Zap, Mail, Briefcase, BellDot, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
+import { FileText, LogOut, Mail, Briefcase, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { usePendingLeads } from "@/hooks/usePendingLeads";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -27,12 +25,6 @@ const navItems = [
   { title: "Funil de Matrículas", url: "/matriculas", icon: GraduationCap },
   { title: "Famílias e Alunos", url: "/familias", icon: ContactRound },
   { title: "Inbox", url: "/inbox", icon: Mail },
-  { title: "Pendentes", url: "/pendentes", icon: BellDot, showBadge: true },
-  { title: "Oportunidades", url: "/opportunities", icon: Briefcase },
-  { title: "Não Classificados", url: "/unclassified", icon: Layers, adminOnly: true },
-  { title: "Arquivados", url: "/archived", icon: Archive },
-  { title: "Insights", url: "/insights", icon: TrendingUp, adminOnly: true },
-  { title: "Worker Mode", url: "/worker", icon: Zap, adminOnly: true },
   { title: "Usuários", url: "/usuarios", icon: Users, adminOnly: true },
   { title: "Configurações", url: "/configuracoes", icon: FileText, adminOnly: true },
 ];
@@ -43,8 +35,6 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { isAdmin } = useUserRole();
-  const { data: pending } = usePendingLeads();
-  const pendingCount = pending?.length || 0;
   const [syncing, setSyncing] = useState(false);
   const visibleItems = navItems.filter((i) => !(i as any).adminOnly || isAdmin);
 
@@ -156,21 +146,12 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleItems.map((item) => {
-                const showBadge = (item as any).showBadge && pendingCount > 0;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)}>
                       <Link to={item.url} className="relative">
                         <item.icon className="h-4 w-4" />
                         {!collapsed && <span className="flex-1">{item.title}</span>}
-                        {showBadge && !collapsed && (
-                          <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1.5 text-xs">
-                            {pendingCount}
-                          </Badge>
-                        )}
-                        {showBadge && collapsed && (
-                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
