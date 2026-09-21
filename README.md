@@ -1,26 +1,32 @@
-# Remix of Remix of migueSALES
+# CRM COC Macapá Norte
 
-Eu quero fazer um sistema de CRM que cadastra os leads automaticamente por e-mail sempre que um determinado e-mail é enviado para um determinado endereço.
+CRM escolar próprio do COC Macapá Norte para atendimento, captação e acompanhamento do processo de matrículas.
 
-Sempre que esse e-mail for enviado para esse endereço, o sistema vai verificar que esse e-mail foi enviado, do destinatário como o lead e vai mostrar essa lista para o usuário dos leads criados.
+## Escopo
 
-This project was built with [Lovable](https://lovable.dev).
+- atendimento e histórico de contatos;
+- integração WhatsApp/Z-API;
+- agente virtual Ana;
+- famílias e alunos;
+- funil e possibilidades de matrícula;
+- visitas e tarefas de captação;
+- configurações operacionais da escola.
 
-## Build with Lovable
+## Stack
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/33bf98c4-a830-42ea-b1fc-34d586d30729).
+React + TypeScript + Vite no frontend e Supabase no backend.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Desenvolvimento
 
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+```bash
+npm install
 npm run dev
 ```
+
+## Build
+
+```bash
+npm run build
+```
+
+O projeto deve permanecer independente de plataformas de autoria/preview e utilizar apenas integrações necessárias à operação do CRM escolar.
