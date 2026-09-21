@@ -168,7 +168,7 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
-      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: 'miguel' });
+      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: 'ana' });
 
       await supabase
         .from('whatsapp_messages')
