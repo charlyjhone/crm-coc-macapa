@@ -18,16 +18,10 @@ const EnrollmentTasks = lazy(() => import("./pages/EnrollmentTasks"));
 const AcquisitionAnalytics = lazy(() => import("./pages/AcquisitionAnalytics"));
 const EnrollmentPossibilities = lazy(() => import("./pages/EnrollmentPossibilities"));
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
-const Unclassified = lazy(() => import("./pages/Unclassified"));
-const Archived = lazy(() => import("./pages/Archived"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Proposal = lazy(() => import("./pages/Proposal"));
-const Insights = lazy(() => import("./pages/Insights"));
 const Settings = lazy(() => import("./pages/Settings"));
-const WorkerMode = lazy(() => import("./pages/WorkerMode"));
 const InboxPage = lazy(() => import("./pages/Inbox"));
-const Pendentes = lazy(() => import("./pages/Pendentes"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 
 const queryClient = new QueryClient();
@@ -62,14 +56,8 @@ const App = () => (
             <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
             <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
-            <Route path="/pendentes" element={<ProtectedLayout><Pendentes /></ProtectedLayout>} />
-            <Route path="/unclassified" element={<ProtectedLayout><AdminRoute><Unclassified /></AdminRoute></ProtectedLayout>} />
-            <Route path="/archived" element={<ProtectedLayout><Archived /></ProtectedLayout>} />
-            <Route path="/proposal" element={<ProtectedRoute><Proposal /></ProtectedRoute>} />
-            <Route path="/insights" element={<ProtectedLayout><AdminRoute><Insights /></AdminRoute></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
-            <Route path="/worker" element={<ProtectedLayout><AdminRoute><WorkerMode /></AdminRoute></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
