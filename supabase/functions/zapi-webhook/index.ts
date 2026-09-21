@@ -656,14 +656,13 @@ serve(async (req) => {
       );
     }
 
-    // ===== STEP 7: Telefone novo (sem lead existente) → NÃO cria lead =====
-    // Política Miguel (jun/2026, revisada): WhatsApp NUNCA cria lead/oportunidade.
-    // Mensagens de números desconhecidos são salvas como órfãs (lead_id=null) e
-    // só ficam visíveis quando Miguel criar manualmente um lead com aquele número
-    // (o cache é recalculado por telefone via trigger).
+    // ===== STEP 7: Telefone novo =====
+    // O contato escolar será criado/classificado pela Ana (school-triage) após
+    // a mensagem inbound ser persistida. A mensagem continua vinculada ao telefone,
+    // preservando a arquitetura phone-based e evitando cadastros duplicados aqui.
     if (!leadId && normalizedPhone) {
-      console.log('Telefone novo sem lead — mensagem será salva como órfã (lead_id=null)');
-      resolveMethod = 'orphan_no_lead';
+      console.log('Telefone novo — Ana fará a criação/classificação do contato escolar');
+      resolveMethod = 'new_school_contact_pending_triage';
     }
 
 
@@ -729,89 +728,7 @@ serve(async (req) => {
       }
     }
 
-    // ===== STEP 8.7: Comandos "/palestra" e "/publicidade" enviados pelo Miguel =====
-    // ÚNICO caminho em que o webhook do WhatsApp pode CRIAR uma oportunidade.
-    // Sem comando explícito, mensagens de números desconhecidos ficam órfãs (lead_id=null).
-    const productCommandRegex = /\/(palestra|publicidade|consultoria|mentoria|treinamento|documentario)\b/i;
-    const productCommandMatch = (direction === 'outbound' && typeof message === 'string')
-      ? message.match(productCommandRegex)
-      : null;
-    if (productCommandMatch) {
-      const produtoCmd = productCommandMatch[1].toLowerCase();
-      console.log(`🎯 Comando /${produtoCmd} detectado. leadId atual:`, leadId);
-      try {
-        // Caso 1: não existe lead ainda → CRIA a oportunidade agora
-        if (!leadId) {
-          const phoneForNewLead = normalizedPhone || rawPhone?.toString().replace(/@.*$/, '').replace(/\D/g, '') || null;
-          if (!phoneForNewLead) {
-            console.warn(`Comando /${produtoCmd} recebido mas sem telefone válido para criar lead`);
-          } else {
-            const { data: newLead, error: createErr } = await supabase
-              .from('leads')
-              .insert({
-                name: contactName || 'Lead WhatsApp',
-                phone: phoneForNewLead,
-                phones: [phoneForNewLead],
-                produto: produtoCmd,
-                status: 'em_aberto',
-                unclassified: false,
-                archived: false,
-                whatsapp_chat_lids: chatLid ? [chatLid] : [],
-              })
-              .select('id, name, produto, unclassified, phones')
-              .single();
-            if (createErr) {
-              console.error(`Erro ao criar lead via /${produtoCmd}:`, createErr);
-            } else if (newLead) {
-              leadId = newLead.id;
-              chosenLead = newLead;
-              resolveMethod = `command_/${produtoCmd}_created`;
-              console.log(`✅ Lead criado via comando /${produtoCmd}:`, leadId);
-              try {
-                const { triggerAutoDescription } = await import("../_shared/auto-generate-description.ts");
-                triggerAutoDescription(leadId);
-              } catch (e) {
-                console.error(`Erro ao disparar auto-descrição após criar lead /${produtoCmd}:`, e);
-              }
-            }
-          }
-        } else if (!chosenLead?.produto || chosenLead?.unclassified) {
-          // Caso 2: lead existe mas não classificado → classifica
-          await supabase
-            .from('leads')
-            .update({
-              produto: produtoCmd,
-              unclassified: false,
-              description_updated_at: null,
-            })
-            .eq('id', leadId);
-          if (chosenLead) {
-            chosenLead.produto = produtoCmd;
-            chosenLead.unclassified = false;
-          }
-          console.log(`Lead marcado como ${produtoCmd}, disparando geração de descrição...`);
-          try {
-            const { triggerAutoDescription } = await import("../_shared/auto-generate-description.ts");
-            triggerAutoDescription(leadId);
-          } catch (e) {
-            console.error(`Erro ao disparar auto-descrição após /${produtoCmd}:`, e);
-          }
-        } else {
-          console.log(`Lead já classificado (produto=${chosenLead.produto}), comando /${produtoCmd} apenas removido do texto`);
-        }
-      } catch (e) {
-        console.error(`Erro ao processar comando /${produtoCmd}:`, e);
-      }
-      // Remove o comando do texto e segue o fluxo (salva o restante, se houver)
-      message = message.replace(productCommandRegex, '').replace(/\s{2,}/g, ' ').trim();
-      if (!message) {
-        return new Response(
-          JSON.stringify({ success: true, message: `Comando /${produtoCmd} processado`, leadId, command: produtoCmd }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
+    // STEP 8.7 removido: comandos comerciais do CRM legado não pertencem ao CRM escolar.
 
     // ===== STEP 9: Insert the message =====
     // Skip saving if message is empty AND it's not an audio (nothing useful to store)
@@ -895,8 +812,6 @@ serve(async (req) => {
       const filterValidEmails = (emails: string[]): string[] => {
         return emails.filter(email => {
           const lowerEmail = email.toLowerCase();
-          if (lowerEmail.includes('miguel')) return false;
-          if (lowerEmail.includes('brotherhood')) return false;
           if (lowerEmail.endsWith('@whatsapp.temp')) return false;
           return true;
         });
@@ -919,9 +834,8 @@ serve(async (req) => {
         if (newEmails.length > 0) {
           const updatedEmails = [...currentEmails, ...newEmails];
 
-          // Se o lead só tem o placeholder @whatsapp.temp (ou nada) como e-mail
-          // principal, promove o primeiro e-mail real extraído — isso habilita
-          // o lead para o follow-up automático por e-mail.
+          // Se o contato só tem placeholder @whatsapp.temp (ou nada) como e-mail
+          // principal, promove o primeiro e-mail real extraído.
           const leadUpdate: Record<string, unknown> = { emails: updatedEmails };
           const currentPrimary = (chosenLead.email || '').toLowerCase();
           if (!currentPrimary || currentPrimary.endsWith('@whatsapp.temp')) {
