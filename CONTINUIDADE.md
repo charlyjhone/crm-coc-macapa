@@ -193,6 +193,23 @@ Mensagem sugerida:
 
 > Acesse o repositório `charlyjhone/crm-coc-macapa`. Antes de propor ou fazer qualquer alteração, leia `CONTINUIDADE.md`, confira os commits posteriores ao commit de referência informado nele e audite o estado atual. Este CRM é exclusivo do COC Macapá Norte. Não restaure o CRM comercial antigo. Continue exatamente das pendências registradas no documento.
 
+## 14. Limpeza estrutural preparada em 21/09/2026
+
+Foi criada uma branch específica para uma limpeza conservadora do repositório. A auditoria identificou e removeu somente itens sem uso comprovado no frontend escolar:
+
+- arquivos e memórias da pasta `.lovable`;
+- dependência `lovable-tagger` e sua configuração no Vite;
+- armazenamento de autenticação exclusivo das prévias do Lovable;
+- `.env` versionado, com proteção adicionada ao `.gitignore`;
+- lockfiles do Bun, mantendo npm e `package-lock.json` como padrão;
+- páginas antigas sem rota (`Index`, `Prompts` e `Pendentes`) e seus auxiliares exclusivos;
+- editor de prompts comerciais quebrado, substituído pelas configurações da escola e da Ana;
+- README do antigo migueSALES, substituído pela documentação do CRM escolar.
+
+A auditoria também confirmou que a `main` não compilava antes da limpeza porque `PromptsTab.tsx` importava `src/data/promptTemplates`, arquivo já removido. A nova tela de configurações usa `SchoolSettingsTab` e `GeneralSettingsTab`.
+
+As migrations e Edge Functions legadas não foram removidas nesta etapa. Elas ainda exigem comparação com o Supabase implantado, pois exclusão no GitHub não despublica funções e algumas estruturas antigas podem continuar participando de WhatsApp, e-mail ou banco.
+
 ---
 
 Última atualização deste documento: **21/09/2026**.
