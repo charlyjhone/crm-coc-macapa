@@ -9,7 +9,6 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppTopNav } from "@/components/AppTopNav";
 import { AdminRoute } from "@/components/AdminRoute";
 
-const Opportunities = lazy(() => import("./pages/Opportunities"));
 const CaptacaoDashboard = lazy(() => import("./pages/CaptacaoDashboard"));
 const Families = lazy(() => import("./pages/Families"));
 const EnrollmentPipeline = lazy(() => import("./pages/EnrollmentPipeline"));
@@ -17,7 +16,6 @@ const SchoolVisits = lazy(() => import("./pages/SchoolVisits"));
 const EnrollmentTasks = lazy(() => import("./pages/EnrollmentTasks"));
 const AcquisitionAnalytics = lazy(() => import("./pages/AcquisitionAnalytics"));
 const EnrollmentPossibilities = lazy(() => import("./pages/EnrollmentPossibilities"));
-const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -53,8 +51,6 @@ const App = () => (
             <Route path="/tarefas-captacao" element={<ProtectedLayout><EnrollmentTasks /></ProtectedLayout>} />
             <Route path="/origem-conversao" element={<ProtectedLayout><AcquisitionAnalytics /></ProtectedLayout>} />
             <Route path="/possibilidades" element={<ProtectedLayout><EnrollmentPossibilities /></ProtectedLayout>} />
-            <Route path="/opportunities" element={<ProtectedLayout><Opportunities /></ProtectedLayout>} />
-            <Route path="/opportunity/:id" element={<ProtectedLayout><OpportunityDetail /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
