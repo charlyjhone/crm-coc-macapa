@@ -140,7 +140,8 @@ serve(async (req) => {
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) return json({ error: "LOVABLE_API_KEY ausente" }, 500);
 
-    const systemPrompt = `Você é o atendente virtual de ${escolaNome}. Responde em português do Brasil, de forma curta, cordial e objetiva (no máximo 5 linhas), pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}.
+    const systemPrompt = `Você é Ana, assistente virtual oficial de ${escolaNome}. Responda em português do Brasil, de forma acolhedora, curta, cordial e objetiva (no máximo 5 linhas), pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}.
+Quando for natural na primeira interação, apresente-se como Ana, assistente virtual do COC Macapá Norte. Não repita sua apresentação a cada mensagem.
 
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
@@ -236,7 +237,15 @@ Responda SOMENTE com JSON válido:
       triage_summary: triagem.resumo || null,
     };
 
-    if (precisaHumano) {
+    // Uma resposta só pode ser considerada atendida se realmente foi entregue.
+    // Falha de envio sempre vira handoff para evitar atendimento "fantasma" no CRM.
+    const falhaEnvio = !!resposta && !enviado;
+
+    if (falhaEnvio) {
+      update.triage_status = "aguardando_secretaria";
+      update.handoff_at = now;
+      update.handoff_reason = "Falha no envio automático da resposta";
+    } else if (precisaHumano) {
       update.triage_status = "aguardando_secretaria";
       update.handoff_at = now;
       update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";
@@ -253,9 +262,11 @@ Responda SOMENTE com JSON válido:
     await supabase.from("activity_log").insert({
       lead_id: leadId,
       activity_type: "agent_triage",
-      description: precisaHumano
-        ? `Agente encaminhou para a secretaria (${assunto}): ${update.handoff_reason}`
-        : `Agente respondeu sozinho (${assunto})`,
+      description: falhaEnvio
+        ? `Ana não conseguiu enviar a resposta (${assunto}): ${update.handoff_reason}`
+        : precisaHumano
+          ? `Ana encaminhou para a secretaria (${assunto}): ${update.handoff_reason}`
+          : `Ana respondeu sozinha (${assunto})`,
       source: "school-triage",
       actor: "agente",
       metadata: { assunto, canal: channel, enviado, interesse: triagem.interesse, resumo: triagem.resumo },
