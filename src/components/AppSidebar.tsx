@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { FileText, LogOut, Mail, Briefcase, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
+import { FileText, LogOut, Mail, RefreshCw, Users, LayoutDashboard, GraduationCap, ContactRound } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -113,9 +113,6 @@ export function AppSidebar() {
   const isActive = (url: string) => {
     if (url === "/captacao") {
       return location.pathname === "/" || location.pathname === "/captacao";
-    }
-    if (url === "/opportunities") {
-      return location.pathname === "/opportunities";
     }
     return location.pathname.startsWith(url);
   };
