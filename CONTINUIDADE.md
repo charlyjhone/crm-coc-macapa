@@ -210,7 +210,50 @@ A auditoria também confirmou que a `main` não compilava antes da limpeza porqu
 
 As migrations e Edge Functions legadas não foram removidas nesta etapa. Elas ainda exigem comparação com o Supabase implantado, pois exclusão no GitHub não despublica funções e algumas estruturas antigas podem continuar participando de WhatsApp, e-mail ou banco.
 
+## 15. Estado operacional verificado em 21–22/09/2026
+
+### GitHub e limpeza local
+
+- `main` remota verificada: commit `d5fbc3f`;
+- branch local de limpeza: `cleanup/remove-unused-legacy-files`;
+- commit local da limpeza: `d2cc30f` — `chore: remover arquivos legados e corrigir build`;
+- resultado da limpeza: 24 arquivos alterados, 3.113 linhas removidas e 59 linhas adicionadas;
+- build de produção aprovado após a limpeza: 3.459 módulos transformados;
+- `git diff --check` aprovado;
+- o lint completo ainda não passa: foram encontrados 237 erros e 12 avisos preexistentes, concentrados principalmente em Edge Functions legadas e usos antigos de `any`. Essa dívida não foi corrigida em massa para evitar ampliar o risco deste PR.
+
+O commit `d2cc30f` ainda **não foi publicado no GitHub**. As tentativas automáticas de `git push` falharam antes da autenticação porque o ambiente de execução não conseguiu resolver `github.com`/`ssh.github.com`. Também foram preparados, como contingência, um patch Git e um ZIP limpo; as tentativas manuais pelo GitHub Desktop ainda não foram concluídas.
+
+Uma chave SSH temporária, identificada no GitHub como **`Codex CRM COC — sessão 21/09/2026`**, foi adicionada à conta do responsável. O conteúdo privado da chave não deve ser registrado, copiado ou compartilhado. Remover essa chave das configurações do GitHub assim que a branch for publicada ou quando for decidido abandonar esse meio de acesso.
+
+### Ana no Supabase
+
+No ambiente implantado, foi verificado que:
+
+- `school-triage` está publicada; a última versão observada foi a 37;
+- as regras recentes de identificação `*[Atendente Ana]*`, separação Secretaria/Financeiro e interrupção quando um funcionário responde estavam presentes na função implantada;
+- os triggers de WhatsApp e e-mail estavam ativos;
+- as execuções recentes da Ana estavam falhando com `create_lead_failed`;
+- não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
+- `escola_nome` e `escola_info` estavam preenchidos;
+- `escola_valores` e `escola_agente_ativo` não estavam cadastrados;
+- a `OPENAI_API_KEY` renovada havia sido validada anteriormente e não foi identificada como causa da falha;
+- foi detectada uma credencial privilegiada gravada diretamente na definição SQL do trigger. Não reproduzir essa credencial. Ela precisa ser rotacionada e substituída por mecanismo seguro antes da homologação.
+
+A Ana continua **não homologada**. O próximo diagnóstico deve localizar a causa exata de `create_lead_failed`, preservar contatos e históricos existentes e corrigir a segurança do trigger antes de novos testes reais.
+
+## 16. Próximos passos imediatos
+
+1. Publicar a branch `cleanup/remove-unused-legacy-files` e abrir PR contra `main`, sem mesclar automaticamente.
+2. Revisar no PR a remoção dos 24 arquivos e confirmar novamente o build.
+3. Após a publicação, remover a chave SSH temporária da conta GitHub.
+4. Corrigir a credencial privilegiada embutida no trigger sem expor seu valor.
+5. Diagnosticar `create_lead_failed` no fluxo real da Ana.
+6. Cadastrar e revisar `escola_valores` e `escola_agente_ativo` somente após definir os valores oficiais e a política de atendimento.
+7. Executar teste ponta a ponta controlado: inbound → persistência → trigger → `school-triage` → resposta/handoff → registro, sem disparar mensagens reais durante a fase técnica.
+
 ---
 
-Última atualização deste documento: **21/09/2026**.
-Commit de código usado como referência antes da criação do documento: **`3c1c9348`**.
+Última atualização deste documento: **22/09/2026**.
+Referência remota atual: **`main` em `d5fbc3f`**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit `d2cc30f`**.
