@@ -5,6 +5,10 @@
 // horário, localização) e também matrícula até o nível de valores.
 // Quando a conversa aprofunda ou a família pede atendimento humano,
 // marca o contato como "aguardando secretaria" e avisa a família.
+//
+// Comportamentos especiais:
+//   - Se o lead não tem nome real (começa com "Contato"), Ana pergunta o nome.
+//   - Se o lead está em handoff há mais de 4h sem resposta humana, Ana retoma.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
@@ -18,11 +22,14 @@ const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sext
 Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
 Currículos devem ser enviados para o e-mail rh.cocmacapanorte@gmail.com.`;
 
-const ASSUNTOS = ["matricula", "curriculo", "horario", "localizacao", "outros"] as const;
+const ASSUNTOS = ["matricula", "financeiro", "curriculo", "horario", "localizacao", "outros"] as const;
 type Assunto = typeof ASSUNTOS[number];
 
 // Assuntos que o agente resolve por completo sozinho.
-const AUTO_RESOLVE: Assunto[] = ["curriculo", "horario", "localizacao"];
+const AUTO_RESOLVE: Assunto[] = ["financeiro", "curriculo", "horario", "localizacao"];
+
+// Handoff esfria após 4 horas sem resposta humana → Ana retoma.
+const HANDOFF_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 interface Triagem {
   assunto: Assunto;
@@ -31,6 +38,7 @@ interface Triagem {
   motivo_humano: string | null;
   resumo: string;
   resposta: string;
+  nome_extraido: string | null;
 }
 
 function json(body: unknown, status = 200) {
@@ -38,6 +46,98 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+/** Retorna true se o nome é um placeholder gerado automaticamente. */
+function isPlaceholderName(name: string | null): boolean {
+  if (!name) return true;
+  return name.startsWith("Contato ") || name.startsWith("Contato por");
+}
+
+function isAnaOutbound(message: { message?: string | null; raw_data?: Record<string, unknown> | null }): boolean {
+  return message.raw_data?.sender_type === "ana" ||
+    message.raw_data?.source === "school-triage" ||
+    (message.message || "").startsWith("*[Atendente Ana]*");
+}
+
+async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKey: string) {
+  const now = new Date().toISOString();
+  const { data: due, error } = await supabase
+    .from("ana_followups")
+    .select("id, lead_id, phone, handoff_at")
+    .eq("status", "pending")
+    .lte("due_at", now)
+    .order("due_at", { ascending: true })
+    .limit(20);
+  if (error) throw error;
+
+  let sent = 0;
+  let cancelled = 0;
+  let failed = 0;
+
+  for (const item of due || []) {
+    const { data: claimed } = await supabase
+      .from("ana_followups")
+      .update({ status: "processing", processed_at: now })
+      .eq("id", item.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (!claimed) continue;
+
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("triage_status, handoff_at")
+      .eq("id", item.lead_id)
+      .maybeSingle();
+
+    const sameHandoff = lead?.triage_status === "aguardando_secretaria" &&
+      lead?.handoff_at && new Date(lead.handoff_at).getTime() === new Date(item.handoff_at).getTime();
+    if (!sameHandoff) {
+      await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "handoff_changed" }).eq("id", item.id);
+      cancelled++;
+      continue;
+    }
+
+    const { data: messages } = await supabase
+      .from("whatsapp_messages")
+      .select("direction, message, raw_data, created_at")
+      .eq("phone", item.phone)
+      .gt("created_at", item.handoff_at)
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    const userContinued = (messages || []).some((m: any) => m.direction === "inbound");
+    const humanReplied = (messages || []).some((m: any) => m.direction === "outbound" && !isAnaOutbound(m));
+    if (userContinued || humanReplied) {
+      await supabase.from("ana_followups").update({
+        status: "cancelled",
+        cancel_reason: humanReplied ? "human_replied" : "user_continued",
+      }).eq("id", item.id);
+      cancelled++;
+      continue;
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({
+        phone: item.phone,
+        leadId: item.lead_id,
+        senderType: "ana",
+        message: "*[Atendente Ana]*\nEnquanto você aguarda a Secretaria, posso ajudar em algo mais?",
+      }),
+    });
+
+    await supabase.from("ana_followups").update({
+      status: response.ok ? "sent" : "failed",
+      sent_at: response.ok ? new Date().toISOString() : null,
+      error_message: response.ok ? null : (await response.text()).slice(0, 500),
+    }).eq("id", item.id);
+    if (response.ok) sent++; else failed++;
+  }
+
+  return { processed: (due || []).length, sent, cancelled, failed };
 }
 
 serve(async (req) => {
@@ -49,9 +149,14 @@ serve(async (req) => {
 
   try {
     const payload = await req.json().catch(() => ({}));
+    if (payload.action === "process_followups") {
+      return json({ success: true, ...(await processDueFollowups(supabase, supabaseUrl, serviceKey)) });
+    }
+
     const channel: "whatsapp" | "email" = payload.channel === "email" ? "email" : "whatsapp";
     const text: string = (payload.text || "").toString().trim();
     const phone: string | null = payload.phone || null;
+    const messageId: string | null = payload.message_id || null;
     let leadId: string | null = payload.lead_id || null;
 
     if (!text) return json({ skipped: "empty_text" });
@@ -105,13 +210,87 @@ serve(async (req) => {
       .eq("id", leadId!)
       .maybeSingle();
 
+    // ---- Lógica de handoff ----
     // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
-    const handoffPendente = lead?.triage_status === "aguardando_secretaria";
+    let handoffPendente = lead?.triage_status === "aguardando_secretaria";
     const textoNormalizado = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
     const apenasEncerramento = /^(não|nao|obrigad[oa]|ok|okay|tá bom|ta bom|beleza|só isso|so isso|era só|era so|perfeito)$/.test(textoNormalizado);
-    if (handoffPendente && apenasEncerramento) {
-      return json({ skipped: "waiting_human", lead_id: leadId });
+
+    if (handoffPendente) {
+      const handoffAt = lead?.handoff_at ? new Date(lead.handoff_at).getTime() : 0;
+      const agora = Date.now();
+      const esfriou = (agora - handoffAt) >= HANDOFF_COOLDOWN_MS;
+
+      if (!esfriou && apenasEncerramento) {
+        return json({ skipped: "waiting_human", lead_id: leadId });
+      }
+
+      if (esfriou) {
+        if (phone) {
+          const { data: saidasAposHandoff } = await supabase
+            .from("whatsapp_messages")
+            .select("id, message, raw_data")
+            .eq("phone", phone)
+            .eq("direction", "outbound")
+            .gt("created_at", lead?.handoff_at)
+            .limit(20);
+
+          if ((saidasAposHandoff || []).some((m: any) => !isAnaOutbound(m))) {
+            return json({ skipped: "human_replied_after_handoff", lead_id: leadId });
+          }
+        }
+
+        await supabase
+          .from("leads")
+          .update({ triage_status: "retomado_agente", handoff_at: null, handoff_reason: null })
+          .eq("id", leadId!);
+
+        handoffPendente = false;
+        console.log(`Handoff esfriou para lead ${leadId} — Ana retomando atendimento.`);
+      }
+    }
+
+    // ---- Detectar se funcionário assumiu durante o processamento ----
+    let inboundCreatedAt: string | null = null;
+    if (channel === "whatsapp" && messageId) {
+      const { data: inboundMessage } = await supabase
+        .from("whatsapp_messages")
+        .select("created_at")
+        .eq("id", messageId)
+        .eq("direction", "inbound")
+        .maybeSingle();
+      inboundCreatedAt = inboundMessage?.created_at || null;
+    }
+
+    const employeeAlreadyReplied = async () => {
+      if (channel !== "whatsapp" || !phone || !inboundCreatedAt) return false;
+      const { data: outbound } = await supabase
+        .from("whatsapp_messages")
+        .select("id, message, raw_data")
+        .eq("phone", phone)
+        .eq("direction", "outbound")
+        .gt("created_at", inboundCreatedAt)
+        .limit(20);
+      return (outbound || []).some((m: any) => !isAnaOutbound(m));
+    };
+
+    if (await employeeAlreadyReplied()) {
+      return json({ skipped: "employee_already_replied", lead_id: leadId });
+    }
+
+    // Falha de transcrição não deve ser interpretada pela IA nem gerar handoff.
+    if (/^\[(Mensagem de )?[ÁA]udio (não transcrito|[-–] erro (na transcrição|ao processar))\]$/i.test(text)) {
+      if (channel === "whatsapp" && phone) {
+        const audioReply = "*[Atendente Ana]*\nNão consegui entender o áudio. Pode reenviar ou escrever sua dúvida, por favor?";
+        const r = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ phone, message: audioReply, leadId, senderType: "ana" }),
+        });
+        return json({ success: r.ok, skipped: "audio_transcription_failed", lead_id: leadId, enviado: r.ok });
+      }
+      return json({ skipped: "audio_transcription_failed", lead_id: leadId });
     }
 
     // ---- Histórico curto para dar contexto ao agente ----
@@ -140,12 +319,24 @@ serve(async (req) => {
         .join("\n");
     }
 
-    // ---- Chamada de IA ----
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY ausente" }, 500);
+    // ---- Contexto do contato para personalização ----
+    const nomeReal = !isPlaceholderName(lead?.name) ? lead!.name : null;
+    const primeiroContato = !historico || historico.split("\n").filter(l => l.startsWith("Família")).length <= 1;
+    const devePerguntar = isPlaceholderName(lead?.name) && primeiroContato;
 
-    const systemPrompt = `Você é Ana, assistente virtual oficial de ${escolaNome}. Responda em português do Brasil, de forma acolhedora, curta, cordial e objetiva (no máximo 5 linhas), pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}.
-Quando for natural na primeira interação, apresente-se como Ana, assistente virtual do COC Macapá Norte. Não repita sua apresentação a cada mensagem.
+    // ---- Chamada de IA ----
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!apiKey) return json({ error: "OPENAI_API_KEY ausente" }, 500);
+
+    const saudacaoInstrucao = nomeReal
+      ? `O nome desta pessoa é "${nomeReal}". Use o nome para cumprimentá-la quando fizer sentido (ex: "Bom dia, ${nomeReal}!").`
+      : devePerguntar
+      ? `Você ainda não sabe o nome desta pessoa. No início da sua resposta, cumprimente e pergunte o nome de forma natural (ex: "Olá! Para te atender melhor, pode me dizer seu nome?"). Depois responda a dúvida normalmente se já houver uma. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
+      : `Você ainda não sabe o nome desta pessoa. Cumprimente cordialmente sem usar nome.`;
+
+    const systemPrompt = `Você é o atendente virtual de ${escolaNome}. Responde em português do Brasil, de forma curta, cordial e objetiva (no máximo 5 linhas), pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}.
+
+${saudacaoInstrucao}
 
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
@@ -155,26 +346,31 @@ ${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : "VA
 REGRAS:
 - Assuntos "curriculo", "horario" e "localizacao": responda com a informação oficial e encerre com cordialidade. precisa_humano = false.
 - Assunto "matricula": você pode explicar o processo e informar os valores acima. Se a família pedir falar com uma pessoa, negociar, pedir desconto, tratar de caso específico da criança, documentos, vaga em turma específica, ou fizer qualquer pergunta que não esteja nas informações oficiais → precisa_humano = true.
+- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são sempre da SECRETARIA. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
+- O FINANCEIRO atende somente famílias que já são clientes/alunos matriculados, e apenas em assuntos posteriores à matrícula, como mensalidade vencida, segunda via, pagamento não identificado ou negociação de débito existente. Só forneça o contato do Financeiro nesses casos.
+- Quando a pessoa confirmar que já é cliente e trouxer um desses assuntos posteriores à matrícula, classifique como "financeiro", informe a orientação oficial e use precisa_humano = false se a dúvida estiver totalmente respondida.
+- Se não estiver claro se a pessoa já é cliente, pergunte antes de indicar o Financeiro: "O aluno já está matriculado conosco?".
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
 - Nunca prometa prazos que não estejam nas informações oficiais.
+- IMPORTANTE: Se você acabou de perguntar o nome e a pessoa ainda não trouxe um assunto específico, use assunto="outros" e precisa_humano=false (apenas aguardando apresentação).
 
 Responda SOMENTE com JSON válido:
-{"assunto":"matricula|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar"}`;
+{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null"}`;
 
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-3.8-flash",
+        model: "gpt-4.1-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -202,10 +398,22 @@ Responda SOMENTE com JSON válido:
     }
 
     const assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
-    const precisaHumano = !!triagem.precisa_humano;
+    // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
+    // não forçar handoff — Ana está apenas aguardando apresentação.
+    const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
+    const precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
     let resposta = (triagem.resposta || "").trim();
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
+    }
+
+    // ---- Salvar nome extraído pela IA ----
+    if (triagem.nome_extraido && isPlaceholderName(lead?.name)) {
+      const nomeExtraido = triagem.nome_extraido.trim();
+      if (nomeExtraido.length > 1) {
+        await supabase.from("leads").update({ name: nomeExtraido }).eq("id", leadId!);
+        console.log(`Nome extraído e salvo para lead ${leadId}: "${nomeExtraido}"`);
+      }
     }
 
     // ---- Enviar resposta ----
@@ -213,10 +421,16 @@ Responda SOMENTE com JSON válido:
     if (resposta) {
       try {
         if (channel === "whatsapp" && phone) {
+          if (await employeeAlreadyReplied()) {
+            return json({ skipped: "employee_replied_during_generation", lead_id: leadId });
+          }
+          const respostaComIdentificacao = resposta.startsWith("*[Atendente Ana]*")
+            ? resposta
+            : `*[Atendente Ana]*\n${resposta}`;
           const r = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-            body: JSON.stringify({ phone, message: resposta, leadId }),
+            body: JSON.stringify({ phone, message: respostaComIdentificacao, leadId, senderType: "ana" }),
           });
           enviado = r.ok;
           if (!r.ok) console.error("Falha ao enviar WhatsApp:", await r.text());
@@ -247,8 +461,6 @@ Responda SOMENTE com JSON válido:
       triage_summary: triagem.resumo || null,
     };
 
-    // Uma resposta só pode ser considerada atendida se realmente foi entregue.
-    // Falha de envio sempre vira handoff para evitar atendimento "fantasma" no CRM.
     const falhaEnvio = !!resposta && !enviado;
 
     if (falhaEnvio) {
@@ -262,6 +474,7 @@ Responda SOMENTE com JSON válido:
         update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";
       }
     } else if (handoffPendente) {
+      // Respondeu uma FAQ, mas preserva a fila humana do assunto anterior.
       update.triage_status = "aguardando_secretaria";
     } else if (AUTO_RESOLVE.includes(assunto)) {
       update.triage_status = "resolvido";
@@ -273,14 +486,22 @@ Responda SOMENTE com JSON válido:
 
     await supabase.from("leads").update(update).eq("id", leadId!);
 
+    if (channel === "whatsapp" && phone && precisaHumano && !handoffPendente && enviado) {
+      await supabase.from("ana_followups").insert({
+        lead_id: leadId,
+        phone,
+        handoff_at: now,
+        due_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        status: "pending",
+      });
+    }
+
     await supabase.from("activity_log").insert({
       lead_id: leadId,
       activity_type: "agent_triage",
-      description: falhaEnvio
-        ? `Ana não conseguiu enviar a resposta (${assunto}): ${update.handoff_reason}`
-        : precisaHumano
-          ? `Ana encaminhou para a secretaria (${assunto}): ${update.handoff_reason}`
-          : `Ana respondeu sozinha (${assunto})`,
+      description: precisaHumano
+        ? `Agente encaminhou para a secretaria (${assunto}): ${update.handoff_reason}`
+        : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
       metadata: { assunto, canal: channel, enviado, interesse: triagem.interesse, resumo: triagem.resumo },

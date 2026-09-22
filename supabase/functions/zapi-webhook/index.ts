@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
 import { isInternalPhone } from "../_shared/internal-contacts.ts";
+import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -133,7 +134,8 @@ serve(async (req) => {
         localPhone = onlyDigits;
       } else {
         localPhone = onlyDigits.startsWith('55') ? onlyDigits.slice(2) : onlyDigits;
-        normalizedPhone = '55' + localPhone;
+        normalizedPhone = normalizeWhatsAppPhone(onlyDigits);
+        localPhone = normalizedPhone.startsWith('55') ? normalizedPhone.slice(2) : normalizedPhone;
       }
       
       suffix11 = localPhone && localPhone.length >= 11 ? localPhone.slice(-11) : null;
@@ -757,7 +759,7 @@ serve(async (req) => {
       const realPhone = mappedPhoneForLid || chosenLead?.phones?.[0] || chosenLead?.phone;
       // Make sure it's a real phone (not a LID or temp)
       if (realPhone && !realPhone.includes('@') && realPhone.length >= 10) {
-        phoneToStore = realPhone;
+        phoneToStore = normalizeWhatsAppPhone(realPhone);
         console.log('Usando telefone real do lead ao invés do chatLid:', phoneToStore, mappedPhoneForLid ? '(via mapa)' : '(fallback)');
       }
     }

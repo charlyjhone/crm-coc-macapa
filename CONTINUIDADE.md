@@ -261,10 +261,11 @@ A falha `create_lead_failed` e a credencial embutida no trigger estão corrigida
 2. Revisar no PR a remoção dos 24 arquivos e confirmar novamente o build.
 3. Após a publicação, remover a chave SSH temporária da conta GitHub.
 4. Inventariar dependências da chave antiga e executar sua rotação planejada sem indisponibilidade.
-5. Homologar os principais assuntos da Ana com números internos/controlados e confirmar resposta, handoff e interrupção após atendimento humano.
-6. Cadastrar `escola_valores` somente após definir os valores oficiais; `escola_agente_ativo` já está explicitamente configurado como `true`.
-7. Continuar a homologação ponta a ponta dos assuntos restantes; horário, matrícula, localização, entrega, handoff e continuidade durante handoff já foram validados com número autorizado.
-8. Implementar, se aprovado, um acompanhamento cronometrado após o handoff (por exemplo, perguntar “Posso ajudar em algo mais?” após alguns minutos). A versão 40 inclui essa pergunta na própria mensagem de encaminhamento, mas ainda não agenda uma mensagem futura.
+5. Informar a lista oficial de números/e-mails internos da escola para preencher `_shared/internal-contacts.ts`; referências do CRM antigo foram removidas e a lista está vazia de forma intencional.
+6. Ativar no painel do Supabase Auth a proteção contra senhas comprometidas. O Advisor continua apontando essa configuração; a sessão de navegador disponível exigiu novo login e nenhuma credencial foi solicitada ou manipulada.
+7. Homologar os assuntos ainda não testados com números controlados: documentos, visita, currículo/RH, financeiro de aluno matriculado, coordenação, saúde, cadastro e resposta humana real.
+8. Cadastrar `escola_valores` somente após definir os valores oficiais; `escola_agente_ativo` está explicitamente configurado como `true`.
+9. Tratar gradualmente os 237 erros de lint preexistentes, sem alteração em massa que coloque o CRM em risco.
 
 ### Commits locais mais recentes
 
@@ -272,9 +273,68 @@ A falha `create_lead_failed` e a credencial embutida no trigger estão corrigida
 - `3dfcc07` — remover credencial do trigger da Ana;
 - `cd8eec9` — evitar handoff prematuro da Ana;
 - `53e67ca` — responder FAQs durante handoff da Ana.
+- `c9712a8` — atualizar continuidade da Ana v40.
+
+## 17. Correções operacionais e de segurança de 22/09/2026 — Ana v42
+
+Foi executada uma nova auditoria depois da homologação inicial. O código publicado da versão 40 foi primeiro trazido de volta ao repositório para eliminar a divergência entre produção e fonte local. Em seguida foram aplicadas e publicadas as correções abaixo.
+
+### Versões ativas
+
+- `school-triage`: **v42**, ativa;
+- `send-whatsapp-message`: **v9**, ativa;
+- `zapi-webhook`: **v10**, ativa.
+
+### Correções concluídas
+
+- criada normalização compartilhada de telefones em `_shared/whatsapp-phone.ts`;
+- celulares brasileiros antigos com oito dígitos passam a receber o nono dígito depois do DDD;
+- 16 contatos e 196 mensagens antigas foram normalizados no banco sem remoção de histórico;
+- o telefone controlado da homologação ficou canônico como `5596981064115`, mantendo o vínculo com o LID existente;
+- mensagens enviadas pela Ana recebem `raw_data.sender_type = "ana"` e `raw_data.source = "school-triage"`;
+- 46 mensagens históricas identificadas por `*[Atendente Ana]*` foram marcadas retroativamente como automáticas;
+- a detecção de resposta humana agora ignora mensagens da própria Ana;
+- a retomada após quatro horas não interpreta mais uma saída automática como resposta da Secretaria;
+- áudio sem transcrição não é mais enviado à IA nem gera handoff: a Ana pede para reenviar o áudio ou escrever a dúvida;
+- falha real no envio automático volta a gerar `aguardando_secretaria`, evitando atendimento fantasma;
+- contradições entre Secretaria e Financeiro foram corrigidas em `escola_info`: interessados e novas matrículas permanecem com a Secretaria; Financeiro atende somente alunos já matriculados em assuntos posteriores à matrícula;
+- referências antigas de Miguel, Inventor Miguel, Inventos Digitais, Yuri e Contentize foram removidas de `_shared/internal-contacts.ts`;
+- foi criado `public.ana_followups`, com RLS, sem acesso de `anon` ou `authenticated`;
+- um cron ativo, `ana-process-followups`, executa a cada minuto e processa acompanhamentos vencidos;
+- cinco minutos depois de um novo handoff, a Ana pergunta uma única vez se pode ajudar em algo mais, somente se a família não continuou a conversa e nenhum funcionário respondeu;
+- funções `SECURITY DEFINER` que são triggers deixaram de ser RPCs públicas;
+- nenhuma função privilegiada permanece executável pelo papel `anon`;
+- utilitários internos de cache, resolução de telefone, limpeza e contexto ficaram restritos ao `service_role`;
+- a base de dados conserva as funções escolares necessárias aos usuários autenticados, que validam `auth.uid()` antes da execução.
+
+### Verificações realizadas
+
+- mensagem controlada de falha de áudio entregue no número autorizado com o texto correto e identificação da Ana;
+- resposta gravada com telefone canônico, `sender_type = ana` e `source = school-triage`;
+- teste do processador de follow-up cancelou corretamente uma tarefa cujo handoff já havia mudado, sem enviar mensagem indevida;
+- job `ana-process-followups` confirmado ativo;
+- `git diff --check` aprovado;
+- build de produção aprovado novamente com 3.459 módulos transformados;
+- configurações `escola_agente_ativo = true`, `escola_nome` e `escola_info` preservadas;
+- `escola_valores` continua ausente propositalmente, até aprovação dos valores oficiais.
+
+### Migrations adicionadas
+
+- `20260922180000_align_ana_v41_phone_and_rules.sql`;
+- `20260922183000_ana_handoff_followups.sql`;
+- `20260922184500_harden_trigger_function_permissions.sql`.
+
+### Limites conhecidos após a v42
+
+- a proteção do Supabase Auth contra senhas vazadas ainda precisa ser ativada no painel autenticado;
+- o Advisor ainda informa funções `SECURITY DEFINER` acessíveis a `authenticated`; as funções escolares mantidas nessa condição possuem verificação de `auth.uid()` e são usadas pelo CRM. Não revogar em massa;
+- a lista oficial de contatos internos da escola ainda precisa ser fornecida;
+- os valores oficiais de 2027 continuam não cadastrados;
+- o lint completo permanece com 237 erros preexistentes, embora o build esteja aprovado;
+- a branch local continua pendente de publicação no GitHub por causa do bloqueio de resolução de rede já registrado.
 
 ---
 
-Última atualização deste documento: **22/09/2026**.
+Última atualização deste documento: **22/09/2026 — Ana v42**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional `53e67ca`, seguido desta atualização documental**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional mais recente — `fix: homologar Ana v42 e corrigir fluxo do CRM`**.

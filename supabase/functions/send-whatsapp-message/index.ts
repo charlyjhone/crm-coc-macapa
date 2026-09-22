@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
+import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, leadId } = await req.json();
+    const { phone, message, leadId, senderType = 'human' } = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -35,7 +36,7 @@ serve(async (req) => {
 
     // Normalizar telefone (remover caracteres especiais)
     // O número deve estar cadastrado com código de país incluso (ex: 5511999998888)
-    let normalizedPhone = phone.replace(/\D/g, '');
+    const normalizedPhone = normalizeWhatsAppPhone(phone);
 
     // Ao iniciar um chat (primeiro outbound), precisamos persistir o chatLid no lead
     // para que callbacks do webhook que chegam como "@lid" nunca mais virem órfãos.
@@ -178,7 +179,12 @@ serve(async (req) => {
           message: message,
           direction: 'outbound',
           timestamp: new Date().toISOString(),
-          raw_data: { ...zapiData, resolvedChatLid },
+          raw_data: {
+            ...zapiData,
+            resolvedChatLid,
+            sender_type: senderType === 'ana' ? 'ana' : 'human',
+            source: senderType === 'ana' ? 'school-triage' : 'manual',
+          },
         });
     }
 
