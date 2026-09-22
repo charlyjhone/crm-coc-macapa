@@ -231,7 +231,7 @@ Uma chave SSH temporária, identificada no GitHub como **`Codex CRM COC — sess
 No ambiente implantado, foi verificado que:
 
 - o projeto Supabase correto da conexão atual é `crm-escola`, ID `fenqnbzdjnyvgrmjczoi`; o ID antigo `swtujagetprnlmfvlega` estava obsoleto no `supabase/config.toml` e foi corrigido localmente;
-- `school-triage` está publicada e ativa na versão 38;
+- `school-triage` está publicada e ativa na versão 39;
 - as regras recentes de identificação `*[Atendente Ana]*`, separação Secretaria/Financeiro e interrupção quando um funcionário responde estavam presentes na função implantada;
 - os triggers de WhatsApp e e-mail estavam ativos;
 - a causa de `create_lead_failed` foi confirmada: a função tentava inserir `status = "em_aberto"`, valor inexistente no enum `lead_status`;
@@ -241,6 +241,9 @@ No ambiente implantado, foi verificado que:
 - uma chamada técnica sem conteúdo confirmou HTTP 200 e `empty_text`, sem criar contato, chamar IA ou enviar mensagem;
 - após a correção, execuções reais retornaram `success`, `enviado = true` e handoff `aguardando_secretaria`; mensagens seguintes foram corretamente interrompidas com `waiting_human`;
 - `escola_agente_ativo` foi cadastrado explicitamente como `true`;
+- a homologação com número controlado confirmou entrega real no WhatsApp, identificação `*[Atendente Ana]*`, classificação de horário e atualização do contato;
+- a versão 39 corrigiu um handoff indevido: pedidos amplos de informações agora podem continuar com perguntas de qualificação, sem forçar atendimento humano apenas por terem sido classificados como `outros`;
+- após receber série e turno no teste, a Ana retomou, classificou como `matricula`, respondeu e fez handoff legítimo para confirmação humana de vaga, valores e documentação;
 - não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
 - `escola_nome` e `escola_info` estavam preenchidos;
 - `escola_valores` e `escola_agente_ativo` não estavam cadastrados;

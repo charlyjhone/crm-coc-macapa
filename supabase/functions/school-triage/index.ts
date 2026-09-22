@@ -152,6 +152,7 @@ REGRAS:
 - Assuntos "curriculo", "horario" e "localizacao": responda com a informação oficial e encerre com cordialidade. precisa_humano = false.
 - Assunto "matricula": você pode explicar o processo e informar os valores acima. Se a família pedir falar com uma pessoa, negociar, pedir desconto, tratar de caso específico da criança, documentos, vaga em turma específica, ou fizer qualquer pergunta que não esteja nas informações oficiais → precisa_humano = true.
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
+- Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Nunca prometa prazos que não estejam nas informações oficiais.
 
@@ -195,7 +196,7 @@ Responda SOMENTE com JSON válido:
     }
 
     const assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
-    const precisaHumano = !!triagem.precisa_humano || assunto === "outros";
+    const precisaHumano = !!triagem.precisa_humano;
     const resposta = (triagem.resposta || "").trim();
 
     // ---- Enviar resposta ----
