@@ -92,11 +92,9 @@ A identidade atual no prompt é: **Ana, assistente virtual oficial do COC Macap�
 
 ### Situação importante
 
-**A Ana ainda não está homologada como funcional.**
+**A Ana está operacional no WhatsApp e permanece em homologação funcional ampliada.**
 
-O responsável informou explicitamente que a atendente virtual não está funcionando. Portanto, qualquer marcação antiga no `roadmap.md` dizendo que o agente está concluído deve ser interpretada como “implementado em código”, não como “testado e funcionando em produção”.
-
-Não presumir que a Ana funciona apenas porque `school-triage` existe.
+O fluxo automático principal foi recuperado, publicado e testado em produção até a versão 46. Já existem entregas reais pelo WhatsApp, classificação, handoff, respostas a dúvidas autônomas, encerramentos silenciosos e proteção contra chamadas externas. Ainda não considerar todos os assuntos e o atendimento humano totalmente homologados até concluir os testes pendentes registrados nas seções 20 e 22.
 
 ## 6. Fluxo esperado da Ana
 
@@ -184,7 +182,7 @@ Ao iniciar uma nova sessão:
 - não recomece o projeto do zero;
 - não reintroduza Susan/Miguel ou automações comerciais antigas;
 - preserve funcionalidades escolares já existentes;
-- trate a Ana como **em diagnóstico/homologação**, até haver teste real de ponta a ponta;
+- trate a Ana como **operacional no fluxo automático e ainda em homologação ampliada**, até concluir o teste real com resposta humana e os assuntos pendentes;
 - após uma mudança estrutural importante, atualize este documento com estado, decisão, pendências e commit de referência.
 
 ## 13. Como continuar em outra conta do ChatGPT
@@ -421,8 +419,54 @@ A Inbox do frontend ainda continha identidade, filtros e ações do CRM comercia
 
 O webhook legado de entrada de e-mail ainda contém automações comerciais antigas e não foi reativado nem reescrito nesta etapa. Como não há mensagens em `email_messages`, o e-mail não integra o fluxo operacional atual. A próxima alteração nesse webhook deve ser uma substituição controlada pelo fluxo escolar, não uma limpeza parcial arriscada.
 
+## 22. Estado consolidado para a próxima sessão
+
+### Estado funcional atual
+
+- `school-triage`: **v46**, ativa e protegida por segredo interno no Vault;
+- `send-whatsapp-message`: **v9**, ativa;
+- `zapi-webhook`: **v10**, ativa;
+- WhatsApp inbound e outbound, criação/resolução de contato, identificação da Ana, handoff, follow-up e encerramentos curtos foram testados;
+- cron `ana-process-followups` permanece ativo e respondendo HTTP 200;
+- Inbox do frontend está adaptada ao COC e não chama mais o gerador comercial antigo;
+- `public.email_messages` permanece vazia; o fluxo escolar de e-mail ainda não foi homologado;
+- build de produção e `git diff --check` estão aprovados;
+- nenhuma mensagem, contato ou histórico escolar foi apagado nas correções recentes.
+
+### Commits locais mais recentes
+
+- `66ec168` — `fix: adaptar Inbox para atendimento escolar`;
+- `6953b9e` — `fix: estabilizar conversa e handoff da Ana`;
+- `218e359` — `fix: proteger acesso interno da Ana`;
+- `ea9a20d` — `fix: silenciar encerramentos curtos da Ana`;
+- `ab69784` — `fix: homologar Ana v42 e corrigir fluxo do CRM`.
+
+### Próxima ação prioritária
+
+Executar o teste real controlado:
+
+1. o responsável envia uma nova pergunta pelo número autorizado `5596981064115`;
+2. a Ana responde e encaminha um assunto que exige a Secretaria;
+3. um funcionário responde pela conta oficial da escola;
+4. o responsável envia nova mensagem;
+5. confirmar que o contato sai de `aguardando_secretaria`, o follow-up é cancelado e a Ana permanece silenciosa por quatro horas.
+
+Não havia mensagem nova do número autorizado na última consulta feita após a publicação da v46.
+
+### Pendências após o teste prioritário
+
+1. homologar documentos, visita, currículo/RH, financeiro de aluno matriculado, coordenação, saúde, cadastro, anexos e áudio;
+2. validar pela interface login, dashboard, famílias, alunos, funil, possibilidades, visitas, tarefas, Inbox, histórico e Atendimentos;
+3. receber a lista oficial de telefones/e-mails internos da escola antes de preencher `_shared/internal-contacts.ts`;
+4. cadastrar `escola_valores` somente quando os valores oficiais de 2027 forem aprovados;
+5. substituir de forma controlada o webhook legado de entrada de e-mail por um fluxo escolar; não fazer limpeza parcial do arquivo implantado;
+6. ativar a proteção contra senhas comprometidas no painel autenticado do Supabase Auth;
+7. inventariar dependências e rotacionar a credencial privilegiada antiga sem indisponibilidade;
+8. publicar a branch, abrir PR, revisar e remover a chave SSH temporária;
+9. corrigir gradualmente os 237 erros e 12 avisos antigos de lint.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — Ana v46 e Inbox escolar segura**.
+Última atualização deste documento: **22/09/2026 — estado consolidado após Ana v46 e Inbox escolar segura**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`; alterações da Ana v46 validadas e aguardando publicação no GitHub**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional mais recente `66ec168` — `fix: adaptar Inbox para atendimento escolar`**.
