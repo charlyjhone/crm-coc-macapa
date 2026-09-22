@@ -18,9 +18,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-school-triage-secret",
 };
 
-const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
-Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
-Currículos devem ser enviados para o e-mail rh.cocmacapanorte@gmail.com.`;
+const DEFAULT_INFO = `Nome: COC Macapá Norte.
+Endereço: BR-156, Zona Norte, próximo ao 2º Batalhão da Polícia Militar do Amapá (2º BPM).
+Horário da escola: segunda a sexta-feira, das 7h às 18h.
+Atendimento da secretaria: segunda a sexta-feira, das 7h30 às 18h. Aos sábados e domingos, não há atendimento.
+Etapas: Educação Infantil ao Ensino Médio.
+Currículos: WhatsApp (96) 99158-0232 ou e-mail rh.cocmacapanorte@gmail.com.`;
 
 const ASSUNTOS = ["matricula", "financeiro", "curriculo", "horario", "localizacao", "outros"] as const;
 type Assunto = typeof ASSUNTOS[number];
@@ -58,6 +61,17 @@ function isAnaOutbound(message: { message?: string | null; raw_data?: Record<str
   return message.raw_data?.sender_type === "ana" ||
     message.raw_data?.source === "school-triage" ||
     (message.message || "").startsWith("*[Atendente Ana]*");
+}
+
+function isConversationClosing(text: string): boolean {
+  const normalized = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
+  return /^(?:não|nao|não obrigado|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|tá bom|ta bom|beleza|só isso|so isso|somente isso|apenas isso|era só|era so|era isso(?: mesmo)?|é só isso|e so isso|só queria saber isso|so queria saber isso|não preciso de mais nada|nao preciso de mais nada|por enquanto (?:é|e) só isso|por enquanto (?:é|e) so isso|perfeito|resolvido|👍|🙏)$/.test(normalized);
+}
+
+function removeRepeatedHelpOffer(reply: string): string {
+  return reply
+    .replace(/(?:\s*\n*)?(?:enquanto isso,?\s*)?(?:posso|podemos) (?:te |lhe )?ajudar em algo mais\??/gi, "")
+    .trim();
 }
 
 async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKey: string) {
@@ -164,6 +178,7 @@ serve(async (req) => {
     if (payload.action === "process_followups") {
       return json({ success: true, ...(await processDueFollowups(supabase, supabaseUrl, serviceKey)) });
     }
+    const previewOnly = payload.action === "preview";
 
     const channel: "whatsapp" | "email" = payload.channel === "email" ? "email" : "whatsapp";
     const text: string = (payload.text || "").toString().trim();
@@ -222,12 +237,31 @@ serve(async (req) => {
       .eq("id", leadId!)
       .maybeSingle();
 
+    // Quando um funcionário assumiu a conversa recentemente, a Ana não deve
+    // atravessar o atendimento humano. Após o mesmo cooldown do handoff, ela
+    // pode voltar a atender uma nova conversa normalmente.
+    if (channel === "whatsapp" && phone) {
+      const { data: ultimaSaida } = await supabase
+        .from("whatsapp_messages")
+        .select("message, raw_data, created_at")
+        .eq("phone", phone)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const humanConversationActive = !!ultimaSaida &&
+        !isAnaOutbound(ultimaSaida) &&
+        Date.now() - new Date(ultimaSaida.created_at).getTime() < HANDOFF_COOLDOWN_MS;
+      if (humanConversationActive) {
+        return json({ skipped: "human_conversation_active", lead_id: leadId });
+      }
+    }
+
     // ---- Lógica de handoff ----
     // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
     let handoffPendente = lead?.triage_status === "aguardando_secretaria";
-    const textoNormalizado = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
-    const apenasEncerramento = /^(não|nao|não obrigado|nao obrigado|obrigad[oa]|muito obrigad[oa]|ok|okay|tá bom|ta bom|beleza|só isso|so isso|somente isso|apenas isso|era só|era so|é só isso|e so isso|perfeito|resolvido)$/.test(textoNormalizado);
+    const apenasEncerramento = isConversationClosing(text);
 
     // Se a última pergunta da Ana foi se poderia ajudar em algo mais, uma resposta
     // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
@@ -356,7 +390,8 @@ serve(async (req) => {
     // ---- Contexto do contato para personalização ----
     const nomeReal = !isPlaceholderName(lead?.name) ? lead!.name : null;
     const primeiroContato = !historico || historico.split("\n").filter(l => l.startsWith("Família")).length <= 1;
-    const devePerguntar = isPlaceholderName(lead?.name) && primeiroContato;
+    const pedidosDeNome = (historico.match(/(?:dizer|informar|qual (?:é|e)) (?:o )?seu nome/gi) || []).length;
+    const devePerguntar = isPlaceholderName(lead?.name) && (primeiroContato || pedidosDeNome < 2);
 
     // ---- Chamada de IA ----
     const apiKey = Deno.env.get("OPENAI_API_KEY");
@@ -389,6 +424,7 @@ REGRAS:
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
+- Se já houver atendimento da secretaria pendente, nunca repita "Posso ajudar em algo mais?" e não anuncie novamente o mesmo encaminhamento. Apenas responda a nova dúvida ou confirme brevemente que a informação adicional será considerada pela equipe.
 - Nunca prometa prazos que não estejam nas informações oficiais.
 - IMPORTANTE: Se você acabou de perguntar o nome e a pessoa ainda não trouxe um assunto específico, use assunto="outros" e precisa_humano=false (apenas aguardando apresentação).
 
@@ -405,6 +441,28 @@ Responda SOMENTE com JSON válido:
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
+        temperature: 0.2,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "triagem_escolar",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                assunto: { type: "string", enum: [...ASSUNTOS] },
+                interesse: { type: "string", enum: ["alto", "medio", "baixo", "indefinido"] },
+                precisa_humano: { type: "boolean" },
+                motivo_humano: { type: ["string", "null"] },
+                resumo: { type: "string" },
+                resposta: { type: "string" },
+                nome_extraido: { type: ["string", "null"] },
+              },
+              required: ["assunto", "interesse", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido"],
+              additionalProperties: false,
+            },
+          },
+        },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -437,8 +495,19 @@ Responda SOMENTE com JSON válido:
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
     const precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
     let resposta = (triagem.resposta || "").trim();
+    if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
+    }
+
+    if (previewOnly) {
+      return json({
+        preview: true,
+        assunto,
+        precisa_humano: precisaHumano,
+        resposta,
+        nome_extraido: triagem.nome_extraido,
+      });
     }
 
     // ---- Salvar nome extraído pela IA ----
@@ -499,10 +568,12 @@ Responda SOMENTE com JSON válido:
 
     if (falhaEnvio) {
       update.triage_status = "aguardando_secretaria";
+      update.resolved_at = null;
       update.handoff_at = now;
       update.handoff_reason = "Falha no envio automático da resposta";
     } else if (precisaHumano) {
       update.triage_status = "aguardando_secretaria";
+      update.resolved_at = null;
       if (!handoffPendente) {
         update.handoff_at = now;
         update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";

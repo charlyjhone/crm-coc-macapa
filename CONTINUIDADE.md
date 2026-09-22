@@ -373,8 +373,37 @@ O endpoint `school-triage` continuou com `verify_jwt = false` porque é chamado 
 
 O Advisor não apontou a nova função verificadora. Permanecem os itens já conhecidos: proteção contra senhas vazadas desativada, 12 funções escolares `SECURITY DEFINER` intencionalmente acessíveis a usuários autenticados e tabelas internas com RLS sem policies públicas.
 
+## 20. Continuidade da conversa e atendimento humano — Ana v46
+
+Uma nova auditoria funcional foi feita sobre as conversas reais e sobre a fila de atendimentos. As versões 45 e 46 foram publicadas em sequência; a versão ativa ao final é a **v46**.
+
+### Correções concluídas
+
+- respostas estruturadas da IA agora usam schema JSON estrito e temperatura reduzida, diminuindo respostas ilegíveis ou fora do formato esperado;
+- criada uma pré-visualização interna protegida para homologar respostas sem enviar WhatsApp nem alterar o contato;
+- encerramentos como “era isso mesmo”, “só queria saber isso”, “não preciso de mais nada”, “por enquanto é só isso”, “valeu”, 👍 e 🙏 também ficam silenciosos no contexto correto;
+- durante um handoff já existente, a Ana remove da resposta qualquer repetição de “Posso ajudar em algo mais?”;
+- quando a primeira pergunta de nome é ignorada e a pessoa responde apenas socialmente, a Ana pode pedir o nome uma segunda vez, sem insistir indefinidamente;
+- o fallback local de endereço e horário foi alinhado às informações oficiais atuais da escola, removendo o endereço antigo incorreto;
+- ao iniciar ou renovar um handoff, `resolved_at` agora é limpo para evitar um contato simultaneamente resolvido e aguardando a Secretaria;
+- criada a função/trigger `resolve_handoff_on_human_whatsapp_reply`: uma mensagem outbound humana resolve o handoff e cancela follow-ups pendentes;
+- após uma resposta humana, a Ana permanece silenciosa por quatro horas para não interromper a conversa da equipe; depois desse período pode atender uma nova conversa normalmente.
+
+### Homologação sem envio de mensagens
+
+- localização durante handoff: respondeu a localização e não repetiu o convite de ajuda;
+- informação adicional sobre criança de 3 anos: manteve o assunto de matrícula e não repetiu “Posso ajudar em algo mais?”;
+- contato sem nome após resposta social: pediu o nome novamente e não fez handoff;
+- funcionamento aos sábados: informou corretamente que não há aulas nem atendimento;
+- resposta humana: teste dentro de transação confirmou mudança para `resolvido`, limpeza do handoff e posterior rollback integral; nenhuma mensagem de teste permaneceu no histórico;
+- cron protegido continuou retornando HTTP 200 após a publicação da v46.
+
+### Migration adicionada
+
+- `20260922210000_resolve_handoff_on_human_reply.sql`.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — Ana v44**.
+Última atualização deste documento: **22/09/2026 — Ana v46**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`; alterações da Ana v44 validadas e aguardando publicação no GitHub**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`; alterações da Ana v46 validadas e aguardando publicação no GitHub**.
