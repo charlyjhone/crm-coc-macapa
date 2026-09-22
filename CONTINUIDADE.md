@@ -237,21 +237,25 @@ No ambiente implantado, foi verificado que:
 - a causa de `create_lead_failed` foi confirmada: a função tentava inserir `status = "em_aberto"`, valor inexistente no enum `lead_status`;
 - a versão 38 foi criada diretamente a partir da versão 37 implantada, alterando somente esse valor para `status = "novo"`;
 - uma inserção equivalente foi validada dentro de transação com `ROLLBACK`, sem deixar contato ou atividade de teste no banco;
+- o trigger `trigger_school_triage` foi migrado para remover totalmente a credencial e o cabeçalho `Authorization`; chamadas anônimas diretas à função SQL também foram revogadas;
+- uma chamada técnica sem conteúdo confirmou HTTP 200 e `empty_text`, sem criar contato, chamar IA ou enviar mensagem;
+- após a correção, execuções reais retornaram `success`, `enviado = true` e handoff `aguardando_secretaria`; mensagens seguintes foram corretamente interrompidas com `waiting_human`;
+- `escola_agente_ativo` foi cadastrado explicitamente como `true`;
 - não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
 - `escola_nome` e `escola_info` estavam preenchidos;
 - `escola_valores` e `escola_agente_ativo` não estavam cadastrados;
 - a `OPENAI_API_KEY` renovada havia sido validada anteriormente e não foi identificada como causa da falha;
 - foi detectada uma credencial privilegiada gravada diretamente na definição SQL do trigger. Não reproduzir essa credencial. Ela precisa ser rotacionada e substituída por mecanismo seguro antes da homologação.
 
-A falha `create_lead_failed` está corrigida tecnicamente, mas a Ana continua **não homologada** até concluir a segurança do trigger e um teste ponta a ponta controlado. Contatos e históricos existentes foram preservados.
+A falha `create_lead_failed` e a credencial embutida no trigger estão corrigidas. A Ana está operacional e já respondeu com sucesso em produção. Ainda falta a homologação funcional completa dos diferentes assuntos e a rotação planejada da chave antiga após inventariar dependências. Contatos e históricos existentes foram preservados.
 
 ## 16. Próximos passos imediatos
 
 1. Publicar a branch `cleanup/remove-unused-legacy-files` e abrir PR contra `main`, sem mesclar automaticamente.
 2. Revisar no PR a remoção dos 24 arquivos e confirmar novamente o build.
 3. Após a publicação, remover a chave SSH temporária da conta GitHub.
-4. Corrigir a credencial privilegiada embutida no trigger sem expor seu valor.
-5. Confirmar em teste ponta a ponta controlado que `create_lead_failed` não reaparece.
+4. Inventariar dependências da chave antiga e executar sua rotação planejada sem indisponibilidade.
+5. Homologar os principais assuntos da Ana com números internos/controlados e confirmar resposta, handoff e interrupção após atendimento humano.
 6. Cadastrar e revisar `escola_valores` e `escola_agente_ativo` somente após definir os valores oficiais e a política de atendimento.
 7. Executar teste ponta a ponta controlado: inbound → persistência → trigger → `school-triage` → resposta/handoff → registro, sem disparar mensagens reais durante a fase técnica.
 
