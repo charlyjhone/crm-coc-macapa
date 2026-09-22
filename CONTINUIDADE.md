@@ -247,7 +247,7 @@ No ambiente implantado, foi verificado que:
 - a versão 40 deixou de tratar o handoff como bloqueio total: enquanto a matrícula permanece na fila da secretaria, a Ana continua respondendo dúvidas autônomas como localização e horário;
 - encerramentos curtos como “não”, “ok” e “obrigado” permanecem silenciosos durante o handoff, evitando mensagens repetitivas;
 - o teste “Perfeito, qual a localização?” foi respondido com sucesso, classificado como `localizacao` e preservou corretamente o estado `aguardando_secretaria` da matrícula;
-- não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
+- antes das correções, não havia mensagens automáticas enviadas desde 18/09/2026; após as versões 38–40, respostas reais voltaram a ser enviadas e recebidas no WhatsApp;
 - `escola_nome` e `escola_info` estavam preenchidos;
 - `escola_valores` e `escola_agente_ativo` não estavam cadastrados;
 - a `OPENAI_API_KEY` renovada havia sido validada anteriormente e não foi identificada como causa da falha;
@@ -262,11 +262,19 @@ A falha `create_lead_failed` e a credencial embutida no trigger estão corrigida
 3. Após a publicação, remover a chave SSH temporária da conta GitHub.
 4. Inventariar dependências da chave antiga e executar sua rotação planejada sem indisponibilidade.
 5. Homologar os principais assuntos da Ana com números internos/controlados e confirmar resposta, handoff e interrupção após atendimento humano.
-6. Cadastrar e revisar `escola_valores` e `escola_agente_ativo` somente após definir os valores oficiais e a política de atendimento.
-7. Executar teste ponta a ponta controlado: inbound → persistência → trigger → `school-triage` → resposta/handoff → registro, sem disparar mensagens reais durante a fase técnica.
+6. Cadastrar `escola_valores` somente após definir os valores oficiais; `escola_agente_ativo` já está explicitamente configurado como `true`.
+7. Continuar a homologação ponta a ponta dos assuntos restantes; horário, matrícula, localização, entrega, handoff e continuidade durante handoff já foram validados com número autorizado.
+8. Implementar, se aprovado, um acompanhamento cronometrado após o handoff (por exemplo, perguntar “Posso ajudar em algo mais?” após alguns minutos). A versão 40 inclui essa pergunta na própria mensagem de encaminhamento, mas ainda não agenda uma mensagem futura.
+
+### Commits locais mais recentes
+
+- `97f0f94` — corrigir criação de contatos pela Ana;
+- `3dfcc07` — remover credencial do trigger da Ana;
+- `cd8eec9` — evitar handoff prematuro da Ana;
+- `53e67ca` — responder FAQs durante handoff da Ana.
 
 ---
 
 Última atualização deste documento: **22/09/2026**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit `d2cc30f`**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional `53e67ca`, seguido desta atualização documental**.
