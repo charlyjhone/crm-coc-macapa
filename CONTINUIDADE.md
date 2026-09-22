@@ -230,17 +230,20 @@ Uma chave SSH temporária, identificada no GitHub como **`Codex CRM COC — sess
 
 No ambiente implantado, foi verificado que:
 
-- `school-triage` está publicada; a última versão observada foi a 37;
+- o projeto Supabase correto da conexão atual é `crm-escola`, ID `fenqnbzdjnyvgrmjczoi`; o ID antigo `swtujagetprnlmfvlega` estava obsoleto no `supabase/config.toml` e foi corrigido localmente;
+- `school-triage` está publicada e ativa na versão 38;
 - as regras recentes de identificação `*[Atendente Ana]*`, separação Secretaria/Financeiro e interrupção quando um funcionário responde estavam presentes na função implantada;
 - os triggers de WhatsApp e e-mail estavam ativos;
-- as execuções recentes da Ana estavam falhando com `create_lead_failed`;
+- a causa de `create_lead_failed` foi confirmada: a função tentava inserir `status = "em_aberto"`, valor inexistente no enum `lead_status`;
+- a versão 38 foi criada diretamente a partir da versão 37 implantada, alterando somente esse valor para `status = "novo"`;
+- uma inserção equivalente foi validada dentro de transação com `ROLLBACK`, sem deixar contato ou atividade de teste no banco;
 - não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
 - `escola_nome` e `escola_info` estavam preenchidos;
 - `escola_valores` e `escola_agente_ativo` não estavam cadastrados;
 - a `OPENAI_API_KEY` renovada havia sido validada anteriormente e não foi identificada como causa da falha;
 - foi detectada uma credencial privilegiada gravada diretamente na definição SQL do trigger. Não reproduzir essa credencial. Ela precisa ser rotacionada e substituída por mecanismo seguro antes da homologação.
 
-A Ana continua **não homologada**. O próximo diagnóstico deve localizar a causa exata de `create_lead_failed`, preservar contatos e históricos existentes e corrigir a segurança do trigger antes de novos testes reais.
+A falha `create_lead_failed` está corrigida tecnicamente, mas a Ana continua **não homologada** até concluir a segurança do trigger e um teste ponta a ponta controlado. Contatos e históricos existentes foram preservados.
 
 ## 16. Próximos passos imediatos
 
@@ -248,7 +251,7 @@ A Ana continua **não homologada**. O próximo diagnóstico deve localizar a cau
 2. Revisar no PR a remoção dos 24 arquivos e confirmar novamente o build.
 3. Após a publicação, remover a chave SSH temporária da conta GitHub.
 4. Corrigir a credencial privilegiada embutida no trigger sem expor seu valor.
-5. Diagnosticar `create_lead_failed` no fluxo real da Ana.
+5. Confirmar em teste ponta a ponta controlado que `create_lead_failed` não reaparece.
 6. Cadastrar e revisar `escola_valores` e `escola_agente_ativo` somente após definir os valores oficiais e a política de atendimento.
 7. Executar teste ponta a ponta controlado: inbound → persistência → trigger → `school-triage` → resposta/handoff → registro, sem disparar mensagens reais durante a fase técnica.
 

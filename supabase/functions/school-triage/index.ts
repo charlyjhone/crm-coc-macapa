@@ -86,7 +86,7 @@ serve(async (req) => {
           name: phone ? `Contato ${phone}` : "Contato por e-mail",
           phone,
           source: channel,
-          status: "em_aberto",
+          status: "novo",
           unclassified: false,
           triage_status: "novo",
         })
