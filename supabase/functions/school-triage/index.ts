@@ -105,8 +105,12 @@ serve(async (req) => {
       .eq("id", leadId!)
       .maybeSingle();
 
-    // Já está com a secretaria: não responder mais, só registrar pendência.
-    if (lead?.triage_status === "aguardando_secretaria") {
+    // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
+    // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
+    const handoffPendente = lead?.triage_status === "aguardando_secretaria";
+    const textoNormalizado = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
+    const apenasEncerramento = /^(não|nao|obrigad[oa]|ok|okay|tá bom|ta bom|beleza|só isso|so isso|era só|era so|perfeito)$/.test(textoNormalizado);
+    if (handoffPendente && apenasEncerramento) {
       return json({ skipped: "waiting_human", lead_id: leadId });
     }
 
@@ -154,6 +158,8 @@ REGRAS:
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
+- Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
+- Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
 - Nunca prometa prazos que não estejam nas informações oficiais.
 
 Responda SOMENTE com JSON válido:
@@ -197,7 +203,10 @@ Responda SOMENTE com JSON válido:
 
     const assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
     const precisaHumano = !!triagem.precisa_humano;
-    const resposta = (triagem.resposta || "").trim();
+    let resposta = (triagem.resposta || "").trim();
+    if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
+      resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
+    }
 
     // ---- Enviar resposta ----
     let enviado = false;
@@ -248,8 +257,12 @@ Responda SOMENTE com JSON válido:
       update.handoff_reason = "Falha no envio automático da resposta";
     } else if (precisaHumano) {
       update.triage_status = "aguardando_secretaria";
-      update.handoff_at = now;
-      update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";
+      if (!handoffPendente) {
+        update.handoff_at = now;
+        update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";
+      }
+    } else if (handoffPendente) {
+      update.triage_status = "aguardando_secretaria";
     } else if (AUTO_RESOLVE.includes(assunto)) {
       update.triage_status = "resolvido";
       update.resolved_at = now;

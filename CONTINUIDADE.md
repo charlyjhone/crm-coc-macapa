@@ -231,7 +231,7 @@ Uma chave SSH temporária, identificada no GitHub como **`Codex CRM COC — sess
 No ambiente implantado, foi verificado que:
 
 - o projeto Supabase correto da conexão atual é `crm-escola`, ID `fenqnbzdjnyvgrmjczoi`; o ID antigo `swtujagetprnlmfvlega` estava obsoleto no `supabase/config.toml` e foi corrigido localmente;
-- `school-triage` está publicada e ativa na versão 39;
+- `school-triage` está publicada e ativa na versão 40;
 - as regras recentes de identificação `*[Atendente Ana]*`, separação Secretaria/Financeiro e interrupção quando um funcionário responde estavam presentes na função implantada;
 - os triggers de WhatsApp e e-mail estavam ativos;
 - a causa de `create_lead_failed` foi confirmada: a função tentava inserir `status = "em_aberto"`, valor inexistente no enum `lead_status`;
@@ -244,6 +244,9 @@ No ambiente implantado, foi verificado que:
 - a homologação com número controlado confirmou entrega real no WhatsApp, identificação `*[Atendente Ana]*`, classificação de horário e atualização do contato;
 - a versão 39 corrigiu um handoff indevido: pedidos amplos de informações agora podem continuar com perguntas de qualificação, sem forçar atendimento humano apenas por terem sido classificados como `outros`;
 - após receber série e turno no teste, a Ana retomou, classificou como `matricula`, respondeu e fez handoff legítimo para confirmação humana de vaga, valores e documentação;
+- a versão 40 deixou de tratar o handoff como bloqueio total: enquanto a matrícula permanece na fila da secretaria, a Ana continua respondendo dúvidas autônomas como localização e horário;
+- encerramentos curtos como “não”, “ok” e “obrigado” permanecem silenciosos durante o handoff, evitando mensagens repetitivas;
+- o teste “Perfeito, qual a localização?” foi respondido com sucesso, classificado como `localizacao` e preservou corretamente o estado `aguardando_secretaria` da matrícula;
 - não havia mensagens automáticas enviadas desde 18/09/2026 no momento da auditoria;
 - `escola_nome` e `escola_info` estavam preenchidos;
 - `escola_valores` e `escola_agente_ativo` não estavam cadastrados;
