@@ -341,8 +341,40 @@ A causa era objetiva: a expressão regular já reconhecia “só isso” e “er
 
 Além do vocabulário ampliado, a regra agora consulta a última mensagem outbound: quando a Ana acabou de perguntar **“Posso ajudar em algo mais?”**, uma resposta curta de encerramento fica silenciosa mesmo se o estado do handoff tiver mudado entre as mensagens. Qualquer follow-up de cinco minutos ainda pendente para esse contato é cancelado com o motivo `conversation_closed`.
 
+## 19. Proteção do acesso interno — Ana v44
+
+O endpoint `school-triage` continuou com `verify_jwt = false` porque é chamado por trigger e `pg_cron`, mas deixou de aceitar requisições anônimas sem autenticação própria.
+
+### Correções concluídas
+
+- criado um segredo aleatório exclusivo em `vault.secrets`, com o nome `school_triage_webhook_secret`;
+- o valor permanece criptografado no Supabase Vault e não foi incluído no código, nas migrations ou neste documento;
+- o trigger `public.trigger_school_triage()` passou a ler o segredo no momento da chamada e enviá-lo no cabeçalho `x-school-triage-secret`;
+- o job `ana-process-followups` foi recriado com o mesmo cabeçalho e continua executando a cada minuto;
+- criada `public.verify_school_triage_secret(text)`, executável apenas por `service_role`; `anon` e `authenticated` não possuem permissão;
+- `school-triage` valida o cabeçalho antes de ler o payload, consultar contatos ou enviar respostas;
+- `school-triage` foi publicada como **v44**, ativa, ainda com `verify_jwt = false` por usar essa autenticação interna.
+
+### Verificações realizadas
+
+- chamada sem o segredo retornou HTTP 401 com `unauthorized`;
+- chamada interna com o segredo do Vault retornou HTTP 200 e `empty_text`, sem enviar mensagem;
+- execução real do cron protegido retornou HTTP 200, com zero itens pendentes e zero envios;
+- o Vault contém exatamente um segredo com o nome esperado;
+- permissões confirmadas: `anon = false`, `authenticated = false`, `service_role = true` para a função verificadora;
+- build de produção aprovado com 3.459 módulos transformados;
+- `git diff --check` aprovado.
+
+### Migration adicionada
+
+- `20260922203000_secure_school_triage_ingress.sql`.
+
+### Advisor após a alteração
+
+O Advisor não apontou a nova função verificadora. Permanecem os itens já conhecidos: proteção contra senhas vazadas desativada, 12 funções escolares `SECURITY DEFINER` intencionalmente acessíveis a usuários autenticados e tabelas internas com RLS sem policies públicas.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — Ana v43**.
+Última atualização deste documento: **22/09/2026 — Ana v44**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional mais recente — `fix: homologar Ana v42 e corrigir fluxo do CRM`**.
+Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`; alterações da Ana v44 validadas e aguardando publicação no GitHub**.

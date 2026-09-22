@@ -15,7 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-school-triage-secret",
 };
 
 const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
@@ -148,6 +148,18 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
+    const internalSecret = req.headers.get("x-school-triage-secret") || "";
+    if (!internalSecret) return json({ error: "unauthorized" }, 401);
+
+    const { data: secretIsValid, error: secretError } = await supabase.rpc(
+      "verify_school_triage_secret",
+      { p_secret: internalSecret },
+    );
+    if (secretError || secretIsValid !== true) {
+      if (secretError) console.error("Falha ao validar a chamada interna:", secretError.message);
+      return json({ error: "unauthorized" }, 401);
+    }
+
     const payload = await req.json().catch(() => ({}));
     if (payload.action === "process_followups") {
       return json({ success: true, ...(await processDueFollowups(supabase, supabaseUrl, serviceKey)) });
