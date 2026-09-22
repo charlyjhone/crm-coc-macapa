@@ -215,16 +215,38 @@ serve(async (req) => {
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
     let handoffPendente = lead?.triage_status === "aguardando_secretaria";
     const textoNormalizado = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
-    const apenasEncerramento = /^(não|nao|obrigad[oa]|ok|okay|tá bom|ta bom|beleza|só isso|so isso|era só|era so|perfeito)$/.test(textoNormalizado);
+    const apenasEncerramento = /^(não|nao|não obrigado|nao obrigado|obrigad[oa]|muito obrigad[oa]|ok|okay|tá bom|ta bom|beleza|só isso|so isso|somente isso|apenas isso|era só|era so|é só isso|e so isso|perfeito|resolvido)$/.test(textoNormalizado);
+
+    // Se a última pergunta da Ana foi se poderia ajudar em algo mais, uma resposta
+    // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
+    // tenha mudado entre as mensagens.
+    let anaAcabouDeOferecerAjuda = false;
+    if (channel === "whatsapp" && phone && apenasEncerramento) {
+      const { data: ultimaSaida } = await supabase
+        .from("whatsapp_messages")
+        .select("message, raw_data")
+        .eq("phone", phone)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
+        /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
+    }
+
+    if (apenasEncerramento && (handoffPendente || anaAcabouDeOferecerAjuda)) {
+      await supabase
+        .from("ana_followups")
+        .update({ status: "cancelled", cancel_reason: "conversation_closed" })
+        .eq("lead_id", leadId!)
+        .eq("status", "pending");
+      return json({ skipped: "conversation_closed", lead_id: leadId });
+    }
 
     if (handoffPendente) {
       const handoffAt = lead?.handoff_at ? new Date(lead.handoff_at).getTime() : 0;
       const agora = Date.now();
       const esfriou = (agora - handoffAt) >= HANDOFF_COOLDOWN_MS;
-
-      if (!esfriou && apenasEncerramento) {
-        return json({ skipped: "waiting_human", lead_id: leadId });
-      }
 
       if (esfriou) {
         if (phone) {

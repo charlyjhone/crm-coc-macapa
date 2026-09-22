@@ -333,8 +333,16 @@ Foi executada uma nova auditoria depois da homologação inicial. O código publ
 - o lint completo permanece com 237 erros preexistentes, embora o build esteja aprovado;
 - a branch local continua pendente de publicação no GitHub por causa do bloqueio de resolução de rede já registrado.
 
+## 18. Correção de encerramentos curtos — Ana v43
+
+Na continuidade da homologação com o número autorizado, foi confirmado no histórico real que a mensagem inbound **“Somente isso.”** recebeu indevidamente uma nova resposta da Ana perguntando se poderia ajudar em algo mais.
+
+A causa era objetiva: a expressão regular já reconhecia “só isso” e “era só”, mas não continha a forma “somente isso”. A correção passou a reconhecer também “somente isso”, “apenas isso”, “é só isso”, “não obrigado”, “muito obrigado”, “resolvido” e equivalentes definidos no código.
+
+Além do vocabulário ampliado, a regra agora consulta a última mensagem outbound: quando a Ana acabou de perguntar **“Posso ajudar em algo mais?”**, uma resposta curta de encerramento fica silenciosa mesmo se o estado do handoff tiver mudado entre as mensagens. Qualquer follow-up de cinco minutos ainda pendente para esse contato é cancelado com o motivo `conversation_closed`.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — Ana v42**.
+Última atualização deste documento: **22/09/2026 — Ana v43**.
 Referência remota atual: **`main` em `d5fbc3f`**.
 Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional mais recente — `fix: homologar Ana v42 e corrigir fluxo do CRM`**.
