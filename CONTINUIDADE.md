@@ -402,8 +402,27 @@ Uma nova auditoria funcional foi feita sobre as conversas reais e sobre a fila d
 
 - `20260922210000_resolve_handoff_on_human_reply.sql`.
 
+## 21. Inbox escolar segura — 22/09/2026
+
+A Inbox do frontend ainda continha identidade, filtros e ações do CRM comercial antigo, apesar de o restante da navegação já estar adaptado à escola. A auditoria confirmou que `public.email_messages` está vazia no projeto `crm-escola`, portanto não havia histórico escolar de e-mail a migrar ou preservar nessa tela.
+
+### Correções concluídas
+
+- removidos da Inbox os filtros e heurísticas específicos de Susan, Miguel e Sara;
+- removidos nomes, etiquetas e endereços comerciais antigos da interface;
+- o cabeçalho passou de “E-mails da Susan” para “E-mails da escola”;
+- o compositor passou a identificar a resposta como “Ana — COC Macapá Norte”;
+- o botão de geração por IA comercial foi desativado e substituído por resposta manual segura;
+- a função antiga `generate-email-reply` não é mais acionada pela Inbox;
+- envio manual continua usando `send-email`, cujas configurações atuais no banco são `Ana`, `ana@cocmacapanorte.com.br`, `COC MACAPÁ NORTE` e `coc@cocmacapanorte.com.br`;
+- build de produção aprovado com 3.459 módulos transformados e `git diff --check` aprovado.
+
+### Limite preservado
+
+O webhook legado de entrada de e-mail ainda contém automações comerciais antigas e não foi reativado nem reescrito nesta etapa. Como não há mensagens em `email_messages`, o e-mail não integra o fluxo operacional atual. A próxima alteração nesse webhook deve ser uma substituição controlada pelo fluxo escolar, não uma limpeza parcial arriscada.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — Ana v46**.
+Última atualização deste documento: **22/09/2026 — Ana v46 e Inbox escolar segura**.
 Referência remota atual: **`main` em `d5fbc3f`**.
 Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`; alterações da Ana v46 validadas e aguardando publicação no GitHub**.
