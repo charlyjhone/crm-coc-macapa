@@ -465,8 +465,255 @@ Não havia mensagem nova do número autorizado na última consulta feita após a
 8. publicar a branch, abrir PR, revisar e remover a chave SSH temporária;
 9. corrigir gradualmente os 237 erros e 12 avisos antigos de lint.
 
+## 23. Identificação de respostas humanas no WhatsApp — Z-API webhook v11
+
+Em 23/09/2026 foi confirmado em conversas reais que a Ana ainda entrava no meio
+do atendimento da Secretaria. A regra de pausa da v46 estava correta, mas as
+mensagens digitadas diretamente no WhatsApp da escola não chegavam ao CRM. No
+histórico recente existiam apenas mensagens inbound dos responsáveis e outbound
+da Ana; não havia callbacks `fromMe=true` das respostas humanas.
+
+### Causa confirmada
+
+- a opção **“Notificar as enviadas por mim também”** estava desativada na
+  instância `Meu número` da Z-API;
+- sem esse callback, o banco não recebia a resposta manual da Secretaria e não
+  tinha sinal para acionar `resolve_handoff_on_human_whatsapp_reply`;
+- por isso, a Ana podia responder a uma nova mensagem do responsável mesmo com
+  um funcionário conversando pelo WhatsApp da escola.
+
+### Correções concluídas
+
+- a opção **“Notificar as enviadas por mim também”** foi ativada e salva no
+  painel da Z-API;
+- `zapi-webhook` foi publicado como **v11**, ativo;
+- `fromMe` e `fromApi` agora são normalizados explicitamente, aceitando booleano
+  ou string sem interpretar a string `"false"` como verdadeira;
+- mensagens outbound digitadas no aparelho são persistidas com
+  `raw_data.sender_type = "human"` e `raw_data.source = "whatsapp-device"`;
+- callbacks de envio por API permanecem distinguíveis das mensagens manuais e
+  as respostas da Ana continuam protegidas contra loop/assunção humana falsa;
+- o trigger existente da v46 continua sendo a fonte de verdade para resolver o
+  handoff, cancelar follow-up e impor silêncio de quatro horas.
+
+### Verificações realizadas
+
+- build de produção aprovado com 3.459 módulos;
+- `git diff --check` aprovado;
+- publicação da Edge Function confirmada: `zapi-webhook` v11, status `ACTIVE`;
+- teste transacional com mensagem `sender_type = human` confirmou mudança do
+  contato para `resolvido` e limpeza de `handoff_at`;
+- o teste foi revertido integralmente; nenhuma mensagem técnica ficou no
+  histórico e nenhum WhatsApp foi enviado.
+
+### Teste real ainda necessário
+
+Em uma conversa controlada, a Secretaria deve enviar uma resposta diretamente
+pelo WhatsApp da escola. Confirmar no banco que o callback chegou como outbound
+humano (`fromMe=true`, `sender_type=human`, `source=whatsapp-device`) e que uma
+mensagem seguinte do responsável não recebe resposta da Ana durante quatro
+horas.
+
 ---
 
-Última atualização deste documento: **22/09/2026 — estado consolidado após Ana v46 e Inbox escolar segura**.
+## 24. Preparação para operação multi-escola isolada
+
+Em 23/09/2026 o projeto começou a ser preparado para atender o COC Macapá e
+escolas parceiras sem compartilhar dados entre clientes. A decisão arquitetural
+é manter um único código privado e criar uma implantação e um projeto Supabase
+independentes para cada escola, além de um ambiente separado de homologação.
+
+### Alterações concluídas no código
+
+- identidade visual e nomes da escola passaram a ser configuráveis por variáveis
+  `VITE_SCHOOL_*`, sem duplicar o código para cada cliente;
+- foram adicionados modelos de configuração para homologação e para uma escola;
+- o build de publicação agora valida ambiente, URL, tipo de chave e identificador
+  da escola antes de gerar os arquivos;
+- foi criado um workflow de CI para validar build e arquivos gerados em pull
+  requests, mantendo a publicação em produção sob aprovação manual;
+- `supabase/config.toml` deixou de apontar diretamente para o projeto de produção;
+- o fallback de `school-triage` ficou genérico e o agente passa a permanecer
+  desligado quando a configuração da escola estiver ausente;
+- a arquitetura, o fluxo de atualização e o checklist de criação de uma nova
+  escola foram documentados em `docs/ARQUITETURA_MULTI_ESCOLA.md`.
+
+### Verificações realizadas
+
+- build normal aprovado com 3.460 módulos;
+- build de publicação com configuração de teste aprovado com 3.460 módulos;
+- `git diff --check` aprovado;
+- nenhum banco ou ambiente de produção foi alterado nesta etapa.
+
+### Segurança do repositório
+
+Foi identificado que `charlyjhone/crm-coc-macapa` ainda estava público e que a
+branch `main` continha um arquivo `.env`. O fluxo para tornar o repositório
+privado foi iniciado, mas o GitHub exigiu confirmação de identidade por e-mail
+no último passo. Até essa confirmação ser concluída, considerar o repositório
+como público. Depois da mudança, revisar o histórico e rotacionar qualquer
+credencial que possa ter sido exposta; apenas mudar a visibilidade não revoga
+segredos antigos.
+
+### Próximos passos desta arquitetura
+
+1. concluir a confirmação de identidade do GitHub e validar que o repositório
+   aparece como privado;
+2. ativar proteção da `main`, exigindo CI aprovado e pull request antes de merge;
+3. remover o `.env` da `main` e rotacionar credenciais potencialmente expostas;
+4. provisionar homologação e uma produção Supabase por escola, após confirmar
+   organização, nomes e custos;
+5. criar uma migração nova para eliminar URLs históricas de produção embutidas
+   em funções SQL; o Supabase CLI pode ser executado via `npx` e deve ser usado
+   para gerar os arquivos de migration;
+6. aplicar a mesma estrutura ao AImEdu em uma etapa separada, preservando
+   projetos, bancos, segredos e domínios próprios.
+
+---
+
+Última atualização deste documento: **23/09/2026 — arquitetura multi-escola isolada preparada localmente**.
 Referência remota atual: **`main` em `d5fbc3f`**.
-Referência local pendente de publicação: **branch `cleanup/remove-unused-legacy-files`, commit funcional mais recente `66ec168` — `fix: adaptar Inbox para atendimento escolar`**.
+Referência local: **branch `cleanup/remove-unused-legacy-files`; publicar após concluir a revisão de segurança**.
+
+## 25. Homologação operacional do CRM — fila da Secretaria
+
+Em 23/09/2026 foi iniciada a homologação consolidada para liberar o CRM ao uso
+diário da Secretaria. A inspeção foi feita no código local e no projeto Supabase
+de produção `crm-escola`, sem criar, alterar ou apagar dados escolares.
+
+### Correção concluída no frontend
+
+- a página existente `Atendimentos` voltou a ter rota em `/atendimentos`;
+- o menu `Atendimento` passou a exibir `Inbox` e `Fila da secretaria`;
+- foi removida da página a dependência de um `SidebarProvider` que não existe no
+  layout atual;
+- o link antigo para `/opportunity/:id`, rota já removida do CRM escolar, deixou
+  de ser exibido;
+- a fila permite visualizar novos atendimentos, repasses para a Secretaria,
+  respostas da Ana e resolvidos, além de concluir um atendimento.
+
+### Estado confirmado em produção
+
+- projeto Supabase ativo e saudável;
+- `school-triage` v46, `send-whatsapp-message` v9 e `zapi-webhook` v11 ativos;
+- cron `ana-process-followups` ativo a cada minuto;
+- triggers de triagem e de resolução por resposta humana ativos no banco;
+- dois usuários cadastrados, um `admin` e um `user`, sem usuário sem papel;
+- configurações `escola_nome`, `escola_info` e `escola_agente_ativo` preenchidas;
+- `escola_valores` continua ausente de forma intencional;
+- 27 contatos ativos e 18 aguardando a Secretaria;
+- ainda não existem responsáveis, alunos, oportunidades, visitas ou tarefas no
+  novo módulo escolar;
+- o número controlado teve atividade recente, mas nenhum callback outbound
+  humano foi registrado nos últimos sete dias. O teste real de pausa da Ana
+  continua pendente.
+
+### Alertas encontrados
+
+- o histórico remoto de migrations termina em
+  `20260922124525_remove_school_triage_trigger_credential`, embora mudanças
+  posteriores estejam instaladas no banco e documentadas localmente. Antes de
+  criar outro ambiente, reconciliar o histórico para que o banco seja
+  reproduzível;
+- usuários autenticados comuns conseguem atualizar `system_settings` pela API.
+  A tela é administrativa, mas a RLS ainda precisa restringir escrita ao papel
+  `admin` antes da liberação;
+- a proteção contra senhas vazadas permanece desativada no Supabase Auth;
+- o Advisor mantém os avisos conhecidos sobre 12 funções `SECURITY DEFINER` e
+  três tabelas internas sem policies públicas; não revogar em massa sem revisar
+  cada fluxo;
+- a mudança do repositório GitHub para privado ainda depende da confirmação de
+  identidade apresentada pelo próprio GitHub.
+
+### Verificações desta etapa
+
+- build de produção aprovado com 3.462 módulos;
+- lint direcionado dos arquivos da fila aprovado;
+- `git diff --check` aprovado;
+- a tentativa de teste visual automatizado não foi concluída porque o navegador
+  remoto não alcançou o servidor local. Não considerar navegação autenticada
+  homologada somente pelo build.
+
+### Próxima sequência obrigatória
+
+1. restringir escrita de `system_settings` a administradores mediante migration
+   rastreável;
+2. reconciliar as migrations instaladas depois de `20260922124525`;
+3. testar com login real: dashboard, famílias/alunos, funil, visitas, tarefas,
+   Inbox, fila da Secretaria, usuários e configurações;
+4. executar o teste real de resposta humana pelo WhatsApp da escola;
+5. concluir a privacidade/proteção do GitHub e só então publicar/hospedar.
+
+---
+
+Última atualização deste documento: **23/09/2026 — fila da Secretaria restaurada e produção auditada**.
+Referência local: **branch `cleanup/remove-unused-legacy-files`; commit de homologação pendente nesta seção**.
+# Correção da identificação humana — estado consolidado (23/09/2026)
+
+- **Causa confirmada nos dados:** nas 48 horas auditadas, nenhuma mensagem digitada manualmente no WhatsApp da escola chegou ao CRM com `fromMe=true`. Sem esse callback, o CRM não sabe que a Secretaria assumiu a conversa e a Ana pode responder no meio do atendimento.
+- **Configuração necessária na Z-API:** ativar `notifySentByMe` para que mensagens enviadas pelo próprio número conectado também sejam entregues ao webhook “Ao receber”. Endpoint oficial: `PUT /update-notify-sent-by-me` com `notifySentByMe: true`.
+- **Correção local e publicada:** `supabase/functions/zapi-webhook/index.ts` reconhece booleanos e strings nos campos `fromMe`/`from_me`, identifica callbacks de envio e grava `sender_type=human` para mensagens manuais ou `sender_type=ana` para mensagens enviadas pela API.
+- **Proteção preservada:** o trigger `resolve_handoff_on_human_whatsapp_reply` já retira o contato de `aguardando_secretaria`, cancela follow-up e mantém a Ana silenciosa após uma mensagem humana.
+- **Produção confirmada:** `zapi-webhook` v11 está ativa. A opção `notifySentByMe` também foi ativada na Z-API. O código local foi alinhado à origem `whatsapp-device` usada pela versão implantada.
+
+## Teste obrigatório após publicar
+
+1. A Ana encaminha um contato para a Secretaria.
+2. Um funcionário responde manualmente pelo WhatsApp da escola.
+3. Confirmar no banco que a mensagem foi salva como `direction=outbound`, `raw_data.sender_type=human` e `raw_data.source=whatsapp-device`.
+4. O responsável envia uma nova mensagem dentro de quatro horas.
+5. Resultado esperado: Ana permanece silenciosa e o contato não volta para `aguardando_secretaria`.
+
+## 26. Proteção administrativa preparada
+
+- o Supabase CLI 2.117.0 foi executado via `npx`;
+- a migration `20260923185832_restrict_system_settings_writes_to_admin.sql`
+  foi criada pelo comando oficial `supabase migration new`;
+- a migration remove as policies de escrita abertas a qualquer usuário
+  autenticado e cria policies de INSERT e UPDATE condicionadas a `is_admin`;
+- o diretório temporário `supabase/.temp/` foi incluído no `.gitignore`;
+- a migration ainda **não foi aplicada em produção**: a consulta de verificação
+  anterior perdeu a conexão e a nova tentativa foi recusada pelo conector;
+- nenhuma policy ou dado de produção foi alterado nesta etapa.
+
+## 27. Passagem de continuidade para outra conta
+
+Estado local consolidado em 23/09/2026:
+
+- branch de trabalho: `cleanup/remove-unused-legacy-files`;
+- commit mais recente antes desta atualização documental: `23c9112` —
+  `security: preparar restricao das configuracoes escolares`;
+- build de produção aprovado com 3.462 módulos;
+- `git diff --check` aprovado;
+- a migration de proteção administrativa está versionada, mas ainda não foi
+  aplicada ao Supabase;
+- nenhuma alteração desta última etapa foi feita no banco de produção;
+- a próxima conta deve começar lendo `AGENTS.md` e este arquivo, conferir a
+  branch e os commits mais recentes no GitHub e não trabalhar apenas sobre a
+  `main` antiga.
+
+### Ordem recomendada para continuar
+
+1. confirmar que a branch foi publicada integralmente no GitHub;
+2. revisar e abrir PR contra `main`, sem merge automático;
+3. restaurar/autorizar o conector Supabase e verificar se as migrations de
+   `20260922180000` a `20260922210000` já estão materialmente instaladas;
+4. reconciliar o histórico remoto antes de aplicar novas migrations;
+5. aplicar e testar
+   `20260923185832_restrict_system_settings_writes_to_admin.sql`, comprovando
+   que `admin` escreve e `user` não escreve em `system_settings`;
+6. executar o teste real de resposta manual da Secretaria no WhatsApp;
+7. concluir a privacidade do repositório, proteção da `main`, hospedagem e teste
+   autenticado de todas as telas.
+
+### Regra de segurança para a próxima conta
+
+Não pedir, copiar ou registrar senhas, tokens, códigos de autenticação ou
+chaves privilegiadas. Não aplicar migrations pendentes apenas para fazer o
+histórico “ficar verde”: primeiro comparar o objeto instalado no banco e o SQL
+local. Não encerrar nem apagar os atendimentos reais que permanecem na fila da
+Secretaria.
+
+---
+
+Última atualização: **23/09/2026 — passagem de continuidade preparada para publicação no GitHub**.
