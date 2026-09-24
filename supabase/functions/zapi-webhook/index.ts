@@ -70,7 +70,13 @@ serve(async (req) => {
     const rawTs = payload.timestamp ?? payload.momment ?? null;
     const tsMs = typeof rawTs === 'number' ? (rawTs > 1e12 ? rawTs : rawTs * 1000) : Date.now();
     const timestamp = new Date(tsMs);
-    const direction = payload.fromMe ? 'outbound' : 'inbound';
+    // A Z-API envia `fromMe=true` para mensagens digitadas no próprio
+    // WhatsApp da escola quando "Notificar as enviadas por mim" está ativo.
+    // Alguns callbacks/versões serializam o booleano como string; normalize
+    // explicitamente para não classificar "false" (string truthy) como saída.
+    const fromMe = payload.fromMe === true || payload.fromMe === 'true';
+    const fromApi = payload.fromApi === true || payload.fromApi === 'true';
+    const direction = fromMe ? 'outbound' : 'inbound';
     
     // Extract contact name from Z-API payload - ONLY use for inbound messages (the client's name)
     const rawContactName = payload.senderName || payload.contactName || payload.name || payload.pushName || payload.notifyName || null;
@@ -766,6 +772,14 @@ serve(async (req) => {
     
     // Insere mensagem associada APENAS ao telefone. O cache do(s) lead(s) que
     // têm esse número é recalculado por trigger via recompute_lead_whatsapp_cache.
+    const rawData = direction === 'outbound'
+      ? {
+          ...payload,
+          sender_type: fromApi || message.startsWith('*[Atendente Ana]*') ? 'ana' : 'human',
+          source: fromApi ? 'zapi-api-callback' : 'whatsapp-device',
+        }
+      : payload;
+
     const { data: insertedWaMsg, error: insertError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -775,7 +789,7 @@ serve(async (req) => {
         direction,
         timestamp,
         is_audio: isAudio,
-        raw_data: payload
+        raw_data: rawData
       })
       .select('id')
       .single();

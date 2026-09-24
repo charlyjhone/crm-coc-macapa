@@ -1,5 +1,22 @@
 # CONTINUIDADE — CRM COC Macapá Norte
 
+## Estado verificado em 24/09/2026 — ler primeiro
+
+Esta seção prevalece sobre os registros históricos abaixo. Branch atual:
+`fix/reconcile-crm-continuity`, baseada em `cleanup/remove-unused-legacy-files` (`051afbe`).
+
+- Proteção de `system_settings` aplicada em produção: somente administradores inserem/atualizam. Teste com admin/user aprovado, incluindo bloqueio de upsert do usuário comum; rollback integral.
+- Migration registrada no banco e no código: `20260924222929_restrict_system_settings_writes_to_admin.sql`.
+- Fila da Secretaria restaurada no código em `/atendimentos`; menu corrigido, sem SidebarTrigger incompatível nem link para rota antiga.
+- Código do webhook sincronizado com a v11 já implantada. Ana v46 conferida com a produção. Nenhuma Edge Function republicada.
+- Build (3.461 módulos) e lint direcionado aprovados. Frontend ainda depende de revisão/merge e publicação.
+- Há 46 callbacks humanos recentes; amostra agregada compatível com a pausa de quatro horas. Teste controlado completo continua pendente.
+- As implementações multi-escola descritas na seção 24 não estavam no GitHub. Não afirmar que foram recuperadas ou implantadas.
+- Migrations antigas foram comparadas aos objetos instalados; há divergências de timestamps e registros ausentes. Não fazer db push automático nem declarar o histórico totalmente reconciliado. A nova migration foi aplicada isoladamente após conferir suas dependências.
+- Detalhes e pendências: `docs/RECONCILIACAO_2026_09_24.md`.
+
+As seções seguintes são histórico das sessões anteriores e contêm estados já superados.
+
 > **Documento vivo de continuidade do projeto.**
 >
 > Antes de alterar este repositório, leia este arquivo por completo. O objetivo é permitir que outra sessão, outra conta do ChatGPT ou outro agente continue o trabalho sem recomeçar do zero e sem reintroduzir componentes do CRM antigo.

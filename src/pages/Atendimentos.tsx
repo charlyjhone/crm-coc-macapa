@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAtendimentos, useUpdateTriage, horasEsperando, type Atendimento, type TriageStatus } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GraduationCap, Loader2, Mail, MessageCircle, Clock, CheckCircle2 } from "lucide-react";
 
 const STATUS_LABEL: Record<TriageStatus, string> = {
@@ -51,9 +49,9 @@ function Row({ a }: { a: Atendimento }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={`/opportunity/${a.id}`} className="font-medium hover:underline">
+          <span className="font-medium">
             {a.name}
-          </Link>
+          </span>
           {a.assunto && <Badge variant="secondary">{ASSUNTO_LABEL[a.assunto] || a.assunto}</Badge>}
           <Badge variant={a.triage_status === "aguardando_secretaria" ? "destructive" : "outline"}>
             {STATUS_LABEL[a.triage_status] || a.triage_status}
@@ -116,9 +114,8 @@ export default function Atendimentos() {
   }, [data, tab]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex min-h-[calc(100vh-68px)] flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <SidebarTrigger />
         <GraduationCap className="h-4 w-4 text-primary" />
         <h1 className="font-semibold">Atendimentos da escola</h1>
         <span className="text-sm text-muted-foreground">({counts.todos})</span>

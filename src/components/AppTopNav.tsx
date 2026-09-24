@@ -56,7 +56,7 @@ export function AppTopNav() {
   const { isAdmin } = useUserRole();
   const location = useLocation();
   const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/possibilidades", "/"].includes(location.pathname);
-  const serviceActive = location.pathname.startsWith("/inbox");
+  const serviceActive = ["/inbox", "/atendimentos"].includes(location.pathname);
 
   const initials = (user?.email || "COC")
     .split("@")[0]
@@ -141,6 +141,7 @@ export function AppTopNav() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
               <DropdownMenuItem asChild className="rounded-lg"><Link to="/inbox"><Inbox className="mr-2 h-4 w-4" />Inbox</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg"><Link to="/atendimentos"><ListChecks className="mr-2 h-4 w-4" />Fila da secretaria</Link></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
