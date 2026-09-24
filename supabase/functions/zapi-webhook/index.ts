@@ -23,7 +23,7 @@ serve(async (req) => {
     await setActivityContext(supabase, { source: 'webhook:zapi', actor: 'system' });
 
     const payload = await req.json();
-    console.log("Z-API payload:", JSON.stringify(payload, null, 2));
+    // Do not log message contents, attachments or callback credentials.
 
     // ===== EARLY EXIT: Filter out non-message events =====
     const notification = payload.notification || payload.type || '';
@@ -74,8 +74,10 @@ serve(async (req) => {
     // WhatsApp da escola quando "Notificar as enviadas por mim" está ativo.
     // Alguns callbacks/versões serializam o booleano como string; normalize
     // explicitamente para não classificar "false" (string truthy) como saída.
-    const fromMe = payload.fromMe === true || payload.fromMe === 'true';
-    const fromApi = payload.fromApi === true || payload.fromApi === 'true';
+    const rawFromMe = payload.fromMe ?? payload.from_me;
+    const fromMe = rawFromMe === true || rawFromMe === 'true';
+    const rawFromApi = payload.fromApi ?? payload.from_api;
+    const fromApi = rawFromApi === true || rawFromApi === 'true';
     const direction = fromMe ? 'outbound' : 'inbound';
     
     // Extract contact name from Z-API payload - ONLY use for inbound messages (the client's name)

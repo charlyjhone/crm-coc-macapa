@@ -1,3 +1,4 @@
+import { authorizeSchoolRequest } from "../_shared/authorize-school-request.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
@@ -14,9 +15,13 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, leadId, senderType = 'human' } = await req.json();
+    const authorization = await authorizeSchoolRequest(req, corsHeaders);
+    if (authorization.response) return authorization.response;
 
-    if (!phone || !message) {
+    const { phone, message, leadId, senderType: requestedSender = 'human' } = await req.json();
+    const senderType = authorization.internal && requestedSender === 'ana' ? 'ana' : 'human';
+
+    if (typeof phone !== 'string' || typeof message !== 'string' || !phone.trim() || !message.trim()) {
       return new Response(
         JSON.stringify({ error: 'phone e message são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -169,7 +174,7 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
-      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: 'ana' });
+      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: senderType });
 
       await supabase
         .from('whatsapp_messages')

@@ -17,6 +17,35 @@ Esta seção prevalece sobre os registros históricos abaixo. Branch atual:
 
 As seções seguintes são histórico das sessões anteriores e contêm estados já superados.
 
+## Estado de homologação ampliado — 25/09/2026
+
+Correções aplicadas e verificadas localmente:
+
+- `school-triage` não usa mais informações padrão inventadas quando as configurações oficiais estão ausentes; o agente permanece desligado se `escola_agente_ativo` não estiver explicitamente como `true`.
+- A prévia da Ana não cria contatos, não altera handoff e não envia respostas de áudio.
+- Falhas de IA, falhas de leitura das configurações, respostas inválidas e falhas de envio encaminham o contato para a Secretaria e limpam `resolved_at`.
+- Perguntas amplas de matrícula qualificam série/turno antes de encaminhar.
+- A pausa após resposta humana consulta as saídas recentes, sem deixar uma resposta automática anterior mascarar a atuação da Secretaria.
+- Lembretes de follow-up falhos são marcados como `failed`; conclusão manual de atendimento cancela lembretes pendentes.
+- Envio manual de WhatsApp e e-mail exige sessão autenticada; somente uma chamada interna com a service key pode declarar `senderType = ana`.
+- Inbox não aponta mais para a rota comercial removida; a Fila da Secretaria possui histórico de WhatsApp e resposta manual.
+- Cadastro de família serializa o telefone e normaliza pontuação para impedir responsáveis duplicados em cadastros simultâneos.
+
+Migrations aplicadas em produção nesta etapa:
+
+- `20260924224619_close_manual_triage_followups`;
+- `20260924224628_normalize_guardian_phone`.
+
+Validação:
+
+- Fluxo transacional aprovado com rollback: responsável, telefone duplicado formatado, funil, visita, tarefa, perda sem motivo, matrícula, conclusão manual e resposta humana.
+- Testes locais das Edge Functions: 20 casos aprovados, incluindo preview sem escrita, agente desligado, falha de IA/envio, pausa humana e autorização de envio.
+- Build Vite aprovado com 3.462 módulos.
+- ESLint direcionado aprovado, inclusive Inbox, fila e configurações.
+- Prévias reais protegidas da Ana para horário, valores, currículo, matrícula, humano e áudio responderam HTTP 200; nenhuma criou dados ou enviou WhatsApp.
+
+As versões `send-whatsapp-message` v10, `send-email` v8, `school-triage` v47 e `zapi-webhook` v12 foram publicadas antes da última rodada de correções locais. A republicação dessas últimas alterações foi bloqueada temporariamente pelo limite da revisão automática de uso; não contornar esse bloqueio. O frontend ainda precisa ser mesclado/publicado e o teste controlado com resposta humana real continua sendo a validação final.
+
 > **Documento vivo de continuidade do projeto.**
 >
 > Antes de alterar este repositório, leia este arquivo por completo. O objetivo é permitir que outra sessão, outra conta do ChatGPT ou outro agente continue o trabalho sem recomeçar do zero e sem reintroduzir componentes do CRM antigo.

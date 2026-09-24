@@ -18,12 +18,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-school-triage-secret",
 };
 
-const DEFAULT_INFO = `Nome: COC Macapá Norte.
-Endereço: BR-156, Zona Norte, próximo ao 2º Batalhão da Polícia Militar do Amapá (2º BPM).
-Horário da escola: segunda a sexta-feira, das 7h às 18h.
-Atendimento da secretaria: segunda a sexta-feira, das 7h30 às 18h. Aos sábados e domingos, não há atendimento.
-Etapas: Educação Infantil ao Ensino Médio.
-Currículos: WhatsApp (96) 99158-0232 ou e-mail rh.cocmacapanorte@gmail.com.`;
+const DEFAULT_INFO = "Informações oficiais não cadastradas. Encaminhe dúvidas específicas à secretaria sem inventar dados.";
 
 const ASSUNTOS = ["matricula", "financeiro", "curriculo", "horario", "localizacao", "outros"] as const;
 type Assunto = typeof ASSUNTOS[number];
@@ -68,6 +63,11 @@ function isConversationClosing(text: string): boolean {
   return /^(?:não|nao|não obrigado|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|tá bom|ta bom|beleza|só isso|so isso|somente isso|apenas isso|era só|era so|era isso(?: mesmo)?|é só isso|e so isso|só queria saber isso|so queria saber isso|não preciso de mais nada|nao preciso de mais nada|por enquanto (?:é|e) só isso|por enquanto (?:é|e) so isso|perfeito|resolvido|👍|🙏)$/.test(normalized);
 }
 
+function isGeneralEnrollmentInterest(text: string): boolean {
+  const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,!?]/g, "").trim();
+  return /^(?:ola\s+)?(?:quero|gostaria de|preciso de) (?:saber mais|(?:mais )?informacoes) (?:sobre|da) (?:a )?escola(?: para matricular (?:meu filho|minha filha|meus filhos))?$/.test(normalized);
+}
+
 function removeRepeatedHelpOffer(reply: string): string {
   return reply
     .replace(/(?:\s*\n*)?(?:enquanto isso,?\s*)?(?:posso|podemos) (?:te |lhe )?ajudar em algo mais\??/gi, "")
@@ -98,13 +98,14 @@ async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKe
       .select("id")
       .maybeSingle();
     if (!claimed) continue;
-
-    const { data: lead } = await supabase
+    try {
+    const { data: lead, error: leadError } = await supabase
       .from("leads")
       .select("triage_status, handoff_at")
       .eq("id", item.lead_id)
       .maybeSingle();
 
+    if (leadError) throw leadError;
     const sameHandoff = lead?.triage_status === "aguardando_secretaria" &&
       lead?.handoff_at && new Date(lead.handoff_at).getTime() === new Date(item.handoff_at).getTime();
     if (!sameHandoff) {
@@ -113,7 +114,7 @@ async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKe
       continue;
     }
 
-    const { data: messages } = await supabase
+    const { data: messages, error: messagesError } = await supabase
       .from("whatsapp_messages")
       .select("direction, message, raw_data, created_at")
       .eq("phone", item.phone)
@@ -121,6 +122,7 @@ async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKe
       .order("created_at", { ascending: true })
       .limit(50);
 
+    if (messagesError) throw messagesError;
     const userContinued = (messages || []).some((m: any) => m.direction === "inbound");
     const humanReplied = (messages || []).some((m: any) => m.direction === "outbound" && !isAnaOutbound(m));
     if (userContinued || humanReplied) {
@@ -147,8 +149,12 @@ async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKe
       status: response.ok ? "sent" : "failed",
       sent_at: response.ok ? new Date().toISOString() : null,
       error_message: response.ok ? null : (await response.text()).slice(0, 500),
-    }).eq("id", item.id);
+    }).eq("id", item.id).eq("status", "processing");
     if (response.ok) sent++; else failed++;
+    } catch {
+      await supabase.from("ana_followups").update({ status: "failed", error_message: "followup_processing_failed" }).eq("id", item.id).eq("status", "processing");
+      failed++;
+    }
   }
 
   return { processed: (due || []).length, sent, cancelled, failed };
@@ -161,6 +167,8 @@ serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
+  let failureLeadId: string | null = null;
+  let previewOnly = false;
   try {
     const internalSecret = req.headers.get("x-school-triage-secret") || "";
     if (!internalSecret) return json({ error: "unauthorized" }, 401);
@@ -175,10 +183,7 @@ serve(async (req) => {
     }
 
     const payload = await req.json().catch(() => ({}));
-    if (payload.action === "process_followups") {
-      return json({ success: true, ...(await processDueFollowups(supabase, supabaseUrl, serviceKey)) });
-    }
-    const previewOnly = payload.action === "preview";
+    previewOnly = payload.action === "preview";
 
     const channel: "whatsapp" | "email" = payload.channel === "email" ? "email" : "whatsapp";
     const text: string = (payload.text || "").toString().trim();
@@ -186,18 +191,23 @@ serve(async (req) => {
     const messageId: string | null = payload.message_id || null;
     let leadId: string | null = payload.lead_id || null;
 
-    if (!text) return json({ skipped: "empty_text" });
+    if (!text && payload.action !== "process_followups") return json({ skipped: "empty_text" });
 
     // ---- Configurações da escola ----
-    const { data: settingsRows } = await supabase
+    const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
       .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
-    if ((settings.escola_agente_ativo || "true") !== "true") {
+    if (settingsError) throw new Error("school_settings_unavailable");
+    if (settings.escola_agente_ativo !== "true") {
       return json({ skipped: "agent_disabled" });
+    }
+
+    if (payload.action === "process_followups") {
+      return json({ success: true, ...(await processDueFollowups(supabase, supabaseUrl, serviceKey)) });
     }
 
     const escolaNome = settings.escola_nome || "a escola";
@@ -211,7 +221,7 @@ serve(async (req) => {
       leadId = typeof first === "string" ? first : (first?.resolve_lead_ids_by_phone ?? null);
     }
 
-    if (!leadId) {
+    if (!leadId && !previewOnly) {
       const { data: created, error: createErr } = await supabase
         .from("leads")
         .insert({
@@ -231,24 +241,27 @@ serve(async (req) => {
       leadId = created.id;
     }
 
-    const { data: lead } = await supabase
+    failureLeadId = leadId;
+    const { data: lead, error: leadError } = leadId ? await supabase
       .from("leads")
       .select("id, name, email, phone, triage_status, assunto, handoff_at")
       .eq("id", leadId!)
-      .maybeSingle();
+      .maybeSingle() : { data: null, error: null };
+    if (leadError || (!lead && !previewOnly)) throw new Error("contact_unavailable");
 
     // Quando um funcionário assumiu a conversa recentemente, a Ana não deve
     // atravessar o atendimento humano. Após o mesmo cooldown do handoff, ela
     // pode voltar a atender uma nova conversa normalmente.
     if (channel === "whatsapp" && phone) {
-      const { data: ultimaSaida } = await supabase
+      const { data: saidasRecentes, error: saidasError } = await supabase
         .from("whatsapp_messages")
         .select("message, raw_data, created_at")
         .eq("phone", phone)
         .eq("direction", "outbound")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(50);
+      if (saidasError) throw new Error("human_handoff_check_failed");
+      const ultimaSaida = (saidasRecentes || []).find((m: any) => !isAnaOutbound(m));
       const humanConversationActive = !!ultimaSaida &&
         !isAnaOutbound(ultimaSaida) &&
         Date.now() - new Date(ultimaSaida.created_at).getTime() < HANDOFF_COOLDOWN_MS;
@@ -281,7 +294,7 @@ serve(async (req) => {
     }
 
     if (apenasEncerramento && (handoffPendente || anaAcabouDeOferecerAjuda)) {
-      await supabase
+      if (!previewOnly) await supabase
         .from("ana_followups")
         .update({ status: "cancelled", cancel_reason: "conversation_closed" })
         .eq("lead_id", leadId!)
@@ -309,9 +322,9 @@ serve(async (req) => {
           }
         }
 
-        await supabase
+        if (!previewOnly) await supabase
           .from("leads")
-          .update({ triage_status: "retomado_agente", handoff_at: null, handoff_reason: null })
+          .update({ triage_status: "respondido_agente", resolved_at: null, handoff_at: null, handoff_reason: null })
           .eq("id", leadId!);
 
         handoffPendente = false;
@@ -351,11 +364,13 @@ serve(async (req) => {
     if (/^\[(Mensagem de )?[ÁA]udio (não transcrito|[-–] erro (na transcrição|ao processar))\]$/i.test(text)) {
       if (channel === "whatsapp" && phone) {
         const audioReply = "*[Atendente Ana]*\nNão consegui entender o áudio. Pode reenviar ou escrever sua dúvida, por favor?";
+        if (previewOnly) return json({ preview: true, resposta: audioReply, skipped: "audio_transcription_failed" });
         const r = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
           body: JSON.stringify({ phone, message: audioReply, leadId, senderType: "ana" }),
         });
+        if (!r.ok) throw new Error("audio_reply_send_failed");
         return json({ success: r.ok, skipped: "audio_transcription_failed", lead_id: leadId, enviado: r.ok });
       }
       return json({ skipped: "audio_transcription_failed", lead_id: leadId });
@@ -395,7 +410,7 @@ serve(async (req) => {
 
     // ---- Chamada de IA ----
     const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) return json({ error: "OPENAI_API_KEY ausente" }, 500);
+    if (!apiKey) throw new Error("ai_not_configured");
 
     const saudacaoInstrucao = nomeReal
       ? `O nome desta pessoa é "${nomeReal}". Use o nome para cumprimentá-la quando fizer sentido (ex: "Bom dia, ${nomeReal}!").`
@@ -434,6 +449,7 @@ Responda SOMENTE com JSON válido:
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      signal: AbortSignal.timeout(25000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -473,7 +489,7 @@ Responda SOMENTE com JSON válido:
     if (!aiRes.ok) {
       const detail = await aiRes.text();
       console.error("Erro no gateway de IA:", aiRes.status, detail);
-      await supabase.from("leads").update({ triage_status: "aguardando_secretaria", handoff_at: new Date().toISOString(), handoff_reason: "Falha do agente de IA" }).eq("id", leadId!);
+      if (!previewOnly) await supabase.from("leads").update({ triage_status: "aguardando_secretaria", resolved_at: null, handoff_at: new Date().toISOString(), handoff_reason: "Falha do agente de IA" }).eq("id", leadId!);
       return json({ error: "ai_gateway_error", status: aiRes.status, detail }, aiRes.status === 429 || aiRes.status >= 500 ? 503 : 500);
     }
 
@@ -484,17 +500,27 @@ Responda SOMENTE com JSON válido:
       const cleaned = raw.replace(/```json|```/g, "").trim();
       triagem = JSON.parse(cleaned.slice(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1));
     } catch (e) {
-      console.error("Resposta da IA não é JSON:", raw);
-      await supabase.from("leads").update({ triage_status: "aguardando_secretaria", handoff_at: new Date().toISOString(), handoff_reason: "Resposta do agente ilegível" }).eq("id", leadId!);
+      console.error("Resposta da IA não é JSON válido");
+      if (!previewOnly) await supabase.from("leads").update({ triage_status: "aguardando_secretaria", resolved_at: null, handoff_at: new Date().toISOString(), handoff_reason: "Resposta do agente ilegível" }).eq("id", leadId!);
       return json({ error: "ai_parse_error" }, 500);
+    }
+
+    if (typeof triagem.resposta !== "string" || !triagem.resposta.trim() ||
+        typeof triagem.precisa_humano !== "boolean" ||
+        !ASSUNTOS.includes(triagem.assunto) ||
+        !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
+      throw new Error("invalid_triage_response");
     }
 
     const assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
-    const precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
-    let resposta = (triagem.resposta || "").trim();
+    const interesseGeral = isGeneralEnrollmentInterest(text) && !handoffPendente;
+    const precisaHumano = !interesseGeral && !apenasColetandoNome && !!triagem.precisa_humano;
+    let resposta = interesseGeral
+      ? `${nomeReal ? `Olá, ${nomeReal}!` : "Olá! Pode me dizer seu nome?"} Para qual série e turno você procura matrícula?`
+      : (triagem.resposta || "").trim();
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
@@ -564,7 +590,7 @@ Responda SOMENTE com JSON válido:
       triage_summary: triagem.resumo || null,
     };
 
-    const falhaEnvio = !!resposta && !enviado;
+    const falhaEnvio = !enviado;
 
     if (falhaEnvio) {
       update.triage_status = "aguardando_secretaria";
@@ -585,11 +611,13 @@ Responda SOMENTE com JSON válido:
       update.triage_status = "resolvido";
       update.resolved_at = now;
     } else {
+      update.resolved_at = null;
       update.triage_status = "respondido_agente";
     }
     if (enviado) update.agent_replied_at = now;
 
-    await supabase.from("leads").update(update).eq("id", leadId!);
+    const { error: updateError } = await supabase.from("leads").update(update).eq("id", leadId!);
+    if (updateError) throw new Error("triage_update_failed");
 
     if (channel === "whatsapp" && phone && precisaHumano && !handoffPendente && enviado) {
       await supabase.from("ana_followups").insert({
@@ -614,6 +642,12 @@ Responda SOMENTE com JSON válido:
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
   } catch (error: any) {
+    if (failureLeadId && !previewOnly) {
+      await supabase.from("leads").update({
+        triage_status: "aguardando_secretaria", resolved_at: null,
+        handoff_at: new Date().toISOString(), handoff_reason: "Falha técnica no atendimento automático",
+      }).eq("id", failureLeadId);
+    }
     console.error("Erro no school-triage:", error);
     return json({ error: error?.message || "unknown" }, 500);
   }

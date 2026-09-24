@@ -25,7 +25,7 @@ interface EmailWithLead {
   message: string | null;
   html_body: string | null;
   timestamp: string;
-  raw_data: any;
+  raw_data: Record<string, unknown> | null;
   lead_name?: string;
   lead_email?: string;
 }
@@ -198,8 +198,8 @@ const Inbox = () => {
       setReplyMode(false);
       setReplyBody("");
       setReplySubject("");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao enviar e-mail");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
     } finally {
       setReplySending(false);
     }
@@ -218,8 +218,8 @@ const Inbox = () => {
     });
   }, []);
 
-  const enrichWithLeads = useCallback(async (emails: any[]): Promise<EmailWithLead[]> => {
-    const missingIds = [...new Set(emails.map((e: any) => e.lead_id).filter(Boolean))]
+  const enrichWithLeads = useCallback(async (emails: EmailWithLead[]): Promise<EmailWithLead[]> => {
+    const missingIds = [...new Set(emails.map((e) => e.lead_id).filter(Boolean))]
       .filter((id) => !leadCacheRef.current[id as string]);
 
     if (missingIds.length > 0) {
@@ -234,7 +234,7 @@ const Inbox = () => {
       }
     }
 
-    return emails.map((e: any) => ({
+    return emails.map((e) => ({
       ...e,
       lead_name: e.lead_id ? leadCacheRef.current[e.lead_id]?.name : undefined,
       lead_email: e.lead_id ? leadCacheRef.current[e.lead_id]?.email ?? undefined : undefined,
@@ -345,7 +345,7 @@ const Inbox = () => {
 
     if (!leadEmail) {
       // No email to search, go directly
-      window.open(`/opportunity/${email.lead_id}`, "_blank");
+      window.open(`/atendimentos?contato=${encodeURIComponent(email.lead_id)}`, "_blank");
       return;
     }
 
@@ -362,7 +362,7 @@ const Inbox = () => {
 
     if (!leads || leads.length <= 1) {
       // Only one lead, go directly
-      window.open(`/opportunity/${email.lead_id}`, "_blank");
+      window.open(`/atendimentos?contato=${encodeURIComponent(email.lead_id)}`, "_blank");
       return;
     }
 
@@ -721,7 +721,7 @@ const Inbox = () => {
                 key={lead.id}
                 onClick={() => {
                   setLeadPickerOpen(false);
-                  window.open(`/opportunity/${lead.id}`, "_blank");
+                  window.open(`/atendimentos?contato=${encodeURIComponent(lead.id)}`, "_blank");
                 }}
                 className="w-full text-left p-3 rounded-lg border hover:bg-accent/50 transition-colors"
               >

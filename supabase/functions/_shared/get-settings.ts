@@ -9,10 +9,10 @@ export interface SystemSettings {
 }
 
 const DEFAULTS: SystemSettings = {
-  susan_name: 'Susan Whitfield',
-  susan_email: 'susan@inventormiguel.link',
-  company_name: 'Miguel Fernandes',
-  company_email: 'miguel@inventormiguel.com',
+  susan_name: 'Ana',
+  susan_email: '',
+  company_name: '',
+  company_email: '',
 };
 
 /**

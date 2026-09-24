@@ -11,9 +11,7 @@ import { Loader2 } from "lucide-react";
 
 const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo"] as const;
 
-const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
-Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
-Currículos devem ser enviados para o e-mail rh.cocmacapanorte@gmail.com.`;
+const DEFAULT_INFO = "";
 
 export default function SchoolSettingsTab() {
   const [loading, setLoading] = useState(true);
@@ -21,22 +19,28 @@ export default function SchoolSettingsTab() {
   const [nome, setNome] = useState("");
   const [info, setInfo] = useState(DEFAULT_INFO);
   const [valores, setValores] = useState("");
-  const [ativo, setAtivo] = useState(true);
+  const [ativo, setAtivo] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("system_settings").select("key, value").in("key", KEYS as unknown as string[]);
+      const { data, error } = await supabase.from("system_settings").select("key, value").in("key", KEYS as unknown as string[]);
+      if (error) { setLoadError(true); setLoading(false); return; }
       const map: Record<string, string> = {};
-      (data || []).forEach((r: any) => (map[r.key] = r.value));
+      (data || []).forEach((r) => (map[r.key] = r.value));
       setNome(map.escola_nome || "");
       setInfo(map.escola_info || DEFAULT_INFO);
       setValores(map.escola_valores || "");
-      setAtivo((map.escola_agente_ativo || "true") === "true");
+      setAtivo(map.escola_agente_ativo === "true");
       setLoading(false);
     })();
   }, []);
 
   const save = async () => {
+    if (ativo && (!nome.trim() || !info.trim())) {
+      toast({ title: "Preencha o nome e as informações oficiais antes de ligar a Ana", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     const rows = [
       { key: "escola_nome", value: nome },
@@ -60,6 +64,8 @@ export default function SchoolSettingsTab() {
       </div>
     );
   }
+
+  if (loadError) return <p role="alert" className="p-8 text-destructive">Não foi possível carregar as configurações. Recarregue a página antes de editar.</p>;
 
   return (
     <div className="space-y-6">

@@ -1,3 +1,4 @@
+import { authorizeSchoolRequest } from "../_shared/authorize-school-request.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
 import { getSettings } from "../_shared/get-settings.ts";
@@ -114,12 +115,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    const authorization = await authorizeSchoolRequest(req, corsHeaders);
+    if (authorization.response) return authorization.response;
+
     const { leadId, to, subject, body, threadQuote = true, fromOverride, attachments, replyToMessageId } = await req.json();
 
     console.log('=== SEND EMAIL REQUEST ===');
     console.log('leadId:', leadId);
-    console.log('to:', to);
-    console.log('subject:', subject);
+
+
     console.log('body length:', body?.length);
     console.log('threadQuote:', threadQuote);
 
@@ -141,6 +145,9 @@ const handler = async (req: Request): Promise<Response> => {
     const senderName = fromOverride?.name || settings.susan_name;
     const senderEmail = fromOverride?.email || settings.susan_email;
     const ccEmail = settings.company_email;
+    if (!senderEmail || !resendApiKey) {
+      return new Response(JSON.stringify({ error: 'email_not_configured' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // Handle both array and string formats for 'to'
     let emailList: string[] = [];

@@ -58,3 +58,9 @@ Referências oficiais dos avisos:
 - https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable
 - https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
 - https://supabase.com/docs/guides/auth/password-security
+
+## Atualização em 25/09/2026
+
+Foram corrigidos localmente: preview sem efeitos colaterais, ausência de configuração oficial, falhas técnicas com handoff, qualificação de matrícula, pausa humana, follow-up, autorização de envio, fila com histórico/resposta, Inbox sem rota comercial e deduplicação de telefone. As migrations de follow-up manual e telefone foram aplicadas e o fluxo escolar transacional passou com rollback.
+
+As republicações posteriores das Edge Functions não puderam ser executadas porque a revisão automática atingiu o limite de uso. As versões já ativas continuam funcionando; o PR contém o código corrigido para a próxima publicação autorizada.
