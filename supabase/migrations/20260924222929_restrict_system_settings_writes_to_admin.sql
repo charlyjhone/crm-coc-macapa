@@ -7,4 +7,3 @@ for insert to authenticated with check (public.is_admin((select auth.uid())));
 create policy "Admins can update settings" on public.system_settings
 for update to authenticated using (public.is_admin((select auth.uid())))
 with check (public.is_admin((select auth.uid())));
-

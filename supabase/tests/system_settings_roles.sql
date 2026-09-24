@@ -32,4 +32,3 @@ begin
 end $test$;
 select 'PASS: admin insert/update; user insert/update/upsert denied; all changes rolled back' as result;
 rollback;
-
