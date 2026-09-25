@@ -64,9 +64,13 @@ const COLORS = {
   funil: {
     novo: "hsl(221, 83%, 53%)",
     em_atendimento: "hsl(215, 20%, 45%)",
+    em_aberto: "hsl(221, 83%, 53%)",
     em_negociacao: "hsl(25, 95%, 53%)",
     matriculado: "hsl(142, 76%, 36%)",
+    ganho: "hsl(142, 76%, 36%)",
     resolvido: "hsl(199, 89%, 48%)",
+    produzido: "hsl(199, 89%, 48%)",
+    entregue: "hsl(262, 83%, 58%)",
     nao_convertido: "hsl(0, 84%, 60%)",
   }
 };
@@ -242,16 +246,24 @@ export default function DailyDashboard({ allLeads, yesterdayMessages, todayMessa
   // === Funnel data (without perdido) ===
   const funnelData = useMemo(() => {
     const statusCounts: Record<string, { count: number; eurTotal: number }> = {
-      novo: { count: 0, eurTotal: 0 },
-      em_atendimento: { count: 0, eurTotal: 0 },
+      em_aberto: { count: 0, eurTotal: 0 },
       em_negociacao: { count: 0, eurTotal: 0 },
-      matriculado: { count: 0, eurTotal: 0 },
+      ganho: { count: 0, eurTotal: 0 },
+      produzido: { count: 0, eurTotal: 0 },
     };
+
     allLeads.forEach(l => {
-      if (l.status && l.status in statusCounts) {
-        statusCounts[l.status].count++;
+      const funnelStatus =
+        l.status === 'novo' || l.status === 'em_atendimento' ? 'em_aberto' :
+        l.status === 'em_negociacao' ? 'em_negociacao' :
+        l.status === 'matriculado' ? 'ganho' :
+        l.status === 'resolvido' ? 'produzido' :
+        null;
+
+      if (funnelStatus) {
+        statusCounts[funnelStatus].count++;
         const aReceber = (l.valor ?? 0) - (l.valor_pago ?? 0);
-        statusCounts[l.status].eurTotal += toEur(aReceber > 0 ? aReceber : 0, l.moeda);
+        statusCounts[funnelStatus].eurTotal += toEur(aReceber > 0 ? aReceber : 0, l.moeda);
       }
     });
 
