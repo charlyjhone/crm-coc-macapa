@@ -31,6 +31,7 @@ interface Triagem {
   motivo_humano: string | null;
   resumo: string;
   resposta: string;
+  origem: string | null;
 }
 
 function json(body: unknown, status = 200) {
@@ -240,6 +241,7 @@ Responda SOMENTE com JSON válido:
       interesse: triagem.interesse || "indefinido",
       triage_summary: triagem.resumo || null,
     };
+    if (triagem.origem && !lead?.origem) update.origem = triagem.origem.trim().slice(0, 200);
 
     // Uma resposta só pode ser considerada atendida se realmente foi entregue.
     // Falha de envio sempre vira handoff para evitar atendimento "fantasma" no CRM.
