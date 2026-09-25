@@ -101,7 +101,7 @@ serve(async (req) => {
 
     const { data: lead } = await supabase
       .from("leads")
-      .select("id, name, email, phone, triage_status, assunto, handoff_at")
+      .select("id, name, email, phone, triage_status, assunto, origem, handoff_at")
       .eq("id", leadId!)
       .maybeSingle();
 
@@ -154,11 +154,15 @@ REGRAS:
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Nunca prometa prazos que não estejam nas informações oficiais.
+- Quando a dúvida estiver resolvida e a família demonstrar que encerrou a conversa (por exemplo: "obrigado", "era só isso", "tá bom", "perfeito"), pergunte antes de finalizar: "Antes de encerrarmos, você poderia me dizer como conheceu o COC Macapá Norte? Foi pelas redes sociais, indicação de amigos ou familiares, Google, site, evento ou outro meio?"
+- Se a conversa precisar ser encaminhada para a secretaria e a origem ainda não estiver registrada, faça essa mesma pergunta de forma breve antes de encaminhar.
+- Se a família informar a origem, registre-a no campo origem usando uma descrição curta e não repita a pergunta na mesma conversa.
+- Se a origem já estiver registrada, não pergunte novamente.
 
 Responda SOMENTE com JSON válido:
 {"assunto":"matricula|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar"}`;
 
-    const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
+    const userPrompt = `Origem já registrada para este contato: ${lead?.origem || "(não informada)"}\n\nHistórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
