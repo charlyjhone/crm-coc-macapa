@@ -13,7 +13,7 @@ const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ati
 
 const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
 Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
-Currículos devem ser enviados para o e-mail rh.cocmacapanorte@gmail.com.`;
+Currículos devem ser enviados para o e-mail rhcocmacapanorte@gmail.com.`;
 
 export default function SchoolSettingsTab() {
   const [loading, setLoading] = useState(true);
@@ -98,7 +98,7 @@ export default function SchoolSettingsTab() {
               rows={6}
               value={valores}
               onChange={(e) => setValores(e.target.value)}
-              placeholder={"Ex.:\nInfantil: matrícula R$ X, mensalidade R$ Y\nFundamental I: ..."}
+              placeholder={`Ex.:\nInfantil: matrícula R$ X, mensalidade R$ Y\nFundamental I: ...`}
             />
             <p className="text-xs text-muted-foreground">
               Enquanto estiver vazio, o agente não informa valores e encaminha para a secretaria.
