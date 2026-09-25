@@ -16,7 +16,7 @@ const corsHeaders = {
 
 const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
 Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
-Currículos devem ser enviados para o e-mail rh.cocmacapanorte@gmail.com.`;
+Currículos devem ser enviados para o e-mail rhcocmacapanorte@gmail.com.`;
 
 const ASSUNTOS = ["matricula", "curriculo", "horario", "localizacao", "outros"] as const;
 type Assunto = typeof ASSUNTOS[number];
