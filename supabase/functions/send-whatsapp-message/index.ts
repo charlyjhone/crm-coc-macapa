@@ -1,6 +1,8 @@
+import { authorizeSchoolRequest } from "../_shared/authorize-school-request.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
+import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,9 +15,13 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, leadId } = await req.json();
+    const authorization = await authorizeSchoolRequest(req, corsHeaders);
+    if (authorization.response) return authorization.response;
 
-    if (!phone || !message) {
+    const { phone, message, leadId, senderType: requestedSender = 'human' } = await req.json();
+    const senderType = authorization.internal && requestedSender === 'ana' ? 'ana' : 'human';
+
+    if (typeof phone !== 'string' || typeof message !== 'string' || !phone.trim() || !message.trim()) {
       return new Response(
         JSON.stringify({ error: 'phone e message são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -35,7 +41,7 @@ serve(async (req) => {
 
     // Normalizar telefone (remover caracteres especiais)
     // O número deve estar cadastrado com código de país incluso (ex: 5511999998888)
-    let normalizedPhone = phone.replace(/\D/g, '');
+    const normalizedPhone = normalizeWhatsAppPhone(phone);
 
     // Ao iniciar um chat (primeiro outbound), precisamos persistir o chatLid no lead
     // para que callbacks do webhook que chegam como "@lid" nunca mais virem órfãos.
@@ -168,7 +174,7 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
-      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: 'ana' });
+      await setActivityContext(supabase, { source: 'edge_function:send-whatsapp', actor: senderType });
 
       await supabase
         .from('whatsapp_messages')
@@ -178,7 +184,12 @@ serve(async (req) => {
           message: message,
           direction: 'outbound',
           timestamp: new Date().toISOString(),
-          raw_data: { ...zapiData, resolvedChatLid },
+          raw_data: {
+            ...zapiData,
+            resolvedChatLid,
+            sender_type: senderType === 'ana' ? 'ana' : 'human',
+            source: senderType === 'ana' ? 'school-triage' : 'manual',
+          },
         });
     }
 

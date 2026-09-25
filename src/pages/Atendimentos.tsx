@@ -1,9 +1,9 @@
+import { useSearchParams } from "react-router-dom";
+import { AttendanceConversation } from "@/components/school/AttendanceConversation";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAtendimentos, useUpdateTriage, horasEsperando, type Atendimento, type TriageStatus } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GraduationCap, Loader2, Mail, MessageCircle, Clock, CheckCircle2 } from "lucide-react";
 
 const STATUS_LABEL: Record<TriageStatus, string> = {
@@ -16,6 +16,7 @@ const STATUS_LABEL: Record<TriageStatus, string> = {
 const ASSUNTO_LABEL: Record<string, string> = {
   matricula: "Matrícula",
   curriculo: "Currículo",
+  financeiro: "Financeiro",
   horario: "Horário",
   localizacao: "Localização",
   outros: "Outros assuntos",
@@ -39,7 +40,7 @@ function tempo(a: Atendimento) {
   return `há ${Math.floor(h / 24)}d`;
 }
 
-function Row({ a }: { a: Atendimento }) {
+function Row({ a, onOpen }: { a: Atendimento; onOpen: () => void }) {
   const update = useUpdateTriage();
   const espera = tempo(a);
   const atrasado = (horasEsperando(a) ?? 0) >= 24 && a.triage_status === "aguardando_secretaria";
@@ -51,9 +52,9 @@ function Row({ a }: { a: Atendimento }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={`/opportunity/${a.id}`} className="font-medium hover:underline">
+          <span className="font-medium">
             {a.name}
-          </Link>
+          </span>
           {a.assunto && <Badge variant="secondary">{ASSUNTO_LABEL[a.assunto] || a.assunto}</Badge>}
           <Badge variant={a.triage_status === "aguardando_secretaria" ? "destructive" : "outline"}>
             {STATUS_LABEL[a.triage_status] || a.triage_status}
@@ -79,6 +80,7 @@ function Row({ a }: { a: Atendimento }) {
           {a.email && <span className="truncate">{a.email}</span>}
         </div>
       </div>
+      <Button size="sm" variant="outline" onClick={onOpen}>Conversa</Button>
       {a.triage_status !== "resolvido" && (
         <Button
           size="sm"
@@ -94,7 +96,10 @@ function Row({ a }: { a: Atendimento }) {
 }
 
 export default function Atendimentos() {
-  const { data, isLoading, isError } = useAtendimentos();
+  const [params, setParams] = useSearchParams();
+  const contactId = params.get("contato");
+  const { data, isLoading, isError } = useAtendimentos(contactId);
+  const [selected, setSelected] = useState<Atendimento | null>(null);
   const [tab, setTab] = useState<Tab>("aguardando_secretaria");
 
   const counts = useMemo(() => {
@@ -110,20 +115,20 @@ export default function Atendimentos() {
 
   const list = useMemo(() => {
     const d = data || [];
-    if (tab === "todos") return d;
+    if (contactId || tab === "todos") return d;
     if (tab === "matricula") return d.filter((a) => a.assunto === "matricula");
     return d.filter((a) => a.triage_status === tab);
-  }, [data, tab]);
+  }, [data, tab, contactId]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex min-h-[calc(100vh-68px)] flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <SidebarTrigger />
         <GraduationCap className="h-4 w-4 text-primary" />
         <h1 className="font-semibold">Atendimentos da escola</h1>
         <span className="text-sm text-muted-foreground">({counts.todos})</span>
       </header>
 
+      {contactId && <Button variant="ghost" onClick={() => setParams({})}>Ver todos os atendimentos</Button>}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3">
         {TABS.map((t) => (
           <Button key={t.key} size="sm" variant={tab === t.key ? "default" : "outline"} onClick={() => setTab(t.key)}>
@@ -143,9 +148,10 @@ export default function Atendimentos() {
           <div className="p-12 text-center text-muted-foreground">Nenhum atendimento nesta lista.</div>
         )}
         {list.map((a) => (
-          <Row key={a.id} a={a} />
+          <Row key={a.id} a={a} onOpen={() => setSelected(a)} />
         ))}
       </div>
+      {selected && <AttendanceConversation contact={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

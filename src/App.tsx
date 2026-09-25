@@ -20,6 +20,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
 const InboxPage = lazy(() => import("./pages/Inbox"));
+const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/origem-conversao" element={<ProtectedLayout><AcquisitionAnalytics /></ProtectedLayout>} />
             <Route path="/possibilidades" element={<ProtectedLayout><EnrollmentPossibilities /></ProtectedLayout>} />
             <Route path="/inbox" element={<ProtectedLayout><InboxPage /></ProtectedLayout>} />
+            <Route path="/atendimentos" element={<ProtectedLayout><Atendimentos /></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

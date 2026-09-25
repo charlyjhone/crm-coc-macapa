@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
 import { isInternalPhone } from "../_shared/internal-contacts.ts";
+import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,7 @@ serve(async (req) => {
     await setActivityContext(supabase, { source: 'webhook:zapi', actor: 'system' });
 
     const payload = await req.json();
-    console.log("Z-API payload:", JSON.stringify(payload, null, 2));
+    // Do not log message contents, attachments or callback credentials.
 
     // ===== EARLY EXIT: Filter out non-message events =====
     const notification = payload.notification || payload.type || '';
@@ -69,7 +70,15 @@ serve(async (req) => {
     const rawTs = payload.timestamp ?? payload.momment ?? null;
     const tsMs = typeof rawTs === 'number' ? (rawTs > 1e12 ? rawTs : rawTs * 1000) : Date.now();
     const timestamp = new Date(tsMs);
-    const direction = payload.fromMe ? 'outbound' : 'inbound';
+    // A Z-API envia `fromMe=true` para mensagens digitadas no próprio
+    // WhatsApp da escola quando "Notificar as enviadas por mim" está ativo.
+    // Alguns callbacks/versões serializam o booleano como string; normalize
+    // explicitamente para não classificar "false" (string truthy) como saída.
+    const rawFromMe = payload.fromMe ?? payload.from_me;
+    const fromMe = rawFromMe === true || rawFromMe === 'true';
+    const rawFromApi = payload.fromApi ?? payload.from_api;
+    const fromApi = rawFromApi === true || rawFromApi === 'true';
+    const direction = fromMe ? 'outbound' : 'inbound';
     
     // Extract contact name from Z-API payload - ONLY use for inbound messages (the client's name)
     const rawContactName = payload.senderName || payload.contactName || payload.name || payload.pushName || payload.notifyName || null;
@@ -133,7 +142,8 @@ serve(async (req) => {
         localPhone = onlyDigits;
       } else {
         localPhone = onlyDigits.startsWith('55') ? onlyDigits.slice(2) : onlyDigits;
-        normalizedPhone = '55' + localPhone;
+        normalizedPhone = normalizeWhatsAppPhone(onlyDigits);
+        localPhone = normalizedPhone.startsWith('55') ? normalizedPhone.slice(2) : normalizedPhone;
       }
       
       suffix11 = localPhone && localPhone.length >= 11 ? localPhone.slice(-11) : null;
@@ -757,13 +767,21 @@ serve(async (req) => {
       const realPhone = mappedPhoneForLid || chosenLead?.phones?.[0] || chosenLead?.phone;
       // Make sure it's a real phone (not a LID or temp)
       if (realPhone && !realPhone.includes('@') && realPhone.length >= 10) {
-        phoneToStore = realPhone;
+        phoneToStore = normalizeWhatsAppPhone(realPhone);
         console.log('Usando telefone real do lead ao invés do chatLid:', phoneToStore, mappedPhoneForLid ? '(via mapa)' : '(fallback)');
       }
     }
     
     // Insere mensagem associada APENAS ao telefone. O cache do(s) lead(s) que
     // têm esse número é recalculado por trigger via recompute_lead_whatsapp_cache.
+    const rawData = direction === 'outbound'
+      ? {
+          ...payload,
+          sender_type: fromApi || message.startsWith('*[Atendente Ana]*') ? 'ana' : 'human',
+          source: fromApi ? 'zapi-api-callback' : 'whatsapp-device',
+        }
+      : payload;
+
     const { data: insertedWaMsg, error: insertError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -773,7 +791,7 @@ serve(async (req) => {
         direction,
         timestamp,
         is_audio: isAudio,
-        raw_data: payload
+        raw_data: rawData
       })
       .select('id')
       .single();

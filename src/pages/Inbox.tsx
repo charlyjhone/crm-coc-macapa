@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Mail, Send, Search, ArrowRight, Loader2, ExternalLink, Reply, Sparkles, X } from "lucide-react";
+import { Mail, Send, Search, ArrowRight, Loader2, ExternalLink, Reply, X } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -25,17 +25,9 @@ interface EmailWithLead {
   message: string | null;
   html_body: string | null;
   timestamp: string;
-  raw_data: any;
+  raw_data: Record<string, unknown> | null;
   lead_name?: string;
   lead_email?: string;
-}
-
-// Domínios internos do Miguel/Susan
-const INTERNAL_DOMAINS = ["inventosdigitais.com.br", "inventormiguel.com", "inventormiguel.link"];
-
-function isInternalEmail(email: string): boolean {
-  const domain = email.split("@")[1]?.toLowerCase();
-  return INTERNAL_DOMAINS.includes(domain || "");
 }
 
 function parseEmailAddress(raw: string): { name: string; email: string } {
@@ -85,78 +77,6 @@ function extractSenderInfo(email: EmailWithLead) {
   const cc = hdrCc ? parseCcList(hdrCc) : [];
 
   return { from, to, cc };
-}
-
-function inferMiguelAsSender(email: EmailWithLead): boolean {
-  if (email.direction !== "inbound") return false;
-
-  const content = htmlToPlainText(extractNewEmailContent(email.html_body || email.message || "")).toLowerCase();
-  const firstName = email.lead_name?.split(" ")[0]?.toLowerCase();
-
-  // Heurística: mensagem começa saudando o lead + histórico "<lead> wrote:" abaixo
-  const greetsLead = firstName
-    ? content.startsWith(`olá ${firstName}`) || content.startsWith(`ola ${firstName}`) || content.startsWith(`oi ${firstName}`)
-    : false;
-
-  const quotedLead = firstName
-    ? (content.includes(`${firstName} <`) && content.includes("wrote:")) || content.includes(`${firstName} escreveu:`)
-    : false;
-
-  return Boolean(greetsLead || quotedLead);
-}
-
-function isMiguelEmail(email: EmailWithLead): boolean {
-  if (email.direction !== "inbound") return false;
-  const { from } = extractSenderInfo(email);
-  if (from?.email) return isInternalEmail(from.email);
-  return inferMiguelAsSender(email);
-}
-
-// Mantém no Inbox da Susan tudo que não esteja explicitamente marcado como Sara
-function isSusanInboxEmail(email: EmailWithLead): boolean {
-  const { from, to, cc } = extractSenderInfo(email);
-
-  const addresses = [
-    from?.email,
-    to?.email,
-    ...cc.map((c) => c.email),
-  ]
-    .filter(Boolean)
-    .map((value) => value!.toLowerCase());
-
-  const rd = email.raw_data || {};
-  const rawHeaders = [
-    rd["headers[to]"],
-    rd["headers[cc]"],
-    rd["headers[from]"],
-    rd["recipient_email"],
-    rd["sender_email"],
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  const plainContent = htmlToPlainText(extractNewEmailContent(email.html_body || email.message || "")).toLowerCase();
-
-  const mentionsSusan =
-    addresses.includes("susan@inventormiguel.link") ||
-    rawHeaders.includes("susan@inventormiguel.link") ||
-    plainContent.includes("susan@inventormiguel.link") ||
-    /\b(hi|oi|olá|ola)\s+susan\b/.test(plainContent);
-
-  const mentionsSara =
-    addresses.includes("sara@inventormiguel.link") ||
-    rawHeaders.includes("sara@inventormiguel.link") ||
-    plainContent.includes("sara@inventormiguel.link") ||
-    plainContent.includes('from: "sara langford"') ||
-    /\b(hi|oi|olá|ola)\s+sara\b/.test(plainContent);
-
-  if (mentionsSusan) return true;
-  if (mentionsSara) return false;
-
-  // A maioria dos registros antigos/importados não traz headers suficientes.
-  // Nesses casos, manter visível evita zerar o Inbox inteiro.
-  return true;
 }
 
 const PAGE_SIZE = 30;
@@ -239,57 +159,15 @@ const Inbox = () => {
   const [replySubject, setReplySubject] = useState("");
   const [replyBody, setReplyBody] = useState("");
 
-  const handleReply = async (email: EmailWithLead, fastMode: boolean = false) => {
+  const handleReply = async (email: EmailWithLead) => {
     if (!email.lead_id) {
       toast.error("Este e-mail não está vinculado a um lead");
       return;
     }
     setReplyMode(true);
-    setReplyGenerating(true);
-    setReplySubject("");
+    setReplyGenerating(false);
+    setReplySubject(email.subject?.startsWith("Re:") ? email.subject : `Re: ${email.subject || "Contato com a escola"}`);
     setReplyBody("");
-
-    try {
-      const { data: lead } = await supabase
-        .from("leads")
-        .select("name, description, status, valor, valor_pago, moeda, produto, language")
-        .eq("id", email.lead_id)
-        .single();
-
-      if (!lead) throw new Error("Lead não encontrado");
-
-      const { data: leadEmails } = await supabase
-        .from("email_messages")
-        .select("direction, subject, message, html_body, timestamp")
-        .eq("lead_id", email.lead_id)
-        .order("timestamp", { ascending: false })
-        .limit(15);
-
-      const { data: result, error } = await supabase.functions.invoke("generate-email-reply", {
-        body: {
-          emails: leadEmails || [],
-          leadName: lead.name,
-          leadDescription: lead.description,
-          leadLanguage: lead.language,
-          leadStatus: lead.status,
-          leadValor: lead.valor,
-          leadValorPago: lead.valor_pago,
-          leadMoeda: lead.moeda,
-          leadProduto: lead.produto,
-          fastMode,
-        },
-      });
-
-      if (error || result?.error) throw new Error(result?.error || "Erro ao gerar resposta");
-
-      setReplySubject(result.subject || "Re: " + (email.subject || ""));
-      setReplyBody(htmlToPlainText(result.body));
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao gerar resposta");
-      setReplyMode(false);
-    } finally {
-      setReplyGenerating(false);
-    }
   };
 
   const handleSendReply = async () => {
@@ -320,8 +198,8 @@ const Inbox = () => {
       setReplyMode(false);
       setReplyBody("");
       setReplySubject("");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao enviar e-mail");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
     } finally {
       setReplySending(false);
     }
@@ -340,8 +218,8 @@ const Inbox = () => {
     });
   }, []);
 
-  const enrichWithLeads = useCallback(async (emails: any[]): Promise<EmailWithLead[]> => {
-    const missingIds = [...new Set(emails.map((e: any) => e.lead_id).filter(Boolean))]
+  const enrichWithLeads = useCallback(async (emails: EmailWithLead[]): Promise<EmailWithLead[]> => {
+    const missingIds = [...new Set(emails.map((e) => e.lead_id).filter(Boolean))]
       .filter((id) => !leadCacheRef.current[id as string]);
 
     if (missingIds.length > 0) {
@@ -356,7 +234,7 @@ const Inbox = () => {
       }
     }
 
-    return emails.map((e: any) => ({
+    return emails.map((e) => ({
       ...e,
       lead_name: e.lead_id ? leadCacheRef.current[e.lead_id]?.name : undefined,
       lead_email: e.lead_id ? leadCacheRef.current[e.lead_id]?.email ?? undefined : undefined,
@@ -467,7 +345,7 @@ const Inbox = () => {
 
     if (!leadEmail) {
       // No email to search, go directly
-      window.open(`/opportunity/${email.lead_id}`, "_blank");
+      window.open(`/atendimentos?contato=${encodeURIComponent(email.lead_id)}`, "_blank");
       return;
     }
 
@@ -484,7 +362,7 @@ const Inbox = () => {
 
     if (!leads || leads.length <= 1) {
       // Only one lead, go directly
-      window.open(`/opportunity/${email.lead_id}`, "_blank");
+      window.open(`/atendimentos?contato=${encodeURIComponent(email.lead_id)}`, "_blank");
       return;
     }
 
@@ -504,7 +382,7 @@ const Inbox = () => {
   const hasMore = tab === "inbound" ? hasMoreInbound : hasMoreOutbound;
 
   const baseList = searchResults !== null ? searchResults : currentEmails;
-  const filtered = baseList.filter(isSusanInboxEmail);
+  const filtered = baseList;
 
   const getPreview = (email: EmailWithLead) => {
     if (email.message) return email.message.substring(0, 120);
@@ -518,7 +396,7 @@ const Inbox = () => {
   const getListSender = (email: EmailWithLead) => {
     const { from, to } = extractSenderInfo(email);
 
-    // Na aba enviados, mostrar destinatário (não Miguel)
+    // Na aba enviados, mostrar o destinatário da mensagem.
     if (email.direction === "outbound") {
       if (to?.name) return to.name;
       if (to?.email) return to.email;
@@ -528,7 +406,6 @@ const Inbox = () => {
     // Na aba recebidos, mostrar remetente real
     if (from?.name) return from.name;
     if (from?.email) return from.email;
-    if (isMiguelEmail(email)) return "Miguel Fernandes";
     return email.lead_name || email.lead_email || "Desconhecido";
   };
 
@@ -551,12 +428,8 @@ const Inbox = () => {
 
   const renderDetailHeader = (email: EmailWithLead) => {
     const { from, to, cc } = extractSenderInfo(email);
-    const inferredMiguel = isMiguelEmail(email);
-
     const displayFrom = from
       ? from
-      : inferredMiguel
-      ? { name: "Miguel Fernandes", email: "miguel@inventosdigitais.com.br" }
       : { name: email.lead_name || "Desconhecido", email: email.lead_email || "" };
 
     const displayTo = to || (email.direction === "outbound" && email.lead_email
@@ -575,11 +448,6 @@ const Inbox = () => {
             <div className="flex items-center gap-2 mt-2">
               <span className="text-xs font-medium text-muted-foreground w-8 shrink-0">De:</span>
               <div className="flex items-center gap-1.5">
-                {email.direction === "inbound" && inferredMiguel && (
-                  <Badge variant="outline" className="text-xs border-primary/40 text-primary bg-primary/5 px-1.5 py-0">
-                    Miguel
-                  </Badge>
-                )}
                 <span className="text-sm text-foreground font-medium">
                   {displayFrom.name || displayFrom.email || "Desconhecido"}
                 </span>
@@ -647,7 +515,7 @@ const Inbox = () => {
     <div className="flex flex-col h-screen">
       <div className="border-b px-6 py-4">
         <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
-        <p className="text-sm text-muted-foreground">E-mails da Susan</p>
+        <p className="text-sm text-muted-foreground">E-mails da escola</p>
       </div>
 
       <div className="flex flex-1 min-h-0">
@@ -696,7 +564,6 @@ const Inbox = () => {
             ) : (
               <div>
                 {filtered.map((email) => {
-                  const fromMiguel = isMiguelEmail(email);
                   const isRead = readIds.has(email.id);
                   const ts = new Date(email.timestamp);
                   return (
@@ -705,16 +572,11 @@ const Inbox = () => {
                       onClick={() => { setSelectedEmail(email); markAsRead(email.id); setReplyMode(false); }}
                       className={`w-full text-left p-3 border-b transition-colors hover:bg-accent/50 ${
                         selectedEmail?.id === email.id ? "bg-accent" : ""
-                      } ${fromMiguel ? "border-l-2 border-l-primary" : ""} ${!isRead ? "bg-primary/[0.03]" : ""}`}
+                      } ${!isRead ? "bg-primary/[0.03]" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
                           {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                          {fromMiguel && (
-                            <Badge variant="outline" className="text-[10px] border-primary/40 text-primary bg-primary/5 px-1 py-0 shrink-0">
-                              Miguel
-                            </Badge>
-                          )}
                           <span className={`text-sm text-foreground ${!isRead ? "font-bold" : "font-normal"}`}>
                             {getListSender(email)}
                           </span>
@@ -779,7 +641,7 @@ const Inbox = () => {
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">Responder como Susan</span>
+                        <span className="text-sm font-medium text-foreground">Responder como Ana — COC Macapá Norte</span>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyMode(false)}>
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -800,12 +662,8 @@ const Inbox = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReply(selectedEmail)}
-                          disabled={replyGenerating}
-                        >
-                          <Sparkles className="h-3.5 w-3.5 mr-1" />
-                          Regenerar
-                        </Button>
+                          onClick={() => setReplyBody("")}
+                        >Limpar</Button>
                         <Button
                           size="sm"
                           onClick={handleSendReply}
@@ -827,20 +685,11 @@ const Inbox = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleReply(selectedEmail, false)}
+                      onClick={() => handleReply(selectedEmail)}
                       className="gap-1.5"
                     >
                       <Reply className="h-3.5 w-3.5" />
-                      Gerar Resposta
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleReply(selectedEmail, true)}
-                      className="gap-1.5"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Gerar Resposta Rápida
+                      Responder
                     </Button>
                   </div>
                 )
@@ -872,7 +721,7 @@ const Inbox = () => {
                 key={lead.id}
                 onClick={() => {
                   setLeadPickerOpen(false);
-                  window.open(`/opportunity/${lead.id}`, "_blank");
+                  window.open(`/atendimentos?contato=${encodeURIComponent(lead.id)}`, "_blank");
                 }}
                 className="w-full text-left p-3 rounded-lg border hover:bg-accent/50 transition-colors"
               >

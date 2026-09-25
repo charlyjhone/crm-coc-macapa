@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  BellDot,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -57,9 +56,7 @@ export function AppTopNav() {
   const { isAdmin } = useUserRole();
   const location = useLocation();
   const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/possibilidades", "/"].includes(location.pathname);
-  const serviceActive = ["/inbox", "/pendentes", "/opportunities"].some((path) =>
-    location.pathname.startsWith(path),
-  );
+  const serviceActive = ["/inbox", "/atendimentos"].includes(location.pathname);
 
   const initials = (user?.email || "COC")
     .split("@")[0]
@@ -144,8 +141,7 @@ export function AppTopNav() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
               <DropdownMenuItem asChild className="rounded-lg"><Link to="/inbox"><Inbox className="mr-2 h-4 w-4" />Inbox</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild className="rounded-lg"><Link to="/pendentes"><BellDot className="mr-2 h-4 w-4" />Pendentes</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild className="rounded-lg"><Link to="/opportunities"><GraduationCap className="mr-2 h-4 w-4" />CRM legado</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg"><Link to="/atendimentos"><ListChecks className="mr-2 h-4 w-4" />Fila da secretaria</Link></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
