@@ -1,5 +1,5 @@
 -- Pré-voo somente leitura da trilha de auditoria.
--- Execute depois de aplicar a migration 20260928170716_add_profile_audit_logs.sql.
+-- Execute depois de aplicar a migration 20260928191018_add_profile_audit_logs.sql.
 
 do $$
 declare

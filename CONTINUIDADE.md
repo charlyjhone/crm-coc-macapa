@@ -273,6 +273,7 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Escopo: alterações feitas no CRM com sessão autenticada e ações de conta feitas pela função `admin-manage-users`. Operações automáticas com `service_role`, SQL direto no painel Supabase e mudanças no esquema feitas fora do CRM não identificam a pessoa e não entram nesta trilha. Novas tabelas públicas devem receber o gatilho nas migrations futuras. A trilha não recupera eventos anteriores à instalação.
 - A implementação foi reaplicada sobre a `main` atual (`b693a59`), mantendo a correção recente da navegação dos atendimentos.
 - Validação nesta base: `npm run build` (2.629 módulos), `tsc --noEmit`, ESLint direcionado para as rotas/telas alteradas e `admin-manage-users/index.ts`, além de `git diff --check`; tudo aprovado.
-- A leitura do Supabase `crm-escola` confirmou que `public.audit_logs` ainda não existe e `admin-manage-users` continua na versão 2. A migration e a nova versão da Edge Function não foram aplicadas/publicadas; nenhum dado de produção foi alterado.
-- `supabase/tests/20260928_audit_log_preflight.sql` foi criado para verificar privilégios, RLS e gatilhos depois da migration; ainda não foi executado porque o banco de produção não foi alterado.
+- A migration `20260928191018_add_profile_audit_logs.sql` foi aplicada ao Supabase `crm-escola` e registrada no projeto com a mesma versão `20260928191018`. A tabela começa vazia, sem eventos retroativos.
+- O pré-voo `supabase/tests/20260928_audit_log_preflight.sql` foi executado após a migration e passou: RLS, privilégios e gatilhos confirmados.
+- A Edge Function `admin-manage-users` ainda está na versão 2 e o frontend desta alteração ainda não foi publicado; a publicação continua pendente.
 
