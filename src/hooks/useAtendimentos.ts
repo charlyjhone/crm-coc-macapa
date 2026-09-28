@@ -77,11 +77,14 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(100);
-      const whatsappByPhone = lead.phone
+      const phoneVariants = lead.phone
+        ? [...new Set([lead.phone, lead.phone.replace(/\D/g, "")].filter(Boolean))]
+        : [];
+      const whatsappByPhone = phoneVariants.length
         ? supabase
             .from("whatsapp_messages")
             .select("id, direction, message, timestamp, created_at")
-            .eq("phone", lead.phone)
+            .in("phone", phoneVariants)
             .order("created_at", { ascending: false })
             .limit(100)
         : Promise.resolve({ data: [], error: null });
