@@ -95,6 +95,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <img src="/brand/ae-crm-logo.svg" alt="AE CRM" className="mx-auto mb-3 h-12 w-auto max-w-full" />
           <CardTitle className="text-2xl font-bold">Entrar</CardTitle>
           <CardDescription>
             Faça login para acessar o sistema
