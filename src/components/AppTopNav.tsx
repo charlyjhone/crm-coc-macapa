@@ -155,7 +155,7 @@ export function AppTopNav() {
             </span>
             <span className="hidden max-w-36 lg:block">
               <strong className="block truncate text-xs text-slate-800">{user?.email?.split("@")[0] || "Direção"}</strong>
-              <small className="block text-[11px] text-slate-600">{isAdmin ? "Administrador" : "Atendimento"}</small>
+              <small className="block text-[11px] text-slate-600">{isAdmin ? "Administrador" : "Secretaria"}</small>
             </span>
             <ChevronDown className="hidden h-3 w-3 text-slate-500 lg:block" />
           </DropdownMenuTrigger>

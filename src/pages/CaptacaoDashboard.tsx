@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   GraduationCap,
+  Inbox as InboxIcon,
   School,
   Target,
   TrendingUp,
@@ -53,10 +55,13 @@ const CaptacaoDashboard = () => {
   const [capacities, setCapacities] = useState<Capacity[]>([]);
   const [loading, setLoading] = useState(true);
   const [foundationPending, setFoundationPending] = useState(false);
+  const [attendance, setAttendance] = useState<{ total: number; waiting: number; replied: number } | null>(null);
+  const [attendanceError, setAttendanceError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
+    let active = true;
     const load = async () => {
-      setLoading(true);
       const client = supabase as any;
       const [opportunitiesResult, capacitiesResult] = await Promise.all([
         client
@@ -67,17 +72,56 @@ const CaptacaoDashboard = () => {
           .select("id,grade,shift,total_seats,reserved_seats,enrolled_seats")
           .order("grade"),
       ]);
+      if (!active) return;
 
       if (opportunitiesResult.error || capacitiesResult.error) {
         setFoundationPending(true);
       } else {
+        setFoundationPending(false);
         setOpportunities(opportunitiesResult.data || []);
         setCapacities(capacitiesResult.data || []);
       }
       setLoading(false);
     };
 
-    load();
+    void load();
+    const interval = window.setInterval(() => void load(), 30_000);
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadAttendance = async () => {
+      const base = () => supabase.from("leads").select("id", { count: "exact", head: true }).eq("archived", false);
+      const [all, waiting, replied] = await Promise.all([
+        base(),
+        base().eq("triage_status", "aguardando_secretaria"),
+        base().eq("triage_status", "respondido_agente"),
+      ]);
+      if (!active) return;
+      if (all.error || waiting.error || replied.error) {
+        setAttendanceError(true);
+        return;
+      }
+      setAttendance({ total: all.count ?? 0, waiting: waiting.count ?? 0, replied: replied.count ?? 0 });
+      setAttendanceError(false);
+      setLastUpdated(new Date());
+    };
+    void loadAttendance();
+    const interval = window.setInterval(() => void loadAttendance(), 30_000);
+    const onFocus = () => void loadAttendance();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   const metrics = useMemo(() => {
@@ -123,6 +167,26 @@ const CaptacaoDashboard = () => {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 p-5 md:p-8">
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Atendimentos da escola</h2>
+              <p className="text-sm text-muted-foreground">Contatos recebidos pela Ana e pela secretaria.</p>
+            </div>
+            <Link to="/atendimentos" className="text-sm font-medium text-emerald-700 hover:underline">Abrir atendimentos</Link>
+          </div>
+          {attendanceError ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Não foi possível atualizar os atendimentos. Tente recarregar a página.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MetricCard title="Contatos ativos" value={attendance?.total ?? "—"} note="histórico de atendimento" icon={Users} />
+              <MetricCard title="Aguardando secretaria" value={attendance?.waiting ?? "—"} note="precisam de atendimento humano" icon={InboxIcon} attention={!!attendance?.waiting} />
+              <MetricCard title="Respondidos pela Ana" value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} />
+            </div>
+          )}
+          {lastUpdated && <p className="text-xs text-muted-foreground">Atualizado às {lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Atualização automática a cada 30 segundos.</p>}
+        </section>
+
         {foundationPending && (
           <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />

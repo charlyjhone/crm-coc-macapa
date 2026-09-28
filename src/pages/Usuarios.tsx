@@ -195,7 +195,7 @@ export default function Usuarios() {
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-sm text-muted-foreground">
-            Crie e gerencie os acessos da equipe ao CRM. Apenas o admin acessa esta área.
+            Crie e gerencie os acessos da equipe ao CRM. Apenas administradores acessam esta área.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -210,6 +210,9 @@ export default function Usuarios() {
               <DialogTitle>Novo usuário</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <p className="rounded-lg bg-muted p-3 text-sm text-slate-700">
+                Perfil: <strong>Secretaria</strong>. A pessoa poderá atender famílias e usar as telas escolares, sem gerenciar usuários ou configurações da Ana.
+              </p>
               <div>
                 <Label>Nome</Label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome da pessoa" />
@@ -248,7 +251,7 @@ export default function Usuarios() {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-base">{u.name || u.email}</CardTitle>
-                        {isAdmin && <Badge>admin</Badge>}
+                        <Badge variant={isAdmin ? "default" : "secondary"}>{isAdmin ? "Administrador" : "Secretaria"}</Badge>
                       </div>
                       {u.name && <p className="text-xs text-muted-foreground">{u.email}</p>}
                       <p className="text-xs text-muted-foreground">
