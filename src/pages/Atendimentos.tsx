@@ -93,15 +93,14 @@ export default function Atendimentos() {
   const [filter, setFilter] = useState<Filter>("aguardando_secretaria");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const leads = data || [];
   const counts = useMemo(() => ({
-    aguardando_secretaria: leads.filter((a) => a.triage_status === "aguardando_secretaria").length,
-    matricula: leads.filter((a) => a.assunto === "matricula").length,
-    respondido_agente: leads.filter((a) => a.triage_status === "respondido_agente").length,
-    resolvido: leads.filter((a) => a.triage_status === "resolvido").length,
-    todos: leads.length,
+    aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
+    matricula: (data || []).filter((a) => a.assunto === "matricula").length,
+    respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
+    resolvido: (data || []).filter((a) => a.triage_status === "resolvido").length,
+    todos: data?.length || 0,
   }), [data]);
-  const list = leads.filter((lead) => {
+  const list = (data || []).filter((lead) => {
     const matchesFilter = filter === "todos" || (filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter);
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
