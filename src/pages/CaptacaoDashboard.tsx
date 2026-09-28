@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -51,6 +52,7 @@ const formatNumber = (value: number) =>
   new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value);
 
 const CaptacaoDashboard = () => {
+  const { schoolName, agentName } = useSchoolIdentity();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [capacities, setCapacities] = useState<Capacity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,7 +154,7 @@ const CaptacaoDashboard = () => {
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm font-medium text-primary">
               <School className="h-4 w-4" />
-              COC Macapá Norte
+              {schoolName}
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Captação e matrículas</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -171,7 +173,7 @@ const CaptacaoDashboard = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Atendimentos da escola</h2>
-              <p className="text-sm text-muted-foreground">Contatos recebidos pela Ana e pela secretaria.</p>
+              <p className="text-sm text-muted-foreground">Contatos recebidos por {agentName} e pela secretaria.</p>
             </div>
             <Link to="/atendimentos" className="text-sm font-medium text-emerald-700 hover:underline">Abrir atendimentos</Link>
           </div>
@@ -181,7 +183,7 @@ const CaptacaoDashboard = () => {
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard title="Contatos ativos" value={attendance?.total ?? "—"} note="histórico de atendimento" icon={Users} />
               <MetricCard title="Aguardando secretaria" value={attendance?.waiting ?? "—"} note="precisam de atendimento humano" icon={InboxIcon} attention={!!attendance?.waiting} />
-              <MetricCard title="Respondidos pela Ana" value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} />
+              <MetricCard title={`Respondidos por ${agentName}`} value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} />
             </div>
           )}
           {lastUpdated && <p className="text-xs text-muted-foreground">Atualizado às {lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Atualização automática a cada 30 segundos.</p>}
