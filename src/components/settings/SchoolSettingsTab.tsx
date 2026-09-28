@@ -9,17 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo"] as const;
-
-const DEFAULT_INFO = `Horário de funcionamento: 7h30 às 18h, de segunda a sexta.
-Endereço: R. Adílson José Pinto Pereira, 1089 - Infraero, Macapá - AP, CEP 68908-530.
-Currículos devem ser enviados para o e-mail rhcocmacapanorte@gmail.com.`;
+const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome"] as const;
 
 export default function SchoolSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nome, setNome] = useState("");
-  const [info, setInfo] = useState(DEFAULT_INFO);
+  const [agenteNome, setAgenteNome] = useState("Ana");
+  const [info, setInfo] = useState("");
   const [valores, setValores] = useState("");
   const [ativo, setAtivo] = useState(true);
 
@@ -29,7 +26,8 @@ export default function SchoolSettingsTab() {
       const map: Record<string, string> = {};
       (data || []).forEach((r: any) => (map[r.key] = r.value));
       setNome(map.escola_nome || "");
-      setInfo(map.escola_info || DEFAULT_INFO);
+      setAgenteNome(map.escola_agente_nome || "Ana");
+      setInfo(map.escola_info || "");
       setValores(map.escola_valores || "");
       setAtivo((map.escola_agente_ativo || "true") === "true");
       setLoading(false);
@@ -37,12 +35,18 @@ export default function SchoolSettingsTab() {
   }, []);
 
   const save = async () => {
+    const nomeAgente = agenteNome.trim();
+    if (!nomeAgente || nomeAgente.length > 40 || /[\r\n\[\]*<>]/.test(nomeAgente)) {
+      toast({ title: "Nome da atendente inválido", description: "Use de 1 a 40 caracteres, sem colchetes, asteriscos ou quebras de linha.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     const rows = [
       { key: "escola_nome", value: nome },
       { key: "escola_info", value: info },
       { key: "escola_valores", value: valores },
       { key: "escola_agente_ativo", value: ativo ? "true" : "false" },
+      { key: "escola_agente_nome", value: nomeAgente },
     ];
     const { error } = await supabase.from("system_settings").upsert(rows, { onConflict: "key" });
     setSaving(false);
@@ -71,9 +75,16 @@ export default function SchoolSettingsTab() {
             matrícula. Assuntos mais profundos vão para a secretaria.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center gap-3">
-          <Switch checked={ativo} onCheckedChange={setAtivo} id="escola-ativo" />
-          <Label htmlFor="escola-ativo">{ativo ? "Agente ligado" : "Agente desligado"}</Label>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Switch checked={ativo} onCheckedChange={setAtivo} id="escola-ativo" />
+            <Label htmlFor="escola-ativo">{ativo ? "Agente ligado" : "Agente desligado"}</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="escola-agente-nome">Nome da atendente virtual</Label>
+            <Input id="escola-agente-nome" value={agenteNome} onChange={(e) => setAgenteNome(e.target.value)} maxLength={40} placeholder="Ex.: Ana" />
+            <p className="text-xs text-muted-foreground">Esse nome identifica a atendente nas próximas respostas. As conversas anteriores mantêm o nome usado na época.</p>
+          </div>
         </CardContent>
       </Card>
 
