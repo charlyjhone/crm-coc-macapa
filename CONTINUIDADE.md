@@ -275,5 +275,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Validação nesta base: `npm run build` (2.629 módulos), `tsc --noEmit`, ESLint direcionado para as rotas/telas alteradas e `admin-manage-users/index.ts`, além de `git diff --check`; tudo aprovado.
 - A migration `20260928191018_add_profile_audit_logs.sql` foi aplicada ao Supabase `crm-escola` e registrada no projeto com a mesma versão `20260928191018`. A tabela começa vazia, sem eventos retroativos.
 - O pré-voo `supabase/tests/20260928_audit_log_preflight.sql` foi executado após a migration e passou: RLS, privilégios e gatilhos confirmados.
-- A Edge Function `admin-manage-users` ainda está na versão 2 e o frontend desta alteração ainda não foi publicado; a publicação continua pendente.
+- PR #18 foi mesclada por squash na `main`, commit `2fd06c7`.
+- A migration `20260928191018_add_profile_audit_logs.sql` está aplicada no Supabase `crm-escola`, versão `20260928191018`; o pré-voo RLS/privilégios/gatilhos passou.
+- A Edge Function `admin-manage-users` está publicada como versão 3 e ativa. `verify_jwt=false` foi preservado; a função autentica o token e valida permissões administrativas antes das operações.
+- O Render `crm-escola` recebeu o deploy manual `dep-datbpkmk1f9s73flh8mg` do commit `2fd06c7`, status `Deploy succeeded | Live`; Auto-Deploy continua desligado.
+- Em sessão autenticada de administrador, `/perfil` e `/auditoria` foram abertas no site publicado. A auditoria está vazia no início da coleta (0 registros), sem histórico retroativo; nenhum dado do perfil ou senha foi alterado durante a verificação.
 
