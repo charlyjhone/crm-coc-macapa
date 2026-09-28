@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 80" role="img" aria-labelledby="title">
+  <title id="title">AE CRM</title>
+  <g transform="translate(1 4)">
+    <circle cx="7" cy="41" r="3.8" fill="#FFFFFF"/>
+    <path d="M1 58C1 52 3.5 49 7 49S13 52 13 58V63H1Z" fill="#FFFFFF"/>
+    <circle cx="19" cy="38" r="3.8" fill="#FFFFFF"/>
+    <path d="M14 58C14 51 16 48 19 48S24 51 24 58V63H14Z" fill="#FFFFFF"/>
+    <circle cx="31" cy="41" r="3.8" fill="#FFFFFF"/>
+    <path d="M26 58C26 52 28 49 31 49S36 52 36 58V63H26Z" fill="#FFFFFF"/>
+    <path d="M30 12H64L55 23H39Z" fill="#FFFFFF"/>
+    <path d="M39 24H55L49 33V40L43 45L37 40V33Z" fill="#FFFFFF"/>
+    <path d="M43 43 61 23H54L70 8 68 28 64 23 47 46Z" fill="#F26A4B"/>
+    <rect x="57" y="53" width="6" height="12" rx="1" fill="#F26A4B"/>
+    <rect x="66" y="46" width="6" height="19" rx="1" fill="#F26A4B"/>
+    <rect x="75" y="39" width="6" height="26" rx="1" fill="#F26A4B"/>
+  </g>
+  <text x="94" y="58" font-family="Montserrat, Inter, Arial, sans-serif" font-size="48" font-weight="800" letter-spacing="-2">
+    <tspan fill="#FFFFFF">AE</tspan><tspan dx="9" fill="#F26A4B">CRM</tspan>
+  </text>
+</svg>
