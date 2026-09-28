@@ -4,6 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
 export type Assunto = "matricula" | "curriculo" | "horario" | "localizacao" | "outros";
 
+export interface MensagemAtendimento {
+  id: string;
+  channel: "whatsapp" | "email";
+  direction: string;
+  message: string;
+  at: string;
+}
+
 export interface Atendimento {
   id: string;
   name: string;
@@ -53,6 +61,81 @@ export function useUpdateTriage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["atendimentos"] }),
+  });
+}
+
+export function useMensagensAtendimento(lead: Atendimento | null) {
+  return useQuery({
+    queryKey: ["mensagens-atendimento", lead?.id, lead?.phone],
+    enabled: !!lead,
+    refetchInterval: 15_000,
+    queryFn: async (): Promise<MensagemAtendimento[]> => {
+      if (!lead) return [];
+      const whatsappByLead = supabase
+        .from("whatsapp_messages")
+        .select("id, direction, message, timestamp, created_at")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const phoneVariants = lead.phone
+        ? [...new Set([lead.phone, lead.phone.replace(/\D/g, "")].filter(Boolean))]
+        : [];
+      const whatsappByPhone = phoneVariants.length
+        ? supabase
+            .from("whatsapp_messages")
+            .select("id, direction, message, timestamp, created_at")
+            .in("phone", phoneVariants)
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [], error: null });
+      const emailByLead = supabase
+        .from("email_messages")
+        .select("id, direction, message, subject, created_at")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const [byLead, byPhone, emails] = await Promise.all([whatsappByLead, whatsappByPhone, emailByLead]);
+      if (byLead.error) throw byLead.error;
+      if (byPhone.error) throw byPhone.error;
+      if (emails.error) throw emails.error;
+
+      const uniqueWhatsApp = new Map(
+        [...(byLead.data || []), ...(byPhone.data || [])].map((m) => [m.id, m]),
+      );
+      const whatsapp: MensagemAtendimento[] = [...uniqueWhatsApp.values()].map((m) => ({
+        id: m.id,
+        channel: "whatsapp",
+        direction: m.direction,
+        message: m.message || "",
+        at: m.timestamp || m.created_at,
+      }));
+      const email: MensagemAtendimento[] = (emails.data || []).map((m) => ({
+        id: m.id,
+        channel: "email",
+        direction: m.direction,
+        message: m.message || m.subject || "",
+        at: m.created_at,
+      }));
+      return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    },
+  });
+}
+
+export function useEnviarWhatsApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, message }: { lead: Atendimento; message: string }) => {
+      if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
+        body: { phone: lead.phone, leadId: lead.id, message, senderType: "human" },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "O WhatsApp não confirmou o envio.");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mensagens-atendimento"] });
+      qc.invalidateQueries({ queryKey: ["atendimentos"] });
+    },
   });
 }
 

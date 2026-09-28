@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  BellDot,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -9,7 +8,6 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
-  Search,
   Target,
   Settings,
   ListChecks,
@@ -57,7 +55,7 @@ export function AppTopNav() {
   const { isAdmin } = useUserRole();
   const location = useLocation();
   const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/possibilidades", "/"].includes(location.pathname);
-  const serviceActive = ["/inbox", "/pendentes", "/opportunities"].some((path) =>
+  const serviceActive = ["/atendimentos"].some((path) =>
     location.pathname.startsWith(path),
   );
 
@@ -143,29 +141,15 @@ export function AppTopNav() {
               <ChevronDown className="h-3 w-3 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
-              <DropdownMenuItem asChild className="rounded-lg"><Link to="/inbox"><Inbox className="mr-2 h-4 w-4" />Inbox</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild className="rounded-lg"><Link to="/pendentes"><BellDot className="mr-2 h-4 w-4" />Pendentes</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild className="rounded-lg"><Link to="/opportunities"><GraduationCap className="mr-2 h-4 w-4" />CRM legado</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg"><Link to="/atendimentos"><Inbox className="mr-2 h-4 w-4" />Atendimentos da escola</Link></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {isAdmin && <NavLink to="/usuarios" label="Equipe" icon={Users} />}
         </nav>
 
-        <div className="ml-auto hidden min-w-0 items-center gap-3 lg:flex">
-          <div className="relative w-52">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <input
-              type="search"
-              placeholder="Buscar família ou aluno..."
-              aria-label="Buscar família ou aluno"
-              className="h-10 w-full rounded-full border border-emerald-950/10 bg-slate-50 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-300 focus:bg-white focus:ring-4 focus:ring-emerald-700/5"
-            />
-          </div>
-        </div>
-
         <DropdownMenu>
-          <DropdownMenuTrigger className="ml-auto flex shrink-0 items-center gap-2 rounded-xl p-1.5 text-left outline-none hover:bg-emerald-50 lg:ml-0">
+          <DropdownMenuTrigger className="ml-auto flex shrink-0 items-center gap-2 rounded-xl p-1.5 text-left outline-none hover:bg-emerald-50">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-lime-400 text-xs font-bold text-white">
               {initials}
             </span>
