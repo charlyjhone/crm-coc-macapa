@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAtendimentos, useEnviarWhatsApp, useMensagensAtendimento, useUpdateTriage, type Atendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +93,10 @@ function Conversation({ lead }: { lead: Atendimento }) {
 export default function Atendimentos() {
   const { agentName } = useSchoolIdentity();
   const { data, isLoading, isError } = useAtendimentos();
-  const [filter, setFilter] = useState<Filter>("aguardando_secretaria");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedFilter = searchParams.get("status");
+  const isValidRequestedFilter = filters.some((item) => item.key === requestedFilter);
+  const filter: Filter = isValidRequestedFilter ? requestedFilter as Filter : "aguardando_secretaria";
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const counts = useMemo(() => ({
@@ -107,7 +111,8 @@ export default function Atendimentos() {
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   });
-  const selected = list.find((lead) => lead.id === selectedId) || null;
+  const selected = list.find((lead) => lead.id === selectedId)
+    || (isValidRequestedFilter ? list[0] ?? null : null);
 
   return (
     <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
@@ -116,7 +121,7 @@ export default function Atendimentos() {
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
           <Button key={item.key} size="sm" variant={filter === item.key ? "default" : "outline"}
-            onClick={() => { setFilter(item.key); setSelectedId(null); }}>
+            onClick={() => { setSearchParams({ status: item.key }); setSelectedId(null); }}>
             {item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label} ({counts[item.key]})
           </Button>
         ))}
@@ -133,7 +138,7 @@ export default function Atendimentos() {
             {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhum atendimento nesta lista.</p>}
             {list.map((lead) => (
               <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
-                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${lead.id === selectedId ? "bg-emerald-50" : ""}`}>
+                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${lead.id === selected?.id ? "bg-emerald-50" : ""}`}>
                 <span className="block truncate font-medium">{lead.name}</span>
                 <span className="block text-xs text-slate-600">{lead.phone || lead.email}</span>
                 <span className="mt-1 block line-clamp-2 text-sm text-slate-600">{lead.triage_summary || lead.last_inbound_message || "Sem resumo"}</span>

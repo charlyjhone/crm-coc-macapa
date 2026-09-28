@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle,
+  ArrowRight,
   CalendarCheck,
   CheckCircle2,
   GraduationCap,
@@ -181,9 +182,9 @@ const CaptacaoDashboard = () => {
             <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Não foi possível atualizar os atendimentos. Tente recarregar a página.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-3">
-              <MetricCard title="Contatos ativos" value={attendance?.total ?? "—"} note="histórico de atendimento" icon={Users} />
-              <MetricCard title="Aguardando secretaria" value={attendance?.waiting ?? "—"} note="precisam de atendimento humano" icon={InboxIcon} attention={!!attendance?.waiting} />
-              <MetricCard title={`Respondidos por ${agentName}`} value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} />
+              <MetricCard title="Contatos ativos" value={attendance?.total ?? "—"} note="histórico de atendimento" icon={Users} to="/atendimentos?status=todos" />
+              <MetricCard title="Aguardando secretaria" value={attendance?.waiting ?? "—"} note="precisam de atendimento humano" icon={InboxIcon} attention={!!attendance?.waiting} to="/atendimentos?status=aguardando_secretaria" />
+              <MetricCard title={`Respondidos por ${agentName}`} value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} to="/atendimentos?status=respondido_agente" />
             </div>
           )}
           {lastUpdated && <p className="text-xs text-muted-foreground">Atualizado às {lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Atualização automática a cada 30 segundos.</p>}
@@ -289,27 +290,50 @@ const MetricCard = ({
   note,
   icon: Icon,
   attention = false,
+  to,
 }: {
   title: string;
   value: string | number;
   note: string;
   icon: typeof Users;
   attention?: boolean;
-}) => (
-  <Card className={attention ? "border-destructive/40" : undefined}>
-    <CardContent className="p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-700">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+  to?: string;
+}) => {
+  const card = (
+    <Card className={`${attention ? "border-destructive/40" : ""} ${to ? "transition-colors hover:border-primary/50 hover:bg-slate-50" : ""}`}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-700">{title}</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+          </div>
+          <div className={`rounded-lg p-2 ${attention ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
+            <Icon className="h-5 w-5" />
+          </div>
         </div>
-        <div className={`rounded-lg p-2 ${attention ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      <p className="mt-2 text-xs text-slate-600">{note}</p>
-    </CardContent>
-  </Card>
-);
+        <p className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-600">
+          <span>{note}</span>
+          {to && (
+            <span className="inline-flex shrink-0 items-center gap-1 font-medium text-primary">
+              Abrir lista <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5" />
+            </span>
+          )}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  if (!to) return card;
+
+  return (
+    <Link
+      to={to}
+      aria-label={`Abrir lista de ${title.toLocaleLowerCase("pt-BR")} (${value})`}
+      className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      {card}
+    </Link>
+  );
+};
 
 export default CaptacaoDashboard;
