@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
+import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 
 type Filter = "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
   { key: "aguardando_secretaria", label: "Aguardando secretaria" },
   { key: "matricula", label: "Matrículas" },
-  { key: "respondido_agente", label: "Respondidos pela Ana" },
+  { key: "respondido_agente", label: "Respondidos pelo agente" },
   { key: "resolvido", label: "Resolvidos" },
   { key: "todos", label: "Todos" },
 ];
@@ -89,6 +90,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
 }
 
 export default function Atendimentos() {
+  const { agentName } = useSchoolIdentity();
   const { data, isLoading, isError } = useAtendimentos();
   const [filter, setFilter] = useState<Filter>("aguardando_secretaria");
   const [search, setSearch] = useState("");
@@ -110,12 +112,12 @@ export default function Atendimentos() {
   return (
     <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
       <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses da Ana e responda às famílias pelo WhatsApp.</p>
+      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp.</p>
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
           <Button key={item.key} size="sm" variant={filter === item.key ? "default" : "outline"}
             onClick={() => { setFilter(item.key); setSelectedId(null); }}>
-            {item.label} ({counts[item.key]})
+            {item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label} ({counts[item.key]})
           </Button>
         ))}
       </div>

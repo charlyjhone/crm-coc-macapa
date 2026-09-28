@@ -8,10 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome"] as const;
 
 export default function SchoolSettingsTab() {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nome, setNome] = useState("");
@@ -54,6 +56,7 @@ export default function SchoolSettingsTab() {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
+    await queryClient.invalidateQueries({ queryKey: ["school-identity"] });
     toast({ title: "Configurações da escola salvas" });
   };
 
