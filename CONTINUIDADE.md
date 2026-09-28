@@ -255,3 +255,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - PR #15 incorporada à `main` no commit `1277b35`; deploy Render `dep-dat9cf0473hc73f9bcfg` finalizado como `Deploy succeeded | Live` em 28/09/2026.
 - O título público passou a `AE CRM · COC Macapá Norte` e o SVG `/brand/ae-crm-logo.svg` foi confirmado acessível no site.
 - AIMEDU permanece separado e fora desta publicação.
+
+## 21. Abertura dos atendimentos pelo painel (28/09/2026)
+
+- Na branch local `fix/dashboard-attendances-navigation`, baseada em `origin/main` `f9f215d`, os três indicadores de atendimentos do painel passam a ser links visíveis para `/atendimentos` com o filtro correspondente (`todos`, `aguardando_secretaria` ou `respondido_agente`).
+- A fila lê o filtro da URL, destaca o primeiro atendimento correspondente e abre o histórico; a lista continua disponível para selecionar outro contato. Os botões de filtro da própria fila também atualizam a URL.
+- Validação local aprovada: `npm run build`, ESLint direcionado para `CaptacaoDashboard.tsx` e `Atendimentos.tsx`, e `git diff --check`. A mudança é somente no frontend; não altera banco, Supabase, permissões, mensagens ou dados de produção. Ainda não foi mesclada nem publicada.
