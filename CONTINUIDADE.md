@@ -258,6 +258,8 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 
 ## 21. Abertura dos atendimentos pelo painel (28/09/2026)
 
-- Na branch local `fix/dashboard-attendances-navigation`, baseada em `origin/main` `f9f215d`, os três indicadores de atendimentos do painel passam a ser links visíveis para `/atendimentos` com o filtro correspondente (`todos`, `aguardando_secretaria` ou `respondido_agente`).
+- PR #17 foi mesclada à `main` no commit `3bddefe` e publicada manualmente no Render `crm-escola` pelo deploy `dep-datb83t9fdbs73b2girg`, com status `Deploy succeeded | Live`.
+- Os três indicadores de atendimentos do painel são links visíveis para `/atendimentos` com o filtro correspondente (`todos`, `aguardando_secretaria` ou `respondido_agente`).
 - A fila lê o filtro da URL, destaca o primeiro atendimento correspondente e abre o histórico; a lista continua disponível para selecionar outro contato. Os botões de filtro da própria fila também atualizam a URL.
-- Validação local aprovada: `npm run build`, ESLint direcionado para `CaptacaoDashboard.tsx` e `Atendimentos.tsx`, e `git diff --check`. A mudança é somente no frontend; não altera banco, Supabase, permissões, mensagens ou dados de produção. Ainda não foi mesclada nem publicada.
+- Validação local aprovada: `npm run build`, ESLint direcionado para `CaptacaoDashboard.tsx` e `Atendimentos.tsx`, e `git diff --check`. Após o deploy, a sessão autenticada confirmou os três links no painel e a abertura da fila pelo filtro `aguardando_secretaria`; nenhuma mensagem foi enviada nem registro alterado durante o teste.
+- A mudança é somente no frontend; não altera banco, Supabase, permissões, mensagens ou dados de produção.
