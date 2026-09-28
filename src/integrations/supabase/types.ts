@@ -56,6 +56,48 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          actor_email: string | null
+          actor_id: string | null
+          changed_fields: string[]
+          created_at: string
+          entity_label: string | null
+          id: string
+          operation: string
+          outcome: string
+          record_id: string | null
+          schema_name: string
+          table_name: string
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          entity_label?: string | null
+          id?: string
+          operation: string
+          outcome?: string
+          record_id?: string | null
+          schema_name: string
+          table_name: string
+        }
+        Update: {
+          actor_email?: string | null
+          actor_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          entity_label?: string | null
+          id?: string
+          operation?: string
+          outcome?: string
+          record_id?: string | null
+          schema_name?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       delivery_logs: {
         Row: {
           created_at: string

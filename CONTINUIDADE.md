@@ -214,7 +214,7 @@ Mensagem sugerida:
 
 ---
 
-Última atualização deste documento: **21/09/2026**.
+Última atualização deste documento: **28/09/2026**.
 Commit de código usado como referência antes da criação do documento: **`3c1c9348`**.
 
 ## 17. Preparação para outras escolas (28/09/2026)
@@ -263,3 +263,17 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - A fila lê o filtro da URL, destaca o primeiro atendimento correspondente e abre o histórico; a lista continua disponível para selecionar outro contato. Os botões de filtro da própria fila também atualizam a URL.
 - Validação local aprovada: `npm run build`, ESLint direcionado para `CaptacaoDashboard.tsx` e `Atendimentos.tsx`, e `git diff --check`. Após o deploy, a sessão autenticada confirmou os três links no painel e a abertura da fila pelo filtro `aguardando_secretaria`; nenhuma mensagem foi enviada nem registro alterado durante o teste.
 - A mudança é somente no frontend; não altera banco, Supabase, permissões, mensagens ou dados de produção.
+
+## 22. Perfil e trilha de auditoria (28/09/2026)
+
+- Esta mudança adiciona `/perfil` para cada usuário editar seu nome de exibição e senha; o e-mail de acesso permanece somente leitura. A senha nova exige pelo menos oito caracteres.
+- A tela `/auditoria` e o link de navegação são exclusivos para Administrador. A tabela `public.audit_logs` usa RLS: somente administradores autenticados podem ler os eventos; os usuários do CRM não podem inserir, alterar ou excluir essa trilha diretamente.
+- A migration instala gatilhos nas tabelas públicas atuais para registrar operações feitas com JWT de usuário: usuário, e-mail de autoria, horário, tabela, chave do registro e nomes dos campos afetados. Não copia valores de mensagens, contatos, alunos, responsáveis nem configurações. `user_presence` fica fora para não registrar cada ping de navegação; em `activity_log`, apenas edições e exclusões são duplicadas na auditoria.
+- Criação, alteração de nome/e-mail/senha e exclusão de contas via `admin-manage-users` são registradas explicitamente com resultado iniciado, concluído ou falho. Exclusões continuam exigindo confirmação na tela de Equipe.
+- Escopo: alterações feitas no CRM com sessão autenticada e ações de conta feitas pela função `admin-manage-users`. Operações automáticas com `service_role`, SQL direto no painel Supabase e mudanças no esquema feitas fora do CRM não identificam a pessoa e não entram nesta trilha. Novas tabelas públicas devem receber o gatilho nas migrations futuras. A trilha não recupera eventos anteriores à instalação.
+- A implementação foi reaplicada sobre a `main` atual (`b693a59`), mantendo a correção recente da navegação dos atendimentos.
+- Validação nesta base: `npm run build` (2.629 módulos), `tsc --noEmit`, ESLint direcionado para as rotas/telas alteradas e `admin-manage-users/index.ts`, além de `git diff --check`; tudo aprovado.
+- A migration `20260928191018_add_profile_audit_logs.sql` foi aplicada ao Supabase `crm-escola` e registrada no projeto com a mesma versão `20260928191018`. A tabela começa vazia, sem eventos retroativos.
+- O pré-voo `supabase/tests/20260928_audit_log_preflight.sql` foi executado após a migration e passou: RLS, privilégios e gatilhos confirmados.
+- A Edge Function `admin-manage-users` ainda está na versão 2 e o frontend desta alteração ainda não foi publicado; a publicação continua pendente.
+
