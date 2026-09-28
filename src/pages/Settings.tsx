@@ -1,9 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import PromptsTab from "@/components/settings/PromptsTab";
-import GeneralSettingsTab from "@/components/settings/GeneralSettingsTab";
+import SchoolSettingsTab from "@/components/settings/SchoolSettingsTab";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -18,18 +16,7 @@ const Settings = () => {
           <h1 className="text-2xl font-bold">Configurações</h1>
         </div>
 
-        <Tabs defaultValue="prompts" className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="prompts">Prompts</TabsTrigger>
-            <TabsTrigger value="general">Outras Configurações</TabsTrigger>
-          </TabsList>
-          <TabsContent value="prompts">
-            <PromptsTab />
-          </TabsContent>
-          <TabsContent value="general">
-            <GeneralSettingsTab />
-          </TabsContent>
-        </Tabs>
+        <SchoolSettingsTab />
       </div>
     </div>
   );
