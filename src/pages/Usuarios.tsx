@@ -195,7 +195,7 @@ export default function Usuarios() {
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-sm text-muted-foreground">
-            Crie e gerencie os acessos da equipe ao CRM. Apenas administradores acessam esta área.
+            Crie e gerencie os acessos da equipe ao CRM. Apenas administradores acessam esta área; alterações de contas aparecem em Auditoria.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>

@@ -3,11 +3,13 @@ import {
   BarChart3,
   CalendarDays,
   ChevronDown,
+  ClipboardList,
   ContactRound,
   GraduationCap,
   Inbox,
   LayoutDashboard,
   LogOut,
+  CircleUserRound,
   Target,
   Settings,
   ListChecks,
@@ -59,7 +61,9 @@ export function AppTopNav() {
     location.pathname.startsWith(path),
   );
 
-  const initials = (user?.email || "COC")
+  const metadataName = user?.user_metadata?.full_name;
+  const displayName = (typeof metadataName === "string" ? metadataName.trim() : "") || user?.email?.split("@")[0] || "Direção";
+  const initials = displayName
     .split("@")[0]
     .split(/[._ -]+/)
     .map((part) => part[0])
@@ -142,22 +146,24 @@ export function AppTopNav() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {isAdmin && <NavLink to="/usuarios" label="Equipe" icon={Users} />}
+              {isAdmin && <NavLink to="/usuarios" label="Equipe" icon={Users} />}
+              {isAdmin && <NavLink to="/auditoria" label="Auditoria" icon={ClipboardList} />}
         </nav>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="ml-auto flex shrink-0 items-center gap-2 rounded-xl p-1.5 text-left outline-none hover:bg-emerald-50">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-lime-400 text-xs font-bold text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0E2A47] text-xs font-bold text-white">
               {initials}
             </span>
             <span className="hidden max-w-36 lg:block">
-              <strong className="block truncate text-xs text-slate-800">{user?.email?.split("@")[0] || "Direção"}</strong>
+              <strong className="block truncate text-xs text-slate-800">{displayName}</strong>
               <small className="block text-[11px] text-slate-600">{isAdmin ? "Administrador" : "Secretaria"}</small>
             </span>
             <ChevronDown className="hidden h-3 w-3 text-slate-500 lg:block" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 rounded-xl">
             <DropdownMenuLabel>COC Macapá Norte</DropdownMenuLabel>
+            <DropdownMenuItem asChild><Link to="/perfil"><CircleUserRound className="mr-2 h-4 w-4" />Meu perfil</Link></DropdownMenuItem>
             {isAdmin && <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut()} className="text-destructive">
