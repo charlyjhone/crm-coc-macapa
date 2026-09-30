@@ -37,6 +37,47 @@ interface Triagem {
   resumo: string;
   resposta: string;
   nome_extraido: string | null;
+  cadastro: {
+    responsavel: string | null;
+    aluno: string | null;
+    ano: number | null;
+    serie: string | null;
+    turno: string | null;
+  };
+}
+
+const SERIES = ["Maternal", "Jardim I", "Jardim II", "1º ano", "2º ano", "3º ano",
+  "4º ano", "5º ano", "6º ano", "7º ano", "8º ano", "9º ano",
+  "1ª série", "2ª série", "3ª série"];
+
+function enrollmentDraft(c: Triagem["cadastro"]) {
+  if (!c || !c.responsavel || !c.aluno || !c.ano || !c.serie ||
+      !Number.isInteger(c.ano) || c.ano < 2026 || c.ano > 2100 ||
+      !SERIES.includes(c.serie)) return null;
+  const responsible = c.responsavel.trim();
+  const student = c.aluno.trim();
+  const shift = c.turno?.trim() || null;
+  if (responsible.length < 3 || responsible.length > 160 ||
+      student.length < 3 || student.length > 160 ||
+      /[\r\n:]/.test(responsible + student) ||
+      (shift && !["manhã", "tarde", "integral"].includes(shift))) return null;
+  return { responsible, student, year: c.ano, grade: c.serie, shift };
+}
+
+function confirmationText(c: NonNullable<ReturnType<typeof enrollmentDraft>>) {
+  return `Para cadastrar o interesse, confirme estes dados:\nResponsável: ${c.responsible}\nAluno: ${c.student}\nAno letivo: ${c.year}\nSérie: ${c.grade}\nTurno: ${c.shift || "não informado"}\nPosso cadastrar esse interesse no CRM?`;
+}
+
+function confirmedDraftFromReply(message: string) {
+  const match = message.match(/Para cadastrar o interesse, confirme estes dados:\nResponsável: ([^\r\n]+)\nAluno: ([^\r\n]+)\nAno letivo: (\d{4})\nSérie: ([^\r\n]+)\nTurno: ([^\r\n]+)\nPosso cadastrar esse interesse no CRM\?/);
+  if (!match) return null;
+  const draft = enrollmentDraft({ responsavel: match[1], aluno: match[2],
+    ano: Number(match[3]), serie: match[4], turno: match[5] === "não informado" ? null : match[5] });
+  return draft && message.includes(confirmationText(draft)) ? draft : null;
+}
+
+function isExplicitConfirmation(text: string) {
+  return /^(?:sim|sim,? pode cadastrar|pode|pode sim|confirmo|confirmado|correto|isso mesmo|está correto|ta correto|pode cadastrar)[.!\s]*$/i.test(text.trim());
 }
 
 function json(body: unknown, status = 200) {
@@ -433,6 +474,8 @@ REGRAS:
 - Se não estiver claro se a pessoa já é cliente, pergunte antes de indicar o Financeiro: "O aluno já está matriculado conosco?".
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
+- Para um interesse de matrícula, pergunte naturalmente nome completo do responsável, nome do aluno, ano letivo e série pretendida. O turno é opcional. Preencha cadastro com dados ditos pela família no histórico, sem deduzir nomes, ano ou série. Se faltar algum campo, pergunte apenas o que falta. Nunca diga que já cadastrou: o sistema pedirá confirmação e informará o resultado. O cadastro é de interesse, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria sem tentar cadastrar automaticamente.
+- Se a mensagem atual for "sim" em resposta ao resumo de cadastro enviado por você, classifique como matrícula e mantenha o contexto. O sistema confere os dados no resumo anterior antes de cadastrar.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
@@ -441,7 +484,7 @@ REGRAS:
 - IMPORTANTE: Se você acabou de perguntar o nome e a pessoa ainda não trouxe um assunto específico, use assunto="outros" e precisa_humano=false (apenas aguardando apresentação).
 
 Responda SOMENTE com JSON válido:
-{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null"}`;
+{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
 
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
@@ -470,8 +513,20 @@ Responda SOMENTE com JSON válido:
                 resumo: { type: "string" },
                 resposta: { type: "string" },
                 nome_extraido: { type: ["string", "null"] },
+                cadastro: {
+                  type: "object",
+                  properties: {
+                    responsavel: { type: ["string", "null"] },
+                    aluno: { type: ["string", "null"] },
+                    ano: { type: ["integer", "null"] },
+                    serie: { type: ["string", "null"] },
+                    turno: { type: ["string", "null"] },
+                  },
+                  required: ["responsavel", "aluno", "ano", "serie", "turno"],
+                  additionalProperties: false,
+                },
               },
-              required: ["assunto", "interesse", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido"],
+              required: ["assunto", "interesse", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
               additionalProperties: false,
             },
           },
@@ -509,12 +564,30 @@ Responda SOMENTE com JSON válido:
       throw new Error("invalid_triage_response");
     }
 
-    const assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
+    let assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
-    const precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
+    let precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
     let resposta = (triagem.resposta || "").trim();
+    let draft = assunto === "matricula" && !precisaHumano && !handoffPendente && channel === "whatsapp"
+      ? enrollmentDraft(triagem.cadastro) : null;
+    let shouldRegister = false;
+    if (phone && !handoffPendente && channel === "whatsapp") {
+      const { data: previous } = await supabase.from("whatsapp_messages")
+        .select("message, raw_data").eq("phone", phone).eq("direction", "outbound")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const confirmedDraft = previous && isAnaOutbound(previous)
+        ? confirmedDraftFromReply(previous.message || "") : null;
+      if (confirmedDraft && isExplicitConfirmation(text)) {
+        draft = confirmedDraft;
+        shouldRegister = true;
+        precisaHumano = false;
+        assunto = "matricula";
+      } else if (draft) {
+        resposta = confirmationText(draft);
+      }
+    }
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
@@ -527,6 +600,8 @@ Responda SOMENTE com JSON válido:
         precisa_humano: precisaHumano,
         resposta,
         nome_extraido: triagem.nome_extraido,
+        cadastro_pronto: !!draft,
+        cadastro_confirmado: shouldRegister,
       });
     }
 
@@ -541,6 +616,23 @@ Responda SOMENTE com JSON válido:
 
     // ---- Enviar resposta ----
     let enviado = false;
+    let registration: { opportunity_id: string; created: boolean } | null = null;
+    if (shouldRegister && draft && leadId) {
+      if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_registration", lead_id: leadId });
+      const { data, error } = await supabase.rpc("register_ana_enrollment", {
+        p_lead_id: leadId, p_guardian_name: draft.responsible,
+        p_student_name: draft.student, p_academic_year: draft.year,
+        p_desired_grade: draft.grade, p_desired_shift: draft.shift,
+      });
+      if (error) {
+        console.error("Falha no cadastro escolar pela Ana:", error.message);
+        resposta = "Não consegui concluir o cadastro automaticamente. Encaminhei seus dados à secretaria para conferir e continuar o atendimento.";
+      } else {
+        registration = data;
+        resposta = "Seu interesse foi cadastrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
+      }
+      precisaHumano = true;
+    }
     if (resposta) {
       try {
         if (channel === "whatsapp" && phone) {
@@ -594,7 +686,9 @@ Responda SOMENTE com JSON válido:
       update.resolved_at = null;
       if (!handoffPendente) {
         update.handoff_at = now;
-        update.handoff_reason = triagem.motivo_humano || "Pergunta fora das informações padrão";
+        update.handoff_reason = shouldRegister
+          ? registration ? "Interesse cadastrado pela Ana para acompanhamento" : "Cadastro automático precisa de revisão"
+          : triagem.motivo_humano || "Pergunta fora das informações padrão";
       }
     } else if (handoffPendente) {
       // Respondeu uma FAQ, mas preserva a fila humana do assunto anterior.
@@ -629,7 +723,7 @@ Responda SOMENTE com JSON válido:
         : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
-      metadata: { assunto, canal: channel, enviado, interesse: triagem.interesse, resumo: triagem.resumo },
+      metadata: { assunto, canal: channel, enviado, interesse: triagem.interesse, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
     });
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
