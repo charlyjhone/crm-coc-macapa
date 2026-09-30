@@ -127,6 +127,55 @@ function removeRepeatedHelpOffer(reply: string): string {
     .trim();
 }
 
+const SURVEY_ORIGINS = [
+  { id: "instagram", title: "Instagram" },
+  { id: "facebook", title: "Facebook" },
+  { id: "google", title: "Google" },
+  { id: "indicacao", title: "Indicação" },
+  { id: "site", title: "Site da escola" },
+  { id: "ja_conhecia", title: "Já conhecia" },
+  { id: "outro", title: "Outro" },
+];
+
+function surveySelection(text: string, choices: { id: string; title: string }[]) {
+  const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").trim();
+  return choices.find((choice) => [choice.id, choice.title].some((value) =>
+    value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normalized))?.id || null;
+}
+
+async function sendSurveyList(url: string, key: string, phone: string, leadId: string,
+  agentName: string, step: "origin" | "rating") {
+  const isOrigin = step === "origin";
+  const endpoint = `${url}/functions/v1/send-whatsapp-message`;
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
+  const message = `*[Atendente ${agentName}]*\n${isOrigin
+    ? "Antes de ir, como você conheceu a escola? Sua resposta nos ajuda a melhorar nossa comunicação. É só escolher uma opção abaixo. 😊"
+    : "E como você avalia este atendimento? Escolha uma nota de 1 a 5, sendo 5 excelente."}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
+      message,
+      optionList: { title: isOrigin ? "Como conheceu a escola?" : "Avaliação do atendimento",
+        buttonLabel: "Escolher opção", options: isOrigin
+          ? SURVEY_ORIGINS.map((item) => ({ ...item, description: "" }))
+          : [1, 2, 3, 4, 5].map((n) => ({ id: String(n), title: String(n), description: "" })) },
+    }),
+  });
+  if (res.ok) return true;
+  console.error(`Falha ao enviar lista ${step}:`, (await res.text()).slice(0, 300));
+  // Algumas versões do WhatsApp não exibem listas. Mantém a pesquisa na conversa.
+  const fallback = await fetch(endpoint, { method: "POST", headers,
+    body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
+      message: `${message}\n${isOrigin
+        ? SURVEY_ORIGINS.map((item) => item.title).join(" · ")
+        : "Responda com 1, 2, 3, 4 ou 5."}` }),
+  });
+  if (!fallback.ok) console.error(`Falha no texto da pesquisa ${step}:`, (await fallback.text()).slice(0, 300));
+  return fallback.ok;
+}
+
 async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKey: string, agentName: string) {
   const now = new Date().toISOString();
   const { data: due, error } = await supabase
@@ -250,7 +299,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_pesquisa_url"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -268,7 +317,6 @@ serve(async (req) => {
     const escolaNome = settings.escola_nome || "a escola";
     const escolaInfo = settings.escola_info || DEFAULT_INFO;
     const escolaValores = settings.escola_valores || "";
-    const pesquisaUrl = /^https:\/\/\S+$/i.test(settings.escola_pesquisa_url || "") ? settings.escola_pesquisa_url : "";
 
     // ---- Resolver ou criar o contato ----
     if (!leadId && phone) {
@@ -326,6 +374,51 @@ serve(async (req) => {
       }
     }
 
+    // A resposta à pesquisa não reabre um atendimento já concluído nem passa pela IA.
+    if (channel === "whatsapp" && phone && lead?.triage_status === "resolvido" && !previewOnly) {
+      const { data: lastSurvey, error: surveyError } = await supabase.from("whatsapp_messages")
+        .select("id, raw_data, created_at").eq("phone", phone).eq("direction", "outbound")
+        .not("raw_data->>survey_step", "is", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (surveyError) throw new Error("survey_lookup_failed");
+      const recent = lastSurvey && Date.now() - new Date(lastSurvey.created_at).getTime() < 7 * 86400000;
+      const { data: latestOutbound } = await supabase.from("whatsapp_messages")
+        .select("id").eq("phone", phone).eq("direction", "outbound")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const step = recent && latestOutbound?.id === lastSurvey.id ? lastSurvey.raw_data?.survey_step : null;
+      if (step === "origin") {
+        const origin = surveySelection(text, SURVEY_ORIGINS);
+        if (origin) {
+          const { error: logError } = await supabase.from("activity_log").insert({ lead_id: leadId,
+            activity_type: "agent_triage", description: "Pesquisa: origem informada pela família",
+            source: "school-triage", actor: "agente", metadata: { survey: "origin", source_channel: origin },
+          });
+          if (logError) throw new Error("survey_origin_log_failed");
+          // Atualiza somente a origem técnica, nunca uma origem informada manualmente.
+          const { error: originError } = await supabase.from("enrollment_opportunities")
+            .update({ source_channel: origin }).eq("legacy_lead_id", leadId!).eq("source_channel", "ana_whatsapp");
+          if (originError) throw new Error("survey_origin_update_failed");
+          const sent = await sendSurveyList(supabaseUrl, serviceKey, phone, leadId!, agentName, "rating");
+          return json({ success: true, survey: "origin", rating_requested: sent });
+        }
+      } else if (step === "rating") {
+        const rating = surveySelection(text, [1, 2, 3, 4, 5].map((n) => ({ id: String(n), title: String(n) })));
+        if (rating) {
+          const { error: logError } = await supabase.from("activity_log").insert({ lead_id: leadId,
+            activity_type: "agent_triage", description: `Pesquisa: atendimento avaliado com nota ${rating}/5`,
+            source: "school-triage", actor: "agente", metadata: { survey: "rating", rating: Number(rating) },
+          });
+          if (logError) throw new Error("survey_rating_log_failed");
+          const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+            body: JSON.stringify({ phone, leadId, senderType: "ana", message: `*[Atendente ${agentName}]*\nObrigada pela resposta! Ela nos ajuda a melhorar. 😊` }),
+          });
+          if (!sent.ok) throw new Error("survey_thanks_send_failed");
+          return json({ success: true, survey: "completed" });
+        }
+      }
+    }
+
     // ---- Lógica de handoff ----
     // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
@@ -353,8 +446,8 @@ serve(async (req) => {
       if (lead?.triage_status === "resolvido") return json({ skipped: "already_closed", lead_id: leadId });
       const firstName = !isPlaceholderName(lead?.name)
         ? `, ${lead!.name.trim().split(/\s+/)[0]}` : "";
-      const closingReply = `Combinado${firstName}! Agradeço pela conversa. Quando quiser retomar, estarei por aqui. 😊${pesquisaUrl ? `\n\nSe puder, avalie este atendimento: ${pesquisaUrl}` : ""}`;
-      if (previewOnly) return json({ preview: true, resposta: closingReply, encerramento: true, pesquisa_configurada: !!pesquisaUrl });
+      const closingReply = `Combinado${firstName}! Agradeço pela conversa. Quando quiser retomar, estarei por aqui. 😊`;
+      if (previewOnly) return json({ preview: true, resposta: closingReply, encerramento: true, pesquisa_whatsapp: channel === "whatsapp" });
       if (channel === "whatsapp" && phone) {
         const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
           method: "POST",
@@ -379,11 +472,14 @@ serve(async (req) => {
         handoff_at: null, handoff_reason: null,
       }).eq("id", leadId!);
       if (closeError) throw new Error("closing_status_update_failed");
+      const surveySent = channel === "whatsapp" && phone && leadId
+        ? await sendSurveyList(supabaseUrl, serviceKey, phone, leadId, agentName, "origin")
+        : false;
       await supabase.from("activity_log").insert({ lead_id: leadId, activity_type: "agent_triage",
-        description: pesquisaUrl ? "Agente encerrou o atendimento e enviou pesquisa" : "Agente encerrou o atendimento",
-        source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: !!pesquisaUrl },
+        description: surveySent ? "Agente encerrou o atendimento e enviou pesquisa no WhatsApp" : "Agente encerrou o atendimento",
+        source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: surveySent },
       });
-      return json({ success: true, lead_id: leadId, triage_status: "resolvido", pesquisa_enviada: !!pesquisaUrl });
+      return json({ success: true, lead_id: leadId, triage_status: "resolvido", pesquisa_enviada: surveySent });
     }
 
     if (handoffPendente) {
@@ -696,6 +792,16 @@ Responda SOMENTE com JSON válido:
         resposta = "Não consegui concluir o cadastro automaticamente. Encaminhei seus dados à secretaria para conferir e continuar o atendimento.";
       } else {
         registration = data;
+        const { data: previousOrigin } = await supabase.from("activity_log")
+          .select("metadata").eq("lead_id", leadId).eq("metadata->>survey", "origin")
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const sourceChannel = previousOrigin?.metadata?.source_channel;
+        if (sourceChannel && SURVEY_ORIGINS.some((item) => item.id === sourceChannel)) {
+          const { error: attributionError } = await supabase.from("enrollment_opportunities")
+            .update({ source_channel: sourceChannel }).eq("id", registration.opportunity_id)
+            .eq("source_channel", "ana_whatsapp");
+          if (attributionError) console.error("Falha ao vincular origem à oportunidade:", attributionError.message);
+        }
         resposta = "Seu interesse foi cadastrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
       }
       precisaHumano = true;

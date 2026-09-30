@@ -13,13 +13,25 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, leadId } = await req.json();
+    const { phone, message, leadId, optionList, surveyStep, senderType } = await req.json();
 
     if (!phone || !message) {
       return new Response(
         JSON.stringify({ error: 'phone e message são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Only the internal school survey sends interactive lists through this path.
+    const surveyOptions = surveyStep === 'origin' || surveyStep === 'rating';
+    if ((optionList || surveyStep) && req.headers.get('authorization') !== `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 403, headers: corsHeaders });
+    }
+    if (optionList && (!surveyOptions || senderType !== 'ana' ||
+      !Array.isArray(optionList.options) || optionList.options.length < 2 || optionList.options.length > 10 ||
+      optionList.options.some((item: { title?: string; id?: string }) =>
+        typeof item.title !== 'string' || typeof item.id !== 'string'))) {
+      return new Response(JSON.stringify({ error: 'Lista inválida' }), { status: 400, headers: corsHeaders });
     }
 
     const ZAPI_INSTANCE_ID = Deno.env.get('ZAPI_INSTANCE_ID');
@@ -122,7 +134,7 @@ serve(async (req) => {
     }
 
     // Enviar mensagem via Z-API
-    const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+    const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/${optionList ? 'send-option-list' : 'send-text'}`;
     
     console.log('Enviando mensagem para:', normalizedPhone);
     
@@ -133,7 +145,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'Client-Token': ZAPI_CLIENT_TOKEN,
         },
-        body: JSON.stringify({ phone: target, message: message }),
+        body: JSON.stringify({ phone: target, message, ...(optionList ? { optionList } : {}) }),
       });
       const data = await resp.json().catch(() => ({}));
       console.log(`Resposta Z-API (${target}):`, data);
@@ -178,7 +190,10 @@ serve(async (req) => {
           message: message,
           direction: 'outbound',
           timestamp: new Date().toISOString(),
-          raw_data: { ...zapiData, resolvedChatLid },
+          raw_data: { ...zapiData, resolvedChatLid,
+            sender_type: senderType === 'ana' && req.headers.get('authorization') === `Bearer ${supabaseKey}` ? 'ana' : undefined,
+            source: senderType === 'ana' && req.headers.get('authorization') === `Bearer ${supabaseKey}` ? 'school-triage' : undefined,
+            survey_step: surveyOptions ? surveyStep : undefined },
         });
     }
 
