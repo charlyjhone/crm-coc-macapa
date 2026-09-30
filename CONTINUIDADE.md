@@ -344,3 +344,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - O teste real do responsável confirmou o fluxo completo: encerramento após resposta humana, escolha de Instagram e nota 5/5, com duas atividades de pesquisa persistidas e agradecimento enviado. Nenhuma família/oportunidade foi criada apenas pela pesquisa.
 - A página `/origem-conversao` passa a apresentar dois gráficos separados: **De onde nos encontrou?** (origem declarada por contato) e **Avaliação do atendimento** (distribuição de notas 1 a 5, total e média). Consulta `activity_log` por tipo de resposta, retém a resposta mais recente por contato em cada pergunta e mantém os indicadores de matrícula baseados apenas nas oportunidades.
 - Validação local: build Vite, ESLint direcionado e `git diff --check` aprovados. Conferir o resultado visual com o teste real no site após o deploy.
+
+## 30. Categorias da origem da pesquisa (30/09/2026)
+
+- A lista enviada pela Ana passa a oferecer quatro respostas: Redes sociais, Indicação, Panfletagem/outdoor e Outros. A nota de atendimento continua de 1 a 5.
+- O gráfico “De onde nos encontrou?” agrupa respostas novas e antigas nas quatro categorias. Instagram e Facebook antigos entram em Redes sociais; Indicação continua separada; Google, Site da escola, Já conhecia e Outro antigos entram em Outros. O histórico bruto permanece intacto, inclusive a origem técnica de oportunidades já registradas. A Ana ainda aceita respostas a uma lista antiga que tenha sido enviada antes da publicação.
+- Publicar `school-triage` no Supabase `crm-escola` e o frontend no Render após mesclar a branch. Confirmar uma nova lista no WhatsApp e a atualização do gráfico em sessão autenticada.
