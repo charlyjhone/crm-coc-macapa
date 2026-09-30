@@ -101,23 +101,27 @@ const AcquisitionAnalytics = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [surveyOrigins, setSurveyOrigins] = useState<{ name: string; count: number }[]>([]);
+  const [surveyRatings, setSurveyRatings] = useState<{ name: string; count: number }[]>([]);
   const [foundationPending, setFoundationPending] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const client = supabase as any;
-      const [opportunityResult, visitResult, surveyResult] = await Promise.all([
+      const [opportunityResult, visitResult, originResult, ratingResult] = await Promise.all([
         client.from("enrollment_opportunities")
           .select("id,source_channel,source_campaign,stage,probability_score,expected_monthly_revenue"),
         client.from("school_visits").select("opportunity_id,status"),
         client.from("activity_log").select("lead_id,metadata,created_at")
           .eq("source", "school-triage").eq("metadata->>survey", "origin")
           .order("created_at", { ascending: false }).limit(1000),
+        client.from("activity_log").select("lead_id,metadata,created_at")
+          .eq("source", "school-triage").eq("metadata->>survey", "rating")
+          .order("created_at", { ascending: false }).limit(1000),
       ]);
-      if (!surveyResult.error) {
+      if (!originResult.error) {
         const seen = new Set<string>();
         const counts = new Map<string, number>();
-        for (const row of surveyResult.data || []) {
+        for (const row of originResult.data || []) {
           if (!row.lead_id || seen.has(row.lead_id)) continue;
           const origin = row.metadata?.source_channel;
           if (typeof origin !== "string" || !origin) continue;
@@ -126,6 +130,18 @@ const AcquisitionAnalytics = () => {
         }
         setSurveyOrigins(Array.from(counts, ([origin, count]) => ({ name: displayName(origin, origin), count }))
           .sort((a, b) => b.count - a.count));
+      }
+      if (!ratingResult.error) {
+        const seen = new Set<string>();
+        const counts = [0, 0, 0, 0, 0];
+        for (const row of ratingResult.data || []) {
+          if (!row.lead_id || seen.has(row.lead_id)) continue;
+          const rating = row.metadata?.rating;
+          if (!Number.isInteger(rating) || rating < 1 || rating > 5) continue;
+          seen.add(row.lead_id);
+          counts[rating - 1]++;
+        }
+        setSurveyRatings(counts.map((count, index) => ({ name: `${index + 1}`, count })));
       }
       if (opportunityResult.error || visitResult.error) {
         setFoundationPending(true);
@@ -150,6 +166,12 @@ const AcquisitionAnalytics = () => {
     () => buildRows(opportunities.filter((item) => item.source_campaign), visitIds, "source_campaign", "Sem campanha"),
     [opportunities, visitIds],
   );
+  const surveyTotal = surveyRatings.reduce((total, item) => total + item.count, 0);
+  const surveyAverage = surveyTotal
+    ? (surveyRatings.reduce((total, item) => total + Number(item.name) * item.count, 0) / surveyTotal)
+      .toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    : null;
+  const originsTotal = surveyOrigins.reduce((total, item) => total + item.count, 0);
 
   const metrics = useMemo(() => {
     const total = opportunities.length;
@@ -207,20 +229,51 @@ const AcquisitionAnalytics = () => {
           ))}
         </section>
 
-        <Card className="border-emerald-950/10">
-          <CardHeader>
-            <CardTitle className="text-lg text-slate-950">Como as famílias conheceram a escola</CardTitle>
-            <p className="text-sm text-slate-600">Respostas declaradas na pesquisa ao final do atendimento pelo WhatsApp. Uma resposta por contato.</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {surveyOrigins.length ? surveyOrigins.map((item) => (
-              <div key={item.name}>
-                <div className="mb-1 flex justify-between text-sm"><span>{item.name}</span><strong>{item.count}</strong></div>
-                <Progress value={(item.count / surveyOrigins.reduce((sum, row) => sum + row.count, 0)) * 100} />
-              </div>
-            )) : <EmptyState text="As origens aparecerão aqui quando as famílias responderem à pesquisa no WhatsApp." />}
-          </CardContent>
-        </Card>
+        <section className="grid gap-6 xl:grid-cols-2">
+          <Card className="border-emerald-950/10">
+            <CardHeader>
+              <CardTitle className="text-lg text-slate-950">De onde nos encontrou?</CardTitle>
+              <p className="text-sm text-slate-600">Origem declarada na pesquisa do WhatsApp · {originsTotal} {originsTotal === 1 ? "resposta" : "respostas"}</p>
+            </CardHeader>
+            <CardContent>
+              {surveyOrigins.length ? (
+                <div style={{ height: Math.max(230, surveyOrigins.length * 48) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={surveyOrigins} layout="vertical" margin={{ top: 5, right: 35, bottom: 5, left: 15 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" allowDecimals={false} tick={{ fill: "#475569", fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" width={130} tick={{ fill: "#475569", fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => [value, "Famílias"]} />
+                      <Bar dataKey="count" name="Famílias" fill="#047857" radius={[0, 4, 4, 0]} label={{ position: "right", fill: "#065f46" }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : <EmptyState text="As origens aparecerão quando as famílias responderem à pesquisa no WhatsApp." />}
+            </CardContent>
+          </Card>
+
+          <Card className="border-emerald-950/10">
+            <CardHeader>
+              <CardTitle className="text-lg text-slate-950">Avaliação do atendimento</CardTitle>
+              <p className="text-sm text-slate-600">{surveyTotal} {surveyTotal === 1 ? "resposta" : "respostas"}{surveyAverage ? ` · média ${surveyAverage}/5` : ""}</p>
+            </CardHeader>
+            <CardContent>
+              {surveyTotal ? (
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={surveyRatings} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fill: "#475569", fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => [value, "Respostas"]} />
+                      <Bar dataKey="count" name="Respostas" fill="#179f4b" radius={[4, 4, 0, 0]} label={{ position: "top", fill: "#065f46" }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : <EmptyState text="As notas aparecerão quando as famílias avaliarem o atendimento no WhatsApp." />}
+            </CardContent>
+          </Card>
+        </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
           <Card className="border-emerald-950/10">
