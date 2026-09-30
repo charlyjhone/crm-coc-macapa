@@ -44,6 +44,16 @@ const channelLabels: Record<string, string> = {
   telefone: "Telefone",
   ja_conhecia: "Já conhecia a escola",
   outro: "Outro",
+  redes_sociais: "Redes sociais",
+  panfletagem_outdoor: "Panfletagem/outdoor",
+  outros: "Outros",
+};
+
+const surveyOriginCategory = (origin: string) => {
+  if (["instagram", "facebook", "redes_sociais"].includes(origin)) return "redes_sociais";
+  if (origin === "indicacao") return "indicacao";
+  if (origin === "panfletagem_outdoor") return "panfletagem_outdoor";
+  return "outros";
 };
 
 const displayName = (value: string | null, fallback: string) => {
@@ -126,7 +136,8 @@ const AcquisitionAnalytics = () => {
           const origin = row.metadata?.source_channel;
           if (typeof origin !== "string" || !origin) continue;
           seen.add(row.lead_id);
-          counts.set(origin, (counts.get(origin) || 0) + 1);
+          const category = surveyOriginCategory(origin);
+          counts.set(category, (counts.get(category) || 0) + 1);
         }
         setSurveyOrigins(Array.from(counts, ([origin, count]) => ({ name: displayName(origin, origin), count }))
           .sort((a, b) => b.count - a.count));
@@ -242,7 +253,7 @@ const AcquisitionAnalytics = () => {
                     <BarChart data={surveyOrigins} layout="vertical" margin={{ top: 5, right: 35, bottom: 5, left: 15 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                       <XAxis type="number" allowDecimals={false} tick={{ fill: "#475569", fontSize: 12 }} />
-                      <YAxis type="category" dataKey="name" width={130} tick={{ fill: "#475569", fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" width={160} tick={{ fill: "#475569", fontSize: 12 }} />
                       <Tooltip formatter={(value: number) => [value, "Famílias"]} />
                       <Bar dataKey="count" name="Famílias" fill="#047857" radius={[0, 4, 4, 0]} label={{ position: "right", fill: "#065f46" }} />
                     </BarChart>
