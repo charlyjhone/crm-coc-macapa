@@ -117,7 +117,7 @@ function isAnaOutbound(message: { message?: string | null; raw_data?: Record<str
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
-  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
+  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
   return offeredHelp && /^(?:nao|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|ta bom|beleza|perfeito|resolvido|👍|🙏)$/.test(normalized);
 }
 
@@ -353,27 +353,6 @@ serve(async (req) => {
       .maybeSingle() : { data: null, error: null };
     if (leadError || (!lead && !previewOnly)) throw new Error("contact_unavailable");
 
-    // Quando um funcionário assumiu a conversa recentemente, a Ana não deve
-    // atravessar o atendimento humano. Após o mesmo cooldown do handoff, ela
-    // pode voltar a atender uma nova conversa normalmente.
-    if (channel === "whatsapp" && phone) {
-      const { data: saidasRecentes, error: saidasError } = await supabase
-        .from("whatsapp_messages")
-        .select("message, raw_data, created_at")
-        .eq("phone", phone)
-        .eq("direction", "outbound")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (saidasError) throw new Error("human_handoff_check_failed");
-      const ultimaSaida = (saidasRecentes || []).find((m: any) => !isAnaOutbound(m));
-      const humanConversationActive = !!ultimaSaida &&
-        !isAnaOutbound(ultimaSaida) &&
-        Date.now() - new Date(ultimaSaida.created_at).getTime() < HANDOFF_COOLDOWN_MS;
-      if (humanConversationActive) {
-        return json({ skipped: "human_conversation_active", lead_id: leadId });
-      }
-    }
-
     // A resposta à pesquisa não reabre um atendimento já concluído nem passa pela IA.
     if (channel === "whatsapp" && phone && lead?.triage_status === "resolvido" && !previewOnly) {
       const { data: lastSurvey, error: surveyError } = await supabase.from("whatsapp_messages")
@@ -416,6 +395,52 @@ serve(async (req) => {
           if (!sent.ok) throw new Error("survey_thanks_send_failed");
           return json({ success: true, survey: "completed" });
         }
+      }
+    }
+
+    // A equipe tem prioridade durante quatro horas. A Ana observa apenas um
+    // encerramento explícito da família para enviar a pesquisa, sem se intrometer.
+    if (channel === "whatsapp" && phone) {
+      const { data: saidasRecentes, error: saidasError } = await supabase
+        .from("whatsapp_messages")
+        .select("message, raw_data, created_at")
+        .eq("phone", phone).eq("direction", "outbound")
+        .order("created_at", { ascending: false }).limit(50);
+      if (saidasError) throw new Error("human_handoff_check_failed");
+      const ultimaSaidaHumana = (saidasRecentes || []).find((m: any) => !isAnaOutbound(m));
+      const humanConversationActive = !!ultimaSaidaHumana &&
+        Date.now() - new Date(ultimaSaidaHumana.created_at).getTime() < HANDOFF_COOLDOWN_MS;
+      if (humanConversationActive) {
+        if (!previewOnly && leadId && isConversationClosing(text, false)) {
+          // Só uma mensagem posterior à resposta da secretaria pode encerrá-la.
+          const { data: inbound } = messageId ? await supabase.from("whatsapp_messages")
+            .select("created_at").eq("id", messageId).eq("direction", "inbound").maybeSingle()
+            : { data: null };
+          const afterHuman = inbound?.created_at &&
+            new Date(inbound.created_at).getTime() > new Date(ultimaSaidaHumana.created_at).getTime();
+          if (afterHuman) {
+            // Evita enviar a mesma pesquisa novamente em retries do webhook.
+            const alreadySent = (saidasRecentes || []).some((m: any) =>
+              m.raw_data?.survey_step && new Date(m.created_at).getTime() > new Date(ultimaSaidaHumana.created_at).getTime());
+            if (alreadySent) return json({ skipped: "survey_already_sent", lead_id: leadId });
+            const sent = await sendSurveyList(supabaseUrl, serviceKey, phone, leadId, agentName, "origin");
+            if (sent) {
+              const { error: closeError } = await supabase.from("leads").update({
+                status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
+                handoff_at: null, handoff_reason: null,
+              }).eq("id", leadId);
+              if (closeError) throw new Error("human_closing_status_failed");
+              await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "conversation_closed" })
+                .eq("lead_id", leadId).eq("status", "pending");
+              await supabase.from("activity_log").insert({ lead_id: leadId, activity_type: "agent_triage",
+                description: "Família encerrou atendimento humano; pesquisa enviada no WhatsApp",
+                source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: true, atendimento: "humano" },
+              });
+            }
+            return json({ success: sent, lead_id: leadId, pesquisa_enviada: sent, atendimento: "humano" });
+          }
+        }
+        return json({ skipped: "human_conversation_active", lead_id: leadId });
       }
     }
 
