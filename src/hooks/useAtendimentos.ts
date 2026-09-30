@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
+export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
 export type Assunto = "matricula" | "curriculo" | "horario" | "localizacao" | "outros";
 
 export interface MensagemAtendimento {
@@ -21,6 +22,7 @@ export interface Atendimento {
   assunto: Assunto | null;
   interesse: string | null;
   triage_status: TriageStatus;
+  status: LeadStatus | null;
   triage_summary: string | null;
   agent_replied_at: string | null;
   handoff_at: string | null;
@@ -40,7 +42,7 @@ export function useAtendimentos() {
       const { data, error } = await supabase
         .from("leads")
         .select(
-          "id, name, email, phone, source, assunto, interesse, triage_status, triage_summary, agent_replied_at, handoff_at, handoff_reason, resolved_at, last_inbound_message, last_inbound_message_at, last_outbound_message_at, created_at"
+          "id, name, email, phone, source, assunto, interesse, status, triage_status, triage_summary, agent_replied_at, handoff_at, handoff_reason, resolved_at, last_inbound_message, last_inbound_message_at, last_outbound_message_at, created_at"
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
@@ -56,9 +58,33 @@ export function useUpdateTriage() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TriageStatus }) => {
       const patch: Record<string, unknown> = { triage_status: status };
-      if (status === "resolvido") patch.resolved_at = new Date().toISOString();
-      const { error } = await supabase.from("leads").update(patch).eq("id", id);
+      if (status === "resolvido") {
+        patch.resolved_at = new Date().toISOString();
+        patch.status = "resolvido";
+      }
+      const { data, error } = await supabase.from("leads").update(patch).eq("id", id).select("id").single();
       if (error) throw error;
+      if (!data) throw new Error("Contato não encontrado.");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["atendimentos"] }),
+  });
+}
+
+export function useUpdateLeadStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, status }: { lead: Atendimento; status: LeadStatus }) => {
+      const patch: Record<string, unknown> = { status };
+      if (status === "resolvido") {
+        patch.triage_status = "resolvido";
+        patch.resolved_at = new Date().toISOString();
+      } else if (lead.triage_status === "resolvido") {
+        patch.triage_status = status === "novo" ? "novo" : "aguardando_secretaria";
+        patch.resolved_at = null;
+      }
+      const { data, error } = await supabase.from("leads").update(patch).eq("id", lead.id).select("id").single();
+      if (error) throw error;
+      if (!data) throw new Error("Contato não encontrado.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["atendimentos"] }),
   });
