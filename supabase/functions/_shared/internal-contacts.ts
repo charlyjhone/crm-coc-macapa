@@ -1,30 +1,13 @@
-// Lista de contatos INTERNOS (funcionários, equipe, alter-egos do Miguel) que
-// NUNCA devem virar lead/cliente nem serem associados como e-mail de oportunidade.
-//
-// Regra do Miguel: qualquer endereço em @inventormiguel.link, @inventormiguel.com
-// ou @inventosdigitais.com.br, ou qualquer nome contendo "inventormiguel"/
-// "inventos digitais" é INTERNO e deve ser bloqueado nos webhooks de entrada.
+// Lista de contatos internos do COC Macapá Norte que não devem virar família/lead.
+// Manter vazia até a escola fornecer uma lista oficial de números e e-mails.
 
-export const INTERNAL_PHONES: string[] = [
-  "558898028762", // Yuri Kimoro (editor)
-];
+export const INTERNAL_PHONES: string[] = [];
 
-export const INTERNAL_EMAILS: string[] = [
-  "yurikimoro@gmail.com", // Yuri Kimoro (editor)
-  "jota@contentize.ai",   // Jota (Contentize)
-];
+export const INTERNAL_EMAILS: string[] = [];
 
-export const INTERNAL_EMAIL_DOMAINS: string[] = [
-  "inventormiguel.link",
-  "inventormiguel.com",
-  "inventosdigitais.com.br",
-];
+export const INTERNAL_EMAIL_DOMAINS: string[] = [];
 
-export const INTERNAL_NAME_TOKENS: string[] = [
-  "inventormiguel",
-  "inventor miguel",
-  "inventos digitais",
-];
+export const INTERNAL_NAME_TOKENS: string[] = [];
 
 export function isInternalPhone(phone?: string | null): boolean {
   if (!phone) return false;
