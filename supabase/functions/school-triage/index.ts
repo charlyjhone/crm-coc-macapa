@@ -128,10 +128,17 @@ function removeRepeatedHelpOffer(reply: string): string {
 }
 
 const SURVEY_ORIGINS = [
+  { id: "redes_sociais", title: "Redes sociais" },
+  { id: "indicacao", title: "Indicação" },
+  { id: "panfletagem_outdoor", title: "Panfletagem/outdoor" },
+  { id: "outros", title: "Outros" },
+];
+
+// Aceita uma resposta de uma lista enviada antes desta atualização.
+const LEGACY_SURVEY_ORIGINS = [
   { id: "instagram", title: "Instagram" },
   { id: "facebook", title: "Facebook" },
   { id: "google", title: "Google" },
-  { id: "indicacao", title: "Indicação" },
   { id: "site", title: "Site da escola" },
   { id: "ja_conhecia", title: "Já conhecia" },
   { id: "outro", title: "Outro" },
@@ -366,7 +373,7 @@ serve(async (req) => {
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       const step = recent && latestOutbound?.id === lastSurvey.id ? lastSurvey.raw_data?.survey_step : null;
       if (step === "origin") {
-        const origin = surveySelection(text, SURVEY_ORIGINS);
+        const origin = surveySelection(text, [...SURVEY_ORIGINS, ...LEGACY_SURVEY_ORIGINS]);
         if (origin) {
           const { error: logError } = await supabase.from("activity_log").insert({ lead_id: leadId,
             activity_type: "agent_triage", description: "Pesquisa: origem informada pela família",
