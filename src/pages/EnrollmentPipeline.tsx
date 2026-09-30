@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,7 @@ const EnrollmentPipeline = () => {
           <p className="mt-1 text-sm text-slate-600">
             Cada aluno aparece uma única vez por oportunidade, série, turno e ano letivo.
           </p>
+          <p className="mt-2 text-sm text-slate-600">As conversas do WhatsApp aparecem no <Link to="/captacao" className="font-medium text-primary underline">funil dos contatos</Link>. Este funil recebe apenas oportunidades criadas para alunos cadastrados.</p>
         </div>
       </header>
 
