@@ -298,3 +298,11 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - PR #19 mesclada na `main` no commit `b7d1778`. Publicação Render ainda pendente: a página do serviço retornou 502 Bad Gateway ao tentar abrir o painel em 30/09, e Auto-Deploy está desligado. Não afirmar que esta mudança está Live antes de conferir o deploy.
 
 - PR #20 mesclada à `main` no commit `92d1677`. Migration aplicada no `crm-escola` como versão `20260930161958`; conferidos EXECUTE para `service_role`, bloqueio para `authenticated` e zero oportunidades criadas na validação. `school-triage` publicada como versão 49, ativa, preservando autenticação interna e `verify_jwt=false`. A implementação não alterou o frontend do Render. Falta um teste real, autorizado, com conversa WhatsApp controlada e confirmação da família; a lógica de confirmação foi verificada localmente sem criar dados de produção.
+
+## 25. Perfis da equipe (30/09/2026)
+
+- O responsável observou que a criação de usuário era fixa em Secretaria e a edição permitia só nome/e-mail. O banco já contém `app_role` com `admin` e `user` (Secretaria); não criar novo enum nesta mudança.
+- A proposta adiciona escolha de Administrador/Secretaria ao criar usuário e ação separada de troca do perfil na lista. O próprio administrador não pode mudar seu perfil por essa tela.
+- `set_crm_user_role` troca o papel em uma transação, serializa mudanças, impede remover o último administrador e é executável apenas pelo `service_role` da função `admin-manage-users`. A função registra o autor e resultado na auditoria. A escrita direta de `user_roles` pelo papel `authenticated` é revogada; leitura do próprio perfil e leitura administrativa permanecem.
+- Validação local: build Vite e ESLint direcionado aprovados; `tsc --noEmit` completo ainda falha em arquivos antigos fora desta alteração (`AppSidebar`, `PromptsTab`, `Inbox` e tipos legados de leads). Migration validada dentro de transação com rollback: `service_role` pode executar, `authenticated` não pode executar nem fazer UPDATE direto. Nenhum perfil real foi alterado durante os testes.
+- Pendências: publicar `admin-manage-users`, implantar o frontend manualmente no Render e testar a interface autenticada sem modificar usuários reais.

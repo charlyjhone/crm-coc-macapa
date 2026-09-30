@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Trash2, KeyRound, UserPlus, Activity, Pencil } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -39,12 +41,14 @@ interface ActivityRow {
 }
 
 export default function Usuarios() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<"user" | "admin">("user");
   const [createOpen, setCreateOpen] = useState(false);
   const [pwUser, setPwUser] = useState<UserRow | null>(null);
   const [pwValue, setPwValue] = useState("");
@@ -52,6 +56,9 @@ export default function Usuarios() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [roleUser, setRoleUser] = useState<UserRow | null>(null);
+  const [roleValue, setRoleValue] = useState<"user" | "admin">("user");
+  const [savingRole, setSavingRole] = useState(false);
   const [activityUser, setActivityUser] = useState<UserRow | null>(null);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -125,7 +132,7 @@ export default function Usuarios() {
     }
     setCreating(true);
     const { error } = await supabase.functions.invoke("admin-manage-users", {
-      body: { action: "create", email: newEmail, password: newPassword, name: newName || null },
+      body: { action: "create", email: newEmail, password: newPassword, name: newName || null, role: newRole },
     });
     setCreating(false);
     if (error) {
@@ -136,6 +143,7 @@ export default function Usuarios() {
     setNewName("");
     setNewEmail("");
     setNewPassword("");
+    setNewRole("user");
     setCreateOpen(false);
     load();
   };
@@ -159,6 +167,22 @@ export default function Usuarios() {
     }
     toast({ title: "Perfil atualizado" });
     setEditUser(null);
+    load();
+  };
+
+  const saveRole = async () => {
+    if (!roleUser) return;
+    setSavingRole(true);
+    const { data, error } = await supabase.functions.invoke("admin-manage-users", {
+      body: { action: "update_role", user_id: roleUser.id, role: roleValue },
+    });
+    setSavingRole(false);
+    if (error || data?.error) {
+      toast({ title: "Não foi possível alterar o perfil", description: data?.error || error?.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Perfil de acesso atualizado" });
+    setRoleUser(null);
     load();
   };
 
@@ -210,9 +234,17 @@ export default function Usuarios() {
               <DialogTitle>Novo usuário</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="rounded-lg bg-muted p-3 text-sm text-slate-700">
-                Perfil: <strong>Secretaria</strong>. A pessoa poderá atender famílias e usar as telas escolares, sem gerenciar usuários ou configurações da Ana.
-              </p>
+              <div className="space-y-2">
+                <Label>Perfil de acesso</Label>
+                <Select value={newRole} onValueChange={(value) => setNewRole(value as "user" | "admin")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Secretaria</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Administrador gerencia equipe, auditoria e configurações da Ana.</p>
+              </div>
               <div>
                 <Label>Nome</Label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome da pessoa" />
@@ -263,6 +295,12 @@ export default function Usuarios() {
                       <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                         <Pencil className="h-3.5 w-3.5 mr-1" />
                         Editar
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={u.id === user?.id} onClick={() => {
+                        setRoleUser(u);
+                        setRoleValue(isAdmin ? "admin" : "user");
+                      }}>
+                        Perfil
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openActivities(u)}>
                         <Activity className="h-3.5 w-3.5 mr-1" />
@@ -319,6 +357,29 @@ export default function Usuarios() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPwUser(null)}>Cancelar</Button>
             <Button onClick={updatePassword}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!roleUser} onOpenChange={(o) => !o && setRoleUser(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Perfil de acesso — {roleUser?.name || roleUser?.email}</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Perfil</Label>
+            <Select value={roleValue} onValueChange={(value) => setRoleValue(value as "user" | "admin")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">Secretaria</SelectItem>
+                <SelectItem value="admin">Administrador</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">A mudança passa a valer nas próximas ações e ao atualizar a tela da pessoa.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleUser(null)}>Cancelar</Button>
+            <Button onClick={saveRole} disabled={savingRole || roleValue === (roleUser?.roles.includes("admin") ? "admin" : "user")}>
+              {savingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar perfil"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

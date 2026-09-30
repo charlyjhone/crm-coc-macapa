@@ -171,13 +171,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const { email, password, name } = body;
+      const { email, password, name, role = "user" } = body;
       if (!email || !password) {
         return new Response(JSON.stringify({ error: "email_e_senha_obrigatorios" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (role !== "admin" && role !== "user") throw new Error("perfil inválido");
       const normalizedEmail = String(email).trim();
       const auditId = await beginAudit({
         operation: "INSERT",
@@ -185,6 +186,7 @@ Deno.serve(async (req) => {
         entity_label: normalizedEmail,
         changed_fields: ["email", ...(name ? ["full_name"] : []), "role"],
       });
+      let newUserId: string | null = null;
       try {
         const { data: created, error: createErr } = await admin.auth.admin.createUser({
           email: normalizedEmail,
@@ -193,15 +195,49 @@ Deno.serve(async (req) => {
           user_metadata: name ? { full_name: name } : undefined,
         });
         if (createErr) throw createErr;
-        const newUserId = created.user.id;
-        const { error: roleErr } = await admin.from("user_roles").insert({ user_id: newUserId, role: "user" });
+        newUserId = created.user.id;
+        const { error: roleErr } = await admin.from("user_roles").insert({ user_id: newUserId, role });
         if (roleErr) throw roleErr;
         await finishAudit(auditId, "success", newUserId);
         return new Response(JSON.stringify({ ok: true, user_id: newUserId }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (error) {
+        if (newUserId) await admin.auth.admin.deleteUser(newUserId);
         await finishAudit(auditId, "failed");
+        throw error;
+      }
+    }
+
+    if (action === "update_role") {
+      const { user_id, role } = body;
+      if (!user_id || (role !== "admin" && role !== "user")) throw new Error("usuário ou perfil inválido");
+      if (user_id === userData.user.id) throw new Error("Outro administrador deve alterar seu perfil");
+      const { data: target, error: targetErr } = await admin.auth.admin.getUserById(user_id);
+      if (targetErr || !target.user) throw targetErr || new Error("usuário não encontrado");
+      const { data: existing, error: existingErr } = await admin
+        .from("user_roles").select("role").eq("user_id", user_id);
+      if (existingErr) throw existingErr;
+      if (existing?.length === 1 && existing[0].role === role) {
+        return new Response(JSON.stringify({ ok: true, unchanged: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const auditId = await beginAudit({
+        operation: "UPDATE", table_name: "user_roles", record_id: user_id,
+        entity_label: target.user.email || null, changed_fields: ["role"],
+      });
+      try {
+        const { error } = await admin.rpc("set_crm_user_role", {
+          p_user_id: user_id, p_role: role, p_actor_id: userData.user.id,
+        });
+        if (error) throw error;
+        await finishAudit(auditId, "success", user_id);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        await finishAudit(auditId, "failed", user_id);
         throw error;
       }
     }
