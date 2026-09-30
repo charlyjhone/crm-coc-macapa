@@ -28,6 +28,21 @@ const AUTO_RESOLVE: Assunto[] = ["financeiro", "curriculo", "horario", "localiza
 
 // Handoff esfria após 4 horas sem resposta humana → Ana retoma.
 const HANDOFF_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const GREETING_GAP_MS = 8 * 60 * 60 * 1000;
+
+function timeOfDayGreeting(now = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Belem", hour: "numeric", hourCycle: "h23",
+  }).format(now));
+  return hour >= 5 && hour < 12 ? "Bom dia" : hour >= 12 && hour < 18 ? "Boa tarde" : "Boa noite";
+}
+
+function withGreeting(reply: string, name: string | null, now = new Date()) {
+  const firstName = name?.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") || "";
+  const greeting = `${timeOfDayGreeting(now)}${firstName ? `, ${firstName}` : ""}!`;
+  const withoutOldGreeting = reply.replace(/^(?:(?:olá|oi|bom dia|boa tarde|boa noite)(?:,\s*[\p{L}'-]+)?[!.]?\s*)/iu, "").trim();
+  return `${greeting}\n${withoutOldGreeting || reply}`;
+}
 
 interface Triagem {
   assunto: Assunto;
@@ -99,9 +114,11 @@ function isAnaOutbound(message: { message?: string | null; raw_data?: Record<str
     /^\*\[Atendente [^\]\r\n]+\]\*/.test(message.message || "");
 }
 
-function isConversationClosing(text: string): boolean {
-  const normalized = text.toLocaleLowerCase("pt-BR").trim().replace(/[.!?]+$/g, "");
-  return /^(?:não|nao|não obrigado|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|tá bom|ta bom|beleza|só isso|so isso|somente isso|apenas isso|era só|era so|era isso(?: mesmo)?|é só isso|e so isso|só queria saber isso|so queria saber isso|não preciso de mais nada|nao preciso de mais nada|por enquanto (?:é|e) só isso|por enquanto (?:é|e) so isso|perfeito|resolvido|👍|🙏)$/.test(normalized);
+function isConversationClosing(text: string, offeredHelp = false): boolean {
+  const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
+  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
+  return offeredHelp && /^(?:nao|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|ta bom|beleza|perfeito|resolvido|👍|🙏)$/.test(normalized);
 }
 
 function removeRepeatedHelpOffer(reply: string): string {
@@ -233,7 +250,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_pesquisa_url"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -251,6 +268,7 @@ serve(async (req) => {
     const escolaNome = settings.escola_nome || "a escola";
     const escolaInfo = settings.escola_info || DEFAULT_INFO;
     const escolaValores = settings.escola_valores || "";
+    const pesquisaUrl = /^https:\/\/\S+$/i.test(settings.escola_pesquisa_url || "") ? settings.escola_pesquisa_url : "";
 
     // ---- Resolver ou criar o contato ----
     if (!leadId && phone) {
@@ -312,13 +330,13 @@ serve(async (req) => {
     // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
     let handoffPendente = lead?.triage_status === "aguardando_secretaria";
-    const apenasEncerramento = isConversationClosing(text);
+    const candidateClosing = isConversationClosing(text, true);
 
     // Se a última pergunta da Ana foi se poderia ajudar em algo mais, uma resposta
     // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
     // tenha mudado entre as mensagens.
     let anaAcabouDeOferecerAjuda = false;
-    if (channel === "whatsapp" && phone && apenasEncerramento) {
+    if (channel === "whatsapp" && phone && candidateClosing) {
       const { data: ultimaSaida } = await supabase
         .from("whatsapp_messages")
         .select("message, raw_data")
@@ -331,13 +349,41 @@ serve(async (req) => {
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
     }
 
-    if (apenasEncerramento && (handoffPendente || anaAcabouDeOferecerAjuda)) {
-      if (!previewOnly) await supabase
-        .from("ana_followups")
-        .update({ status: "cancelled", cancel_reason: "conversation_closed" })
-        .eq("lead_id", leadId!)
-        .eq("status", "pending");
-      return json({ skipped: "conversation_closed", lead_id: leadId });
+    if (isConversationClosing(text, anaAcabouDeOferecerAjuda)) {
+      if (lead?.triage_status === "resolvido") return json({ skipped: "already_closed", lead_id: leadId });
+      const firstName = !isPlaceholderName(lead?.name)
+        ? `, ${lead!.name.trim().split(/\s+/)[0]}` : "";
+      const closingReply = `Combinado${firstName}! Agradeço pela conversa. Quando quiser retomar, estarei por aqui. 😊${pesquisaUrl ? `\n\nSe puder, avalie este atendimento: ${pesquisaUrl}` : ""}`;
+      if (previewOnly) return json({ preview: true, resposta: closingReply, encerramento: true, pesquisa_configurada: !!pesquisaUrl });
+      if (channel === "whatsapp" && phone) {
+        const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ phone, message: `*[Atendente ${agentName}]*\n${closingReply}`, leadId, senderType: "ana" }),
+        });
+        if (!sent.ok) throw new Error("closing_reply_send_failed");
+      } else if (channel === "email" && lead?.email) {
+        const sent = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ leadId, to: lead.email, subject: `Re: contato com ${escolaNome}`, body: closingReply }),
+        });
+        if (!sent.ok) throw new Error("closing_email_send_failed");
+      } else {
+        throw new Error("closing_channel_unavailable");
+      }
+      await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "conversation_closed" })
+        .eq("lead_id", leadId!).eq("status", "pending");
+      const { error: closeError } = await supabase.from("leads").update({
+        status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
+        handoff_at: null, handoff_reason: null,
+      }).eq("id", leadId!);
+      if (closeError) throw new Error("closing_status_update_failed");
+      await supabase.from("activity_log").insert({ lead_id: leadId, activity_type: "agent_triage",
+        description: pesquisaUrl ? "Agente encerrou o atendimento e enviou pesquisa" : "Agente encerrou o atendimento",
+        source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: !!pesquisaUrl },
+      });
+      return json({ success: true, lead_id: leadId, triage_status: "resolvido", pesquisa_enviada: !!pesquisaUrl });
     }
 
     if (handoffPendente) {
@@ -416,6 +462,7 @@ serve(async (req) => {
 
     // ---- Histórico curto para dar contexto ao agente ----
     let historico = "";
+    let lastSchoolMessageAt: string | null = null;
     if (phone) {
       const { data: msgs } = await supabase
         .from("whatsapp_messages")
@@ -423,6 +470,7 @@ serve(async (req) => {
         .eq("phone", phone)
         .order("created_at", { ascending: false })
         .limit(12);
+      lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
       historico = (msgs || [])
         .reverse()
         .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").slice(0, 400)}`)
@@ -434,6 +482,7 @@ serve(async (req) => {
         .eq("lead_id", leadId)
         .order("created_at", { ascending: false })
         .limit(8);
+      lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
       historico = (msgs || [])
         .reverse()
         .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || m.subject || "").slice(0, 400)}`)
@@ -445,18 +494,21 @@ serve(async (req) => {
     const primeiroContato = !historico || historico.split("\n").filter(l => l.startsWith("Família")).length <= 1;
     const pedidosDeNome = (historico.match(/(?:dizer|informar|qual (?:é|e)) (?:o )?seu nome/gi) || []).length;
     const devePerguntar = isPlaceholderName(lead?.name) && (primeiroContato || pedidosDeNome < 2);
+    const deveSaudar = !lastSchoolMessageAt || Date.now() - new Date(lastSchoolMessageAt).getTime() >= GREETING_GAP_MS;
 
     // ---- Chamada de IA ----
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) throw new Error("ai_not_configured");
 
     const saudacaoInstrucao = nomeReal
-      ? `O nome desta pessoa é "${nomeReal}". Use o nome para cumprimentá-la quando fizer sentido (ex: "Bom dia, ${nomeReal}!").`
+      ? `O nome desta pessoa é "${nomeReal}". Use o primeiro nome com naturalidade quando fizer sentido, sem repeti-lo em cada frase.`
       : devePerguntar
-      ? `Você ainda não sabe o nome desta pessoa. No início da sua resposta, cumprimente e pergunte o nome de forma natural (ex: "Olá! Para te atender melhor, pode me dizer seu nome?"). Depois responda a dúvida normalmente se já houver uma. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
-      : `Você ainda não sabe o nome desta pessoa. Cumprimente cordialmente sem usar nome.`;
+      ? `Você ainda não sabe o nome desta pessoa. Pergunte o nome de forma natural enquanto responde a dúvida que ela já trouxe. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
+      : `Você ainda não sabe o nome desta pessoa. Não invente um nome.`;
 
-    const systemPrompt = `Você é ${agentName}, atendente virtual de ${escolaNome}. Responde em português do Brasil, de forma curta, cordial e objetiva (no máximo 5 linhas), pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}.
+    const systemPrompt = `Você é ${agentName}, atendente virtual de ${escolaNome}. Responda em português do Brasil pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}, com acolhimento e clareza. Escreva como uma atendente atenciosa conversaria: reconheça a dúvida, responda de forma útil e faça no máximo uma pergunta por vez. Prefira frases naturais e curtas, sem tom robótico, formulário ou respostas telegráficas. Um emoji discreto pode caber quando combinar com o contexto, sem repetir em toda mensagem. Não finja ser uma pessoa humana se perguntarem; apresente-se como atendente virtual. Evite repetir a mesma abertura ou despedida a cada resposta.
+
+${deveSaudar ? "O sistema adicionará a saudação apropriada ao horário local no início desta resposta. Não escreva outra saudação em resposta." : "Esta é a continuação da conversa; não recomece com bom dia, boa tarde ou boa noite."}
 
 ${saudacaoInstrucao}
 
@@ -588,10 +640,25 @@ Responda SOMENTE com JSON válido:
         resposta = confirmationText(draft);
       }
     }
+    if (assunto === "matricula" && !shouldRegister && !draft &&
+        /\b(?:vou registrar|vou cadastrar|j[aá] (?:registrei|cadastrei)|interesse (?:registrado|cadastrado)|anotei seu interesse)\b/i.test(resposta)) {
+      if (precisaHumano) {
+        resposta = "Entendi seu interesse. Ainda não concluí o cadastro; a secretaria vai conferir os dados com você e continuar o atendimento.";
+      } else {
+        const cadastro = triagem.cadastro;
+        const missing = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2
+          ? "Qual é o nome completo do responsável?"
+          : !cadastro.aluno ? "Qual é o nome do aluno?"
+          : !cadastro.ano ? "Para qual ano letivo você procura matrícula?"
+          : "Qual é a série pretendida?";
+        resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
+      }
+    }
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
+    if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
 
     if (previewOnly) {
       return json({
@@ -632,6 +699,7 @@ Responda SOMENTE com JSON válido:
         resposta = "Seu interesse foi cadastrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
       }
       precisaHumano = true;
+      if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
     }
     if (resposta) {
       try {
