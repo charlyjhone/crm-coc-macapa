@@ -39,6 +39,15 @@ type Capacity = {
   enrolled_seats: number;
 };
 
+const contactStages = [
+  ["novo", "Novos"],
+  ["em_atendimento", "Em atendimento"],
+  ["em_negociacao", "Em negociação"],
+  ["matriculado", "Matrícula confirmada"],
+  ["nao_convertido", "Não convertidos"],
+  ["resolvido", "Resolvidos"],
+] as const;
+
 const stages = [
   ["novo_interessado", "Novos"],
   ["contato_realizado", "Contatados"],
@@ -59,6 +68,7 @@ const CaptacaoDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [foundationPending, setFoundationPending] = useState(false);
   const [attendance, setAttendance] = useState<{ total: number; waiting: number; replied: number } | null>(null);
+  const [contactCounts, setContactCounts] = useState<Record<string, number> | null>(null);
   const [attendanceError, setAttendanceError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -102,17 +112,21 @@ const CaptacaoDashboard = () => {
     let active = true;
     const loadAttendance = async () => {
       const base = () => supabase.from("leads").select("id", { count: "exact", head: true }).eq("archived", false);
-      const [all, waiting, replied] = await Promise.all([
+      const [all, waiting, replied, contactResults] = await Promise.all([
         base(),
         base().eq("triage_status", "aguardando_secretaria"),
         base().eq("triage_status", "respondido_agente"),
+        Promise.all(contactStages.map(([status]) => supabase.from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("archived", false).eq("status", status))),
       ]);
       if (!active) return;
-      if (all.error || waiting.error || replied.error) {
+      if (all.error || waiting.error || replied.error || contactResults.some((result) => result.error)) {
         setAttendanceError(true);
         return;
       }
       setAttendance({ total: all.count ?? 0, waiting: waiting.count ?? 0, replied: replied.count ?? 0 });
+      setContactCounts(Object.fromEntries(contactStages.map(([key], index) => [key, contactResults[index].count ?? 0])));
       setAttendanceError(false);
       setLastUpdated(new Date());
     };
@@ -190,6 +204,21 @@ const CaptacaoDashboard = () => {
           {lastUpdated && <p className="text-xs text-muted-foreground">Atualizado às {lastUpdated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Atualização automática a cada 30 segundos.</p>}
         </section>
 
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Funil dos contatos</h2>
+            <p className="text-sm text-muted-foreground">Andamento das conversas. Selecione uma etapa para abrir os contatos e atualizar o status.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {contactStages.map(([key, label]) => (
+              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-slate-50">
+                <p className="text-2xl font-bold text-slate-900">{contactCounts?.[key] ?? "—"}</p>
+                <p className="mt-2 text-sm font-medium">{label}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {foundationPending && (
           <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -204,6 +233,7 @@ const CaptacaoDashboard = () => {
         )}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <p className="col-span-full text-sm text-muted-foreground">Os indicadores abaixo usam oportunidades de matrícula vinculadas a alunos cadastrados. Conversas sem aluno e oportunidade permanecem apenas no funil de contatos.</p>
           <MetricCard title="Confirmadas" value={metrics.confirmed} note="matrículas concluídas" icon={CheckCircle2} />
           <MetricCard title="Previsão" value={formatNumber(metrics.forecast)} note="matrículas ponderadas" icon={TrendingUp} />
           <MetricCard title="Em andamento" value={metrics.open} note="oportunidades abertas" icon={Users} />
@@ -222,8 +252,9 @@ const CaptacaoDashboard = () => {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <GraduationCap className="h-5 w-5 text-primary" />
-                Funil de matrículas
+                Funil de matrículas cadastradas
               </CardTitle>
+              {!opportunities.length && <p className="text-sm text-muted-foreground">Nenhuma oportunidade cadastrada. Comece em <Link to="/familias" className="font-medium text-primary underline">Famílias e alunos</Link> para vincular um aluno à matrícula.</p>}
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
