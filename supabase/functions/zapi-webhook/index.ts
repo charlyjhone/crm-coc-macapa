@@ -59,7 +59,10 @@ serve(async (req) => {
     console.log('chatLid:', chatLid);
     console.log('isLidEvent:', isLidEvent, '(só true quando rawPhone contém @lid)');
 
-    let message = payload.text?.message 
+    // Z-API can return a selected list item outside the regular text field.
+    const selectedOption = payload.listResponseMessage || payload.listResponse || payload.selectedOption;
+    let message = selectedOption?.title || selectedOption?.id || selectedOption?.selectedRowId
+      || payload.text?.message
       || payload.message 
       || payload.body 
       || payload.content

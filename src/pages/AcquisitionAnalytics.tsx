@@ -42,6 +42,8 @@ const channelLabels: Record<string, string> = {
   evento: "Evento",
   site: "Site",
   telefone: "Telefone",
+  ja_conhecia: "Já conhecia a escola",
+  outro: "Outro",
 };
 
 const displayName = (value: string | null, fallback: string) => {
@@ -98,16 +100,33 @@ const percentage = (value: number) =>
 const AcquisitionAnalytics = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [surveyOrigins, setSurveyOrigins] = useState<{ name: string; count: number }[]>([]);
   const [foundationPending, setFoundationPending] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const client = supabase as any;
-      const [opportunityResult, visitResult] = await Promise.all([
+      const [opportunityResult, visitResult, surveyResult] = await Promise.all([
         client.from("enrollment_opportunities")
           .select("id,source_channel,source_campaign,stage,probability_score,expected_monthly_revenue"),
         client.from("school_visits").select("opportunity_id,status"),
+        client.from("activity_log").select("lead_id,metadata,created_at")
+          .eq("source", "school-triage").eq("metadata->>survey", "origin")
+          .order("created_at", { ascending: false }).limit(1000),
       ]);
+      if (!surveyResult.error) {
+        const seen = new Set<string>();
+        const counts = new Map<string, number>();
+        for (const row of surveyResult.data || []) {
+          if (!row.lead_id || seen.has(row.lead_id)) continue;
+          const origin = row.metadata?.source_channel;
+          if (typeof origin !== "string" || !origin) continue;
+          seen.add(row.lead_id);
+          counts.set(origin, (counts.get(origin) || 0) + 1);
+        }
+        setSurveyOrigins(Array.from(counts, ([origin, count]) => ({ name: displayName(origin, origin), count }))
+          .sort((a, b) => b.count - a.count));
+      }
       if (opportunityResult.error || visitResult.error) {
         setFoundationPending(true);
         return;
@@ -187,6 +206,21 @@ const AcquisitionAnalytics = () => {
             </Card>
           ))}
         </section>
+
+        <Card className="border-emerald-950/10">
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-950">Como as famílias conheceram a escola</CardTitle>
+            <p className="text-sm text-slate-600">Respostas declaradas na pesquisa ao final do atendimento pelo WhatsApp. Uma resposta por contato.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {surveyOrigins.length ? surveyOrigins.map((item) => (
+              <div key={item.name}>
+                <div className="mb-1 flex justify-between text-sm"><span>{item.name}</span><strong>{item.count}</strong></div>
+                <Progress value={(item.count / surveyOrigins.reduce((sum, row) => sum + row.count, 0)) * 100} />
+              </div>
+            )) : <EmptyState text="As origens aparecerão aqui quando as famílias responderem à pesquisa no WhatsApp." />}
+          </CardContent>
+        </Card>
 
         <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
           <Card className="border-emerald-950/10">

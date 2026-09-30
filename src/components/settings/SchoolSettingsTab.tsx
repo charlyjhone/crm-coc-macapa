@@ -10,7 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome", "escola_pesquisa_url"] as const;
+const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome"] as const;
 
 export default function SchoolSettingsTab() {
   const queryClient = useQueryClient();
@@ -20,7 +20,6 @@ export default function SchoolSettingsTab() {
   const [agenteNome, setAgenteNome] = useState("Ana");
   const [info, setInfo] = useState("");
   const [valores, setValores] = useState("");
-  const [pesquisaUrl, setPesquisaUrl] = useState("");
   const [ativo, setAtivo] = useState(true);
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export default function SchoolSettingsTab() {
       setAgenteNome(map.escola_agente_nome || "Ana");
       setInfo(map.escola_info || "");
       setValores(map.escola_valores || "");
-      setPesquisaUrl(map.escola_pesquisa_url || "");
       setAtivo((map.escola_agente_ativo || "true") === "true");
       setLoading(false);
     })();
@@ -44,11 +42,6 @@ export default function SchoolSettingsTab() {
       toast({ title: "Nome da atendente inválido", description: "Use de 1 a 40 caracteres, sem colchetes, asteriscos ou quebras de linha.", variant: "destructive" });
       return;
     }
-    const surveyLink = pesquisaUrl.trim();
-    if (surveyLink && (!/^https:\/\/[^\s]+$/i.test(surveyLink) || surveyLink.length > 1000)) {
-      toast({ title: "Link da pesquisa inválido", description: "Use uma URL HTTPS completa, sem espaços.", variant: "destructive" });
-      return;
-    }
     setSaving(true);
     const rows = [
       { key: "escola_nome", value: nome },
@@ -56,7 +49,6 @@ export default function SchoolSettingsTab() {
       { key: "escola_valores", value: valores },
       { key: "escola_agente_ativo", value: ativo ? "true" : "false" },
       { key: "escola_agente_nome", value: nomeAgente },
-      { key: "escola_pesquisa_url", value: surveyLink },
     ];
     const { error } = await supabase.from("system_settings").upsert(rows, { onConflict: "key" });
     setSaving(false);
@@ -102,13 +94,8 @@ export default function SchoolSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle>Pesquisa de satisfação</CardTitle>
-          <CardDescription>Ao encerrar uma conversa, a atendente envia este formulário uma vez. Deixe vazio para não enviar a pesquisa.</CardDescription>
+          <CardDescription>Após o encerramento no WhatsApp, a atendente pergunta como a família conheceu a escola e pede uma nota de 1 a 5. As respostas de origem aparecem em Origem e conversão.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <Label htmlFor="escola-pesquisa-url">Link HTTPS do formulário</Label>
-          <Input id="escola-pesquisa-url" type="url" value={pesquisaUrl} onChange={(e) => setPesquisaUrl(e.target.value)} placeholder="https://..." />
-          <p className="text-xs text-muted-foreground">O link é enviado somente quando a família indica que terminou o atendimento. Nenhum dado pessoal é adicionado à URL.</p>
-        </CardContent>
       </Card>
 
       <Card>
