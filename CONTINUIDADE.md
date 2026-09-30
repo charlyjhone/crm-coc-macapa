@@ -338,3 +338,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - A pesquisa depende de uma frase explícita da família; silêncio, um “obrigado” isolado e atualização manual do status não disparam envio automático. Não analisar retroativamente a conversa durante a pausa. Teste real da lista interativa e webhook permanece pendente.
 - Validação local: transpile sintático da Edge Function, quatro casos de classificação de encerramento e `git diff --check` aprovados.
 - PR #25 incorporada na `main` como `89891f2`; `school-triage` publicada como versão 52, ACTIVE, com `verify_jwt=false` e segredo interno preservados. Teste real de encerramento humano e cliques nas listas ainda pendente; a publicação não processa retroativamente mensagens anteriores.
+
+## 29. Gráficos da pesquisa (30/09/2026)
+
+- O teste real do responsável confirmou o fluxo completo: encerramento após resposta humana, escolha de Instagram e nota 5/5, com duas atividades de pesquisa persistidas e agradecimento enviado. Nenhuma família/oportunidade foi criada apenas pela pesquisa.
+- A página `/origem-conversao` passa a apresentar dois gráficos separados: **De onde nos encontrou?** (origem declarada por contato) e **Avaliação do atendimento** (distribuição de notas 1 a 5, total e média). Consulta `activity_log` por tipo de resposta, retém a resposta mais recente por contato em cada pergunta e mantém os indicadores de matrícula baseados apenas nas oportunidades.
+- Validação local: build Vite, ESLint direcionado e `git diff --check` aprovados. Conferir o resultado visual com o teste real no site após o deploy.
