@@ -21,7 +21,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const callbackSecret = new URL(req.url).searchParams.get('key') || '';
+    const callbackUrl = new URL(req.url);
+    // The provider can omit query parameters on received-message callbacks.
+    // Supabase may present a function-relative pathname inside the runtime.
+    const pathSecret = callbackUrl.pathname.match(/\/([a-f0-9]{64})$/)?.[1] || '';
+    const callbackSecret = callbackUrl.searchParams.get('key') || pathSecret;
     if (!callbackSecret || callbackSecret.length > 128) {
       return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: corsHeaders });
     }
