@@ -350,3 +350,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - A lista enviada pela Ana passa a oferecer quatro respostas: Redes sociais, Indicação, Panfletagem/outdoor e Outros. A nota de atendimento continua de 1 a 5.
 - O gráfico “De onde nos encontrou?” agrupa respostas novas e antigas nas quatro categorias. Instagram e Facebook antigos entram em Redes sociais; Indicação continua separada; Google, Site da escola, Já conhecia e Outro antigos entram em Outros. O histórico bruto permanece intacto, inclusive a origem técnica de oportunidades já registradas. A Ana ainda aceita respostas a uma lista antiga que tenha sido enviada antes da publicação.
 - Publicar `school-triage` no Supabase `crm-escola` e o frontend no Render após mesclar a branch. Confirmar uma nova lista no WhatsApp e a atualização do gráfico em sessão autenticada.
+
+## 31. Auditoria de segurança e prontidão (01/10/2026)
+
+- Relatório detalhado em `AUDITORIA_2026-10-01.md`. A análise foi somente leitura; não houve alteração de segurança no ambiente nem novos envios.
+- O risco prioritário é proteger o `zapi-webhook` publicado, que não valida assinatura/segredo; há também funções públicas legadas de e-mail/IA e políticas/RPCs excessivamente amplas. Validar configurações dos provedores antes de mudar callbacks ou desativar funções.
+- Build e TypeScript passaram, lint global falha; o funil escolar ainda tem zero responsáveis, alunos, oportunidades, visitas e tarefas. A interface autenticada, backups e fluxos novos precisam de homologação controlada.
