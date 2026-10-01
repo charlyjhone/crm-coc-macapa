@@ -13,16 +13,32 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'method_not_allowed' }), { status: 405, headers: corsHeaders });
+  }
 
   try {
-    console.log("Z-API webhook received");
-    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const callbackSecret = new URL(req.url).searchParams.get('key') || '';
+    if (!callbackSecret || callbackSecret.length > 128) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+    const { data: authorized, error: authorizationError } = await supabase.rpc(
+      'verify_zapi_webhook_secret', { p_secret: callbackSecret }
+    );
+    if (authorizationError || authorized !== true) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+    console.log('Z-API webhook authenticated');
     await setActivityContext(supabase, { source: 'webhook:zapi', actor: 'system' });
 
     const payload = await req.json();
+    const expectedInstanceId = Deno.env.get('ZAPI_INSTANCE_ID');
+    if (expectedInstanceId && payload.instanceId && payload.instanceId !== expectedInstanceId) {
+      return new Response(JSON.stringify({ error: 'wrong_instance' }), { status: 403, headers: corsHeaders });
+    }
     // Do not log message contents, attachments or callback credentials.
 
     // ===== EARLY EXIT: Filter out non-message events =====
