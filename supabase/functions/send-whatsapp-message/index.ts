@@ -20,6 +20,28 @@ serve(async (req) => {
 
     const { phone, message, leadId, optionList, surveyStep, senderType: requestedSender = 'human' } = await req.json();
     const senderType = authorization.internal && requestedSender === 'ana' ? 'ana' : 'human';
+    // Assinatura derivada exclusivamente do JWT validado; nunca aceitar nome do cliente.
+    let operatorId: string | null = null;
+    let operatorName: string | null = null;
+    if (!authorization.internal) {
+      const token = /^Bearer\\s+(\\S+)$/i.exec(req.headers.get("authorization") || "")?.[1];
+      const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: operator, error: operatorError } = await authClient.auth.getUser(token);
+      if (operatorError || !operator.user) {
+        return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders });
+      }
+      operatorId = operator.user.id;
+      const rawName = operator.user.user_metadata?.full_name;
+      operatorName = typeof rawName === 'string'
+        ? rawName.replace(/[\\r\\n*_~`]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 60)
+        : '';
+      if (!operatorName) {
+        return new Response(JSON.stringify({ error: 'Cadastre seu nome em Meu perfil antes de enviar mensagens.' }), { status: 422, headers: corsHeaders });
+      }
+    }
+    const outboundMessage = senderType === 'human' && operatorName
+      ? `*${operatorName} — Secretaria COC*\\n${message.trim()}`
+      : message;
 
     if (typeof phone !== 'string' || typeof message !== 'string' || !phone.trim() || !message.trim()) {
       return new Response(
@@ -149,7 +171,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'Client-Token': ZAPI_CLIENT_TOKEN,
         },
-        body: JSON.stringify({ phone: target, message, ...(optionList ? { optionList } : {}) }),
+        body: JSON.stringify({ phone: target, message: outboundMessage, ...(optionList ? { optionList } : {}) }),
       });
       const data = await resp.json().catch(() => ({}));
       console.log(`Resposta Z-API (${target}):`, data);
@@ -191,13 +213,15 @@ serve(async (req) => {
         .insert({
           lead_id: null,
           phone: normalizedPhone,
-          message: message,
+          message: outboundMessage,
           direction: 'outbound',
           timestamp: new Date().toISOString(),
           raw_data: {
             ...zapiData,
             resolvedChatLid,
             sender_type: senderType === 'ana' ? 'ana' : 'human',
+            operator_id: operatorId,
+            operator_name: operatorName,
             source: senderType === 'ana' ? 'school-triage' : 'manual',
             survey_step: surveyOptions ? surveyStep : undefined,
           },
