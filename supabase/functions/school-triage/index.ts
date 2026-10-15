@@ -53,6 +53,8 @@ function withGreeting(reply: string, name: string | null, now = new Date()) {
 interface Triagem {
   assunto: Assunto;
   interesse: "alto" | "medio" | "baixo" | "indefinido";
+  prioridade: "urgente" | "atencao" | "normal" | "externo";
+  motivo_prioridade: string;
   precisa_humano: boolean;
   motivo_humano: string | null;
   resumo: string;
@@ -673,9 +675,10 @@ REGRAS:
 - Se já houver atendimento da secretaria pendente, nunca repita "Posso ajudar em algo mais?" e não anuncie novamente o mesmo encaminhamento. Apenas responda a nova dúvida ou confirme brevemente que a informação adicional será considerada pela equipe.
 - Nunca prometa prazos que não estejam nas informações oficiais.
 - IMPORTANTE: Se você acabou de perguntar o nome e a pessoa ainda não trouxe um assunto específico, use assunto="outros" e precisa_humano=false (apenas aguardando apresentação).
+- Classifique o TEOR da última mensagem em prioridade. "urgente" somente para risco à integridade/segurança, prazo escolar iminente ou matrícula/vaga/documento com necessidade concreta de ação humana rápida; nesses casos, marque precisa_humano=true. "atencao" para dúvida escolar pendente que exige acompanhamento, sem urgência concreta. "normal" para conversa comum já respondível. "externo" para fornecedor, operadora, publicidade ou contato sem relação com atendimento de famílias; uma mensagem antiga ou um nome de empresa não a torna urgente. Não atribua urgência apenas pelo tempo decorrido: a interface calcula a espera. Dê motivo curto e verificável, sem inventar prazo. Em caso de dúvida, escolha "atencao".
 
 Responda SOMENTE com JSON válido:
-{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
+{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","prioridade":"urgente|atencao|normal|externo","motivo_prioridade":"motivo curto","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
 
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
@@ -699,6 +702,8 @@ Responda SOMENTE com JSON válido:
               properties: {
                 assunto: { type: "string", enum: [...ASSUNTOS] },
                 interesse: { type: "string", enum: ["alto", "medio", "baixo", "indefinido"] },
+                prioridade: { type: "string", enum: ["urgente", "atencao", "normal", "externo"] },
+                motivo_prioridade: { type: "string" },
                 precisa_humano: { type: "boolean" },
                 motivo_humano: { type: ["string", "null"] },
                 resumo: { type: "string" },
@@ -717,7 +722,7 @@ Responda SOMENTE com JSON válido:
                   additionalProperties: false,
                 },
               },
-              required: ["assunto", "interesse", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
+              required: ["assunto", "interesse", "prioridade", "motivo_prioridade", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
               additionalProperties: false,
             },
           },
@@ -751,6 +756,7 @@ Responda SOMENTE com JSON válido:
     if (typeof triagem.resposta !== "string" || !triagem.resposta.trim() ||
         typeof triagem.precisa_humano !== "boolean" ||
         !ASSUNTOS.includes(triagem.assunto) ||
+        !["urgente", "atencao", "normal", "externo"].includes(triagem.prioridade) ||
         !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
       throw new Error("invalid_triage_response");
     }
@@ -759,7 +765,7 @@ Responda SOMENTE com JSON válido:
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
-    let precisaHumano = !apenasColetandoNome && !!triagem.precisa_humano;
+    let precisaHumano = triagem.prioridade === "urgente" || (!apenasColetandoNome && !!triagem.precisa_humano);
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && !precisaHumano && !handoffPendente && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
@@ -889,6 +895,8 @@ Responda SOMENTE com JSON válido:
       assunto,
       interesse: triagem.interesse || "indefinido",
       triage_summary: triagem.resumo || null,
+      attention_level: triagem.prioridade,
+      attention_reason: triagem.motivo_prioridade.trim().slice(0, 160) || null,
     };
 
     const falhaEnvio = !enviado;
@@ -955,7 +963,7 @@ Responda SOMENTE com JSON válido:
         : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
-      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
+      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, prioridade: triagem.prioridade, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
     });
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
