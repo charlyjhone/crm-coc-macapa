@@ -24,6 +24,8 @@ export interface Atendimento {
   triage_status: TriageStatus;
   status: LeadStatus | null;
   triage_summary: string | null;
+  attention_level: "urgente" | "atencao" | "normal" | "externo" | null;
+  attention_reason: string | null;
   agent_replied_at: string | null;
   handoff_at: string | null;
   handoff_reason: string | null;
@@ -42,7 +44,7 @@ export function useAtendimentos() {
       const { data, error } = await supabase
         .from("leads")
         .select(
-          "id, name, email, phone, source, assunto, interesse, status, triage_status, triage_summary, agent_replied_at, handoff_at, handoff_reason, resolved_at, last_inbound_message, last_inbound_message_at, last_outbound_message_at, created_at"
+          "id, name, email, phone, source, assunto, interesse, status, triage_status, triage_summary, attention_level, attention_reason, agent_replied_at, handoff_at, handoff_reason, resolved_at, last_inbound_message, last_inbound_message_at, last_outbound_message_at, created_at"
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
