@@ -53,6 +53,7 @@ function withGreeting(reply: string, name: string | null, now = new Date()) {
 interface Triagem {
   assunto: Assunto;
   interesse: "alto" | "medio" | "baixo" | "indefinido";
+  cadastro_interesse: boolean;
   prioridade: "urgente" | "atencao" | "normal" | "externo";
   motivo_prioridade: string;
   precisa_humano: boolean;
@@ -72,19 +73,21 @@ interface Triagem {
 const SERIES = ["Maternal", "Jardim I", "Jardim II", "1º ano", "2º ano", "3º ano",
   "4º ano", "5º ano", "6º ano", "7º ano", "8º ano", "9º ano",
   "1ª série", "2ª série", "3ª série"];
+const ENROLLMENT_CAMPAIGN_YEAR = 2027;
 
 function enrollmentDraft(c: Triagem["cadastro"]) {
-  if (!c || !c.responsavel || !c.aluno || !c.ano || !c.serie ||
-      !Number.isInteger(c.ano) || c.ano < 2026 || c.ano > 2100 ||
+  const year = c?.ano ?? ENROLLMENT_CAMPAIGN_YEAR;
+  if (!c || !c.responsavel || !c.aluno || !c.serie ||
+      !Number.isInteger(year) || year < 2026 || year > 2100 ||
       !SERIES.includes(c.serie)) return null;
   const responsible = c.responsavel.trim();
   const student = c.aluno.trim();
   const shift = c.turno?.trim() || null;
-  if (responsible.length < 3 || responsible.length > 160 ||
+  if (responsible.length < 3 || responsible.length > 160 || responsible.split(/\s+/).length < 2 ||
       student.length < 3 || student.length > 160 ||
       /[\r\n:]/.test(responsible + student) ||
       (shift && !["manhã", "tarde", "integral"].includes(shift))) return null;
-  return { responsible, student, year: c.ano, grade: c.serie, shift };
+  return { responsible, student, year, grade: c.serie, shift };
 }
 
 function confirmationText(c: NonNullable<ReturnType<typeof enrollmentDraft>>) {
@@ -367,7 +370,7 @@ serve(async (req) => {
     failureLeadId = leadId;
     const { data: lead, error: leadError } = leadId ? await supabase
       .from("leads")
-      .select("id, name, email, phone, triage_status, assunto, handoff_at")
+      .select("id, name, email, phone, status, triage_status, assunto, handoff_at")
       .eq("id", leadId!)
       .maybeSingle() : { data: null, error: null };
     if (leadError || (!lead && !previewOnly)) throw new Error("contact_unavailable");
@@ -667,8 +670,9 @@ REGRAS:
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
 - Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
-- Para um interesse de matrícula, pergunte naturalmente nome completo do responsável, nome do aluno, ano letivo e série pretendida. O turno é opcional. Preencha cadastro com dados ditos pela família no histórico, sem deduzir nomes, ano ou série. Se faltar algum campo, pergunte apenas o que falta. Nunca diga que já cadastrou: o sistema pedirá confirmação e informará o resultado. O cadastro é de interesse, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria sem tentar cadastrar automaticamente.
-- Se a mensagem atual for "sim" em resposta ao resumo de cadastro enviado por você, classifique como matrícula e mantenha o contexto. O sistema confere os dados no resumo anterior antes de cadastrar.
+- Se a família demonstrar interesse em uma NOVA matrícula e concordar em informar os dados para acompanhamento, marque cadastro_interesse=true. Isso inclui quando ela responde às perguntas que você fez para cadastrar o interesse. Marque false para aluno já matriculado, fornecedor, consulta genérica sem interesse ou dados de terceiros citados incidentalmente.
+- Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema cadastrará automaticamente a família, aluno e oportunidade; não peça uma segunda confirmação nem diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
+- Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. O sistema ainda aceita confirmações antigas.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
@@ -678,7 +682,7 @@ REGRAS:
 - Classifique o TEOR da última mensagem em prioridade. "urgente" somente para risco à integridade/segurança, prazo escolar iminente ou matrícula/vaga/documento com necessidade concreta de ação humana rápida; nesses casos, marque precisa_humano=true. "atencao" para dúvida escolar pendente que exige acompanhamento, sem urgência concreta. "normal" para conversa comum já respondível. "externo" para fornecedor, operadora, publicidade ou contato sem relação com atendimento de famílias; uma mensagem antiga ou um nome de empresa não a torna urgente. Não atribua urgência apenas pelo tempo decorrido: a interface calcula a espera. Dê motivo curto e verificável, sem inventar prazo. Em caso de dúvida, escolha "atencao".
 
 Responda SOMENTE com JSON válido:
-{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","prioridade":"urgente|atencao|normal|externo","motivo_prioridade":"motivo curto","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
+{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","cadastro_interesse":true|false,"prioridade":"urgente|atencao|normal|externo","motivo_prioridade":"motivo curto","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
 
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
@@ -702,6 +706,7 @@ Responda SOMENTE com JSON válido:
               properties: {
                 assunto: { type: "string", enum: [...ASSUNTOS] },
                 interesse: { type: "string", enum: ["alto", "medio", "baixo", "indefinido"] },
+                cadastro_interesse: { type: "boolean" },
                 prioridade: { type: "string", enum: ["urgente", "atencao", "normal", "externo"] },
                 motivo_prioridade: { type: "string" },
                 precisa_humano: { type: "boolean" },
@@ -722,7 +727,7 @@ Responda SOMENTE com JSON válido:
                   additionalProperties: false,
                 },
               },
-              required: ["assunto", "interesse", "prioridade", "motivo_prioridade", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
+              required: ["assunto", "interesse", "cadastro_interesse", "prioridade", "motivo_prioridade", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
               additionalProperties: false,
             },
           },
@@ -755,6 +760,7 @@ Responda SOMENTE com JSON válido:
 
     if (typeof triagem.resposta !== "string" || !triagem.resposta.trim() ||
         typeof triagem.precisa_humano !== "boolean" ||
+        typeof triagem.cadastro_interesse !== "boolean" ||
         !ASSUNTOS.includes(triagem.assunto) ||
         !["urgente", "atencao", "normal", "externo"].includes(triagem.prioridade) ||
         !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
@@ -767,9 +773,10 @@ Responda SOMENTE com JSON válido:
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
     let precisaHumano = triagem.prioridade === "urgente" || (!apenasColetandoNome && !!triagem.precisa_humano);
     let resposta = (triagem.resposta || "").trim();
-    let draft = assunto === "matricula" && !precisaHumano && !handoffPendente && channel === "whatsapp"
+    let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
-    let shouldRegister = false;
+    let shouldRegister = !!draft;
+    let legacyConfirmation = false;
     if (phone && !handoffPendente && channel === "whatsapp") {
       const { data: previous } = await supabase.from("whatsapp_messages")
         .select("message, raw_data").eq("phone", phone).eq("direction", "outbound")
@@ -779,10 +786,8 @@ Responda SOMENTE com JSON válido:
       if (confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
-        precisaHumano = false;
+        legacyConfirmation = true;
         assunto = "matricula";
-      } else if (draft) {
-        resposta = confirmationText(draft);
       }
     }
     if (assunto === "matricula" && !shouldRegister && !draft &&
@@ -794,7 +799,6 @@ Responda SOMENTE com JSON válido:
         const missing = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2
           ? "Qual é o nome completo do responsável?"
           : !cadastro.aluno ? "Qual é o nome do aluno?"
-          : !cadastro.ano ? "Para qual ano letivo você procura matrícula?"
           : "Qual é a série pretendida?";
         resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
       }
@@ -813,7 +817,7 @@ Responda SOMENTE com JSON válido:
         resposta,
         nome_extraido: triagem.nome_extraido,
         cadastro_pronto: !!draft,
-        cadastro_confirmado: shouldRegister,
+        cadastro_automatico: shouldRegister,
       });
     }
 
@@ -851,10 +855,16 @@ Responda SOMENTE com JSON válido:
             .eq("source_channel", "ana_whatsapp");
           if (attributionError) console.error("Falha ao vincular origem à oportunidade:", attributionError.message);
         }
-        resposta = "Seu interesse foi cadastrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
+        if (registration.created || legacyConfirmation) {
+          resposta = registration.created
+            ? "Cadastrei seu interesse para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos."
+            : "Seu interesse já está registrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
+        }
       }
-      precisaHumano = true;
-      if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      if (!registration || registration.created || legacyConfirmation) {
+        precisaHumano = true;
+        if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      }
     }
     if (resposta) {
       try {
@@ -898,6 +908,7 @@ Responda SOMENTE com JSON válido:
       attention_level: triagem.prioridade,
       attention_reason: triagem.motivo_prioridade.trim().slice(0, 160) || null,
     };
+    if (registration && lead?.status === "novo") update.status = "em_atendimento";
 
     const falhaEnvio = !enviado;
 
@@ -912,7 +923,7 @@ Responda SOMENTE com JSON válido:
       if (!handoffPendente) {
         update.handoff_at = now;
         update.handoff_reason = shouldRegister
-          ? registration ? "Interesse cadastrado pela Ana para acompanhamento" : "Cadastro automático precisa de revisão"
+          ? registration?.created ? "Interesse cadastrado pela Ana para acompanhamento" : !registration ? "Cadastro automático precisa de revisão" : triagem.motivo_humano || "Interesse já cadastrado"
           : triagem.motivo_humano || "Pergunta fora das informações padrão";
       }
     } else if (handoffPendente) {
