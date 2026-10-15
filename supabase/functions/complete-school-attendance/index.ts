@@ -45,10 +45,18 @@ Deno.serve(async (req) => {
   const inboundAt = lead.last_inbound_message_at ? Date.parse(lead.last_inbound_message_at) : NaN;
   if (!lead.phone || !Number.isFinite(inboundAt) || Date.now() - inboundAt > 7 * 86400000)
     return reply({ success: true, survey: "not_applicable" });
-  const { data: inbound, error: inboundError } = await admin.from("whatsapp_messages")
+  const { data: linkedInbound, error: inboundError } = await admin.from("whatsapp_messages")
     .select("phone, created_at").eq("lead_id", lead.id).eq("direction", "inbound")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (inboundError) return reply({ success: true, survey: "lookup_failed" });
+  // Some webhook messages precede the lead reconciliation and have no lead_id.
+  const digits = lead.phone.replace(/\D/g, "");
+  const { data: phoneInbound, error: phoneError } = await admin.from("whatsapp_messages")
+    .select("phone, created_at").in("phone", [...new Set([lead.phone, digits])])
+    .eq("direction", "inbound").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (phoneError) return reply({ success: true, survey: "lookup_failed" });
+  const inbound = !linkedInbound || (phoneInbound && Date.parse(phoneInbound.created_at) > Date.parse(linkedInbound.created_at))
+    ? phoneInbound : linkedInbound;
   if (!inbound?.phone || Date.now() - Date.parse(inbound.created_at) > 7 * 86400000)
     return reply({ success: true, survey: "not_applicable" });
   const { data: previous, error: previousError } = await admin.from("whatsapp_messages")
