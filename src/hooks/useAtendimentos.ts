@@ -57,11 +57,12 @@ export function useUpdateTriage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TriageStatus }) => {
-      const patch: Record<string, unknown> = { triage_status: status };
       if (status === "resolvido") {
-        patch.resolved_at = new Date().toISOString();
-        patch.status = "resolvido";
+        const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: id } });
+        if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
+        return data as { success: boolean; survey: string };
       }
+      const patch: Record<string, unknown> = { triage_status: status };
       const { data, error } = await supabase.from("leads").update(patch).eq("id", id).select("id").single();
       if (error) throw error;
       if (!data) throw new Error("Contato não encontrado.");
@@ -74,11 +75,13 @@ export function useUpdateLeadStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ lead, status }: { lead: Atendimento; status: LeadStatus }) => {
-      const patch: Record<string, unknown> = { status };
       if (status === "resolvido") {
-        patch.triage_status = "resolvido";
-        patch.resolved_at = new Date().toISOString();
-      } else if (lead.triage_status === "resolvido") {
+        const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: lead.id } });
+        if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
+        return data as { success: boolean; survey: string };
+      }
+      const patch: Record<string, unknown> = { status };
+      if (lead.triage_status === "resolvido") {
         patch.triage_status = status === "novo" ? "novo" : "aguardando_secretaria";
         patch.resolved_at = null;
       }

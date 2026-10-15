@@ -10,7 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome"] as const;
+const KEYS = ["escola_nome", "escola_info", "escola_valores", "escola_agente_ativo", "escola_agente_nome", "escola_folder_ativo"] as const;
 
 export default function SchoolSettingsTab() {
   const queryClient = useQueryClient();
@@ -21,34 +21,46 @@ export default function SchoolSettingsTab() {
   const [info, setInfo] = useState("");
   const [valores, setValores] = useState("");
   const [ativo, setAtivo] = useState(true);
+  const [folderAtivo, setFolderAtivo] = useState(false);
+  const [folderExiste, setFolderExiste] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("system_settings").select("key, value").in("key", KEYS as unknown as string[]);
       const map: Record<string, string> = {};
-      (data || []).forEach((r: any) => (map[r.key] = r.value));
+      (data || []).forEach((r: { key: string; value: string | null }) => (map[r.key] = r.value || ""));
       setNome(map.escola_nome || "");
       setAgenteNome(map.escola_agente_nome || "Ana");
       setInfo(map.escola_info || "");
       setValores(map.escola_valores || "");
       setAtivo((map.escola_agente_ativo || "true") === "true");
+      setFolderAtivo(map.escola_folder_ativo === "true");
+      const { data: folderFiles } = await supabase.storage.from("school-materials").list("", { search: "folder-digital.pdf" });
+      setFolderExiste(!!folderFiles?.some((file) => file.name === "folder-digital.pdf"));
       setLoading(false);
     })();
   }, []);
 
   const save = async () => {
     const nomeAgente = agenteNome.trim();
-    if (!nomeAgente || nomeAgente.length > 40 || /[\r\n\[\]*<>]/.test(nomeAgente)) {
+    if (!nomeAgente || nomeAgente.length > 40 || /[\r\n*<>]/.test(nomeAgente) || nomeAgente.includes("[") || nomeAgente.includes("]")) {
       toast({ title: "Nome da atendente inválido", description: "Use de 1 a 40 caracteres, sem colchetes, asteriscos ou quebras de linha.", variant: "destructive" });
       return;
     }
     setSaving(true);
+    if (folderAtivo && !folderExiste) {
+      setSaving(false);
+      toast({ title: "Envie o folder em PDF antes de ativar o envio", variant: "destructive" });
+      return;
+    }
     const rows = [
       { key: "escola_nome", value: nome },
       { key: "escola_info", value: info },
       { key: "escola_valores", value: valores },
       { key: "escola_agente_ativo", value: ativo ? "true" : "false" },
       { key: "escola_agente_nome", value: nomeAgente },
+      { key: "escola_folder_ativo", value: folderAtivo ? "true" : "false" },
     ];
     const { error } = await supabase.from("system_settings").upsert(rows, { onConflict: "key" });
     setSaving(false);
@@ -58,6 +70,23 @@ export default function SchoolSettingsTab() {
     }
     await queryClient.invalidateQueries({ queryKey: ["school-identity"] });
     toast({ title: "Configurações da escola salvas" });
+  };
+
+  const uploadFolder = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.type !== "application/pdf" || file.size > 15 * 1024 * 1024 || file.size === 0) {
+      toast({ title: "Selecione um PDF de até 15 MB", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    const { error } = await supabase.storage.from("school-materials")
+      .upload("folder-digital.pdf", file, { upsert: true, contentType: "application/pdf", cacheControl: "60" });
+    setUploading(false);
+    if (error) toast({ title: "Falha ao enviar folder", description: error.message, variant: "destructive" });
+    else {
+      setFolderExiste(true);
+      toast({ title: "Folder atualizado", description: "Ative o envio abaixo e salve as configurações quando a versão estiver aprovada." });
+    }
   };
 
   if (loading) {
@@ -96,6 +125,22 @@ export default function SchoolSettingsTab() {
           <CardTitle>Pesquisa de satisfação</CardTitle>
           <CardDescription>Após o encerramento no WhatsApp, a atendente pergunta como a família conheceu a escola e pede uma nota de 1 a 5. As respostas de origem aparecem em Origem e conversão.</CardDescription>
         </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Folder digital</CardTitle>
+          <CardDescription>Envie a versão final em PDF. A atendente poderá compartilhá-la no WhatsApp quando uma família pedir para conhecer melhor a escola.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input type="file" accept="application/pdf,.pdf" aria-label="Selecionar folder digital em PDF"
+            disabled={uploading} onChange={(event) => void uploadFolder(event.target.files?.[0])} />
+          <p className="text-xs text-muted-foreground">{folderExiste ? "PDF carregado na escola" : "Nenhum PDF carregado"} · Limite de 15 MB. O arquivo fica privado até o envio ao WhatsApp.</p>
+          <div className="flex items-center gap-3">
+            <Switch id="escola-folder-ativo" checked={folderAtivo} onCheckedChange={setFolderAtivo} disabled={!folderExiste} />
+            <Label htmlFor="escola-folder-ativo">Permitir que a atendente envie o folder</Label>
+          </div>
+        </CardContent>
       </Card>
 
       <Card>

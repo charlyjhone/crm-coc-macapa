@@ -30,6 +30,12 @@ const AUTO_RESOLVE: Assunto[] = ["financeiro", "curriculo", "horario", "localiza
 const HANDOFF_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const GREETING_GAP_MS = 8 * 60 * 60 * 1000;
 
+function requestedSchoolFolder(text: string) {
+  const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /\b(folder|folheto|catalogo|brochura|material de apresentacao)\b/.test(normalized) ||
+    /\b(conhecer mais|saber mais|mais informac(?:ao|oes))\b.{0,35}\b(escola|colegio|coc)\b/.test(normalized);
+}
+
 function timeOfDayGreeting(now = new Date()) {
   const hour = Number(new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Belem", hour: "numeric", hourCycle: "h23",
@@ -118,6 +124,10 @@ function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
   if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
+  // Despedidas explícitas podem vir acompanhadas de agradecimento e promessa de retorno.
+  // Não exigir que a última mensagem da Ana contenha uma oferta de ajuda.
+  if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado)[ ,]+)?(?:muito )?obrigad[oa](?: mesmo)?\s+(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
+  if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado) )?(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
   return offeredHelp && /^(?:nao|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|ta bom|beleza|perfeito|resolvido|👍|🙏)$/.test(normalized);
 }
 
@@ -306,7 +316,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -654,6 +664,7 @@ REGRAS:
 - Se não estiver claro se a pessoa já é cliente, pergunte antes de indicar o Financeiro: "O aluno já está matriculado conosco?".
 - Nunca invente informação que não esteja acima. Se não souber → precisa_humano = true.
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
+- Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
 - Para um interesse de matrícula, pergunte naturalmente nome completo do responsável, nome do aluno, ano letivo e série pretendida. O turno é opcional. Preencha cadastro com dados ditos pela família no histórico, sem deduzir nomes, ano ou série. Se faltar algum campo, pergunte apenas o que falta. Nunca diga que já cadastrou: o sistema pedirá confirmação e informará o resultado. O cadastro é de interesse, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria sem tentar cadastrar automaticamente.
 - Se a mensagem atual for "sim" em resposta ao resumo de cadastro enviado por você, classifique como matrícula e mantenha o contexto. O sistema confere os dados no resumo anterior antes de cadastrar.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
@@ -921,6 +932,21 @@ Responda SOMENTE com JSON válido:
       });
     }
 
+    let folderSent = false;
+    if (channel === "whatsapp" && phone && leadId && enviado &&
+        settings.escola_folder_ativo === "true" && requestedSchoolFolder(text) &&
+        !(await employeeAlreadyReplied())) {
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-school-folder`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ leadId, phone }),
+        });
+        const result = await response.json().catch(() => ({}));
+        folderSent = response.ok && result.sent === true;
+        if (!response.ok) console.error("Falha ao compartilhar folder:", response.status, result.error);
+      } catch (error) { console.error("Falha ao compartilhar folder:", error); }
+    }
+
     await supabase.from("activity_log").insert({
       lead_id: leadId,
       activity_type: "agent_triage",
@@ -929,7 +955,7 @@ Responda SOMENTE com JSON válido:
         : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
-      metadata: { assunto, canal: channel, enviado, interesse: triagem.interesse, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
+      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
     });
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
