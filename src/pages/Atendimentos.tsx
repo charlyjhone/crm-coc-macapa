@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
+import { attendancePriority } from "@/lib/attendancePriority";
 
-type Filter = "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
+type Filter = "urgentes" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
+  { key: "urgentes", label: "Urgentes" },
   { key: "aguardando_secretaria", label: "Aguardando secretaria" },
   { key: "matricula", label: "Matrículas" },
   { key: "respondido_agente", label: "Respondidos pelo agente" },
@@ -45,8 +47,9 @@ function Conversation({ lead }: { lead: Atendimento }) {
 
   const finish = async () => {
     try {
-      await update.mutateAsync({ id: lead.id, status: "resolvido" });
-      toast.success("Atendimento concluído");
+      const result = await update.mutateAsync({ id: lead.id, status: "resolvido" });
+      if (["send_failed", "lookup_failed", "claim_failed"].includes(result?.survey || "")) toast.error("Atendimento concluído, mas a pesquisa falhou. Use Verificar pesquisa para tentar novamente.");
+      else toast.success(result?.survey === "sent" ? "Atendimento concluído; pesquisa enviada" : "Atendimento concluído; pesquisa não aplicável ou já enviada");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível concluir o atendimento.");
     }
@@ -55,8 +58,9 @@ function Conversation({ lead }: { lead: Atendimento }) {
   const changeStatus = async (status: LeadStatus) => {
     if (status === lead.status) return;
     try {
-      await updateStatus.mutateAsync({ lead, status });
-      toast.success("Andamento atualizado");
+      const result = await updateStatus.mutateAsync({ lead, status });
+      if (status === "resolvido" && ["send_failed", "lookup_failed", "claim_failed"].includes(result?.survey || "")) toast.error("Andamento atualizado, mas a pesquisa falhou. Use Verificar pesquisa para tentar novamente.");
+      else toast.success(status === "resolvido" && result?.survey === "sent" ? "Andamento atualizado; pesquisa enviada" : "Andamento atualizado");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o andamento.");
     }
@@ -72,11 +76,9 @@ function Conversation({ lead }: { lead: Atendimento }) {
             <p className="mt-1 text-xs text-red-700">Repasse: {lead.handoff_reason}</p>
           )}
         </div>
-        {lead.triage_status !== "resolvido" && (
-          <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
-            Concluir atendimento
-          </Button>
-        )}
+        <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
+          {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Concluir atendimento"}
+        </Button>
       </header>
       <div className="flex flex-wrap items-center gap-3 border-b bg-white px-4 py-3">
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
@@ -129,6 +131,7 @@ export default function Atendimentos() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const counts = useMemo(() => ({
+    urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
     aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
     matricula: (data || []).filter((a) => a.assunto === "matricula").length,
     respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
@@ -136,17 +139,18 @@ export default function Atendimentos() {
     todos: data?.length || 0,
   }), [data]);
   const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
+    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
-  });
+  }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
+    (Date.parse(a.last_inbound_message_at || "") || 0) - (Date.parse(b.last_inbound_message_at || "") || 0));
   const selected = list.find((lead) => lead.id === selectedId)
     || (isValidRequestedFilter || stageFilter ? list[0] ?? null : null);
 
   return (
     <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
       <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp.</p>
+      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. A fila destaca mensagens com possível urgência ou sem resposta há quatro horas.</p>
       {stageFilter && <p className="mt-2 text-sm text-slate-600">Andamento: {stages.find((item) => item.key === stageFilter)?.label}. <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Mostrar todos</button></p>}
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
@@ -168,9 +172,10 @@ export default function Atendimentos() {
             {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhum atendimento nesta lista.</p>}
             {list.map((lead) => (
               <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
-                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${lead.id === selected?.id ? "bg-emerald-50" : ""}`}>
-                <span className="block truncate font-medium">{lead.name}</span>
+                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-600 bg-red-50" : ""} ${lead.id === selected?.id ? "ring-2 ring-inset ring-emerald-400" : ""}`}>
+                <span className="flex items-center gap-2 font-medium"><span className="truncate">{lead.name}</span>{attendancePriority(lead).level >= 3 && <span className="shrink-0 rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">URGENTE!</span>}</span>
                 <span className="block text-xs text-slate-600">{lead.phone || lead.email}</span>
+                {attendancePriority(lead).level > 0 && <span className={`block text-xs ${attendancePriority(lead).level >= 3 ? "font-semibold text-red-700" : "text-amber-700"}`}>{attendancePriority(lead).reason}</span>}
                 <span className="mt-1 block line-clamp-2 text-sm text-slate-600">{lead.triage_summary || lead.last_inbound_message || "Sem resumo"}</span>
               </button>
             ))}
