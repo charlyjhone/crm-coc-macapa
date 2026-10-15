@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAtendimentos, useEnviarWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,11 @@ import { Loader2, Send } from "lucide-react";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { attendancePriority } from "@/lib/attendancePriority";
 
-type Filter = "urgentes" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
+type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
   { key: "urgentes", label: "Urgentes" },
+  { key: "atencao", label: "Atenção" },
+  { key: "novos", label: "Novos" },
   { key: "aguardando_secretaria", label: "Aguardando secretaria" },
   { key: "matricula", label: "Matrículas" },
   { key: "respondido_agente", label: "Respondidos pelo agente" },
@@ -21,10 +23,20 @@ const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
   { key: "em_atendimento", label: "Em atendimento" },
   { key: "em_negociacao", label: "Em negociação" },
-  { key: "matriculado", label: "Matrícula confirmada" },
   { key: "nao_convertido", label: "Não convertido" },
   { key: "resolvido", label: "Resolvido" },
 ];
+
+function isNewContact(lead: Atendimento, now = Date.now()) {
+  const created = Date.parse(lead.created_at);
+  return lead.status === "novo" && Number.isFinite(created) && now - created < 48 * 3_600_000;
+}
+
+function subjectLabel(value: string | null) {
+  if (!value) return "Não classificado";
+  const names: Record<string, string> = { matricula: "Matrícula", documento_declaracao: "Documento / declaração", financeiro: "Financeiro" };
+  return names[value] || value.replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
+}
 
 function Conversation({ lead }: { lead: Atendimento }) {
   const { data: messages, isLoading, isError } = useMensagensAtendimento(lead);
@@ -84,9 +96,11 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
+          {lead.status === "matriculado" && <option value="matriculado" disabled>Matrícula confirmada no funil</option>}
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
-        <span className="text-xs text-slate-600">Assunto: {lead.assunto === "matricula" ? "Matrícula" : lead.assunto || "Não classificado"}</span>
+        <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
+        <Link to="/matriculas" className="text-xs font-medium text-primary underline">Confirmar matrícula no funil do aluno</Link>
       </div>
       <div className="flex max-h-[60vh] min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
@@ -132,6 +146,8 @@ export default function Atendimentos() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const counts = useMemo(() => ({
     urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
+    atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
+    novos: (data || []).filter(isNewContact).length,
     aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
     matricula: (data || []).filter((a) => a.assunto === "matricula").length,
     respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
@@ -139,7 +155,7 @@ export default function Atendimentos() {
     todos: data?.length || 0,
   }), [data]);
   const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
+    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
@@ -150,7 +166,7 @@ export default function Atendimentos() {
   return (
     <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
       <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. A fila destaca mensagens com possível urgência ou sem resposta há quatro horas.</p>
+      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. O vermelho indica uma demanda escolar urgente; o amarelo, atenção por espera; o azul, contato novo.</p>
       {stageFilter && <p className="mt-2 text-sm text-slate-600">Andamento: {stages.find((item) => item.key === stageFilter)?.label}. <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Mostrar todos</button></p>}
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
@@ -172,8 +188,8 @@ export default function Atendimentos() {
             {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhum atendimento nesta lista.</p>}
             {list.map((lead) => (
               <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
-                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-600 bg-red-50" : ""} ${lead.id === selected?.id ? "ring-2 ring-inset ring-emerald-400" : ""}`}>
-                <span className="flex items-center gap-2 font-medium"><span className="truncate">{lead.name}</span>{attendancePriority(lead).level >= 3 && <span className="shrink-0 rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">URGENTE!</span>}</span>
+                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-600 bg-red-50" : attendancePriority(lead).level === 2 ? "border-l-4 border-l-amber-500 bg-amber-50" : isNewContact(lead) ? "border-l-4 border-l-blue-500 bg-blue-50" : ""} ${lead.id === selected?.id ? "ring-2 ring-inset ring-emerald-400" : ""}`}>
+                <span className="flex items-center gap-2 font-medium"><span className="truncate">{lead.name}</span>{attendancePriority(lead).level >= 3 ? <span className="shrink-0 rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">URGENTE!</span> : attendancePriority(lead).level === 2 ? <span className="shrink-0 rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">ATENÇÃO</span> : isNewContact(lead) ? <span className="shrink-0 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">NOVO</span> : null}</span>
                 <span className="block text-xs text-slate-600">{lead.phone || lead.email}</span>
                 {attendancePriority(lead).level > 0 && <span className={`block text-xs ${attendancePriority(lead).level >= 3 ? "font-semibold text-red-700" : "text-amber-700"}`}>{attendancePriority(lead).reason}</span>}
                 <span className="mt-1 block line-clamp-2 text-sm text-slate-600">{lead.triage_summary || lead.last_inbound_message || "Sem resumo"}</span>
