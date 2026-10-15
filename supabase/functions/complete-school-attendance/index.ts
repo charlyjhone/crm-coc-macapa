@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   if (!inbound?.phone || Date.now() - Date.parse(inbound.created_at) > 7 * 86400000)
     return reply({ success: true, survey: "not_applicable" });
   const { data: previous, error: previousError } = await admin.from("whatsapp_messages")
-    .select("id").eq("lead_id", lead.id).eq("direction", "outbound").eq("raw_data->>survey_step", "origin")
+    .select("id").eq("phone", inbound.phone).eq("direction", "outbound").eq("raw_data->>survey_step", "origin")
     .gte("created_at", inbound.created_at).limit(1);
   if (previousError) return reply({ success: true, survey: "lookup_failed" });
   if (previous?.length) return reply({ success: true, survey: "already_sent" });
