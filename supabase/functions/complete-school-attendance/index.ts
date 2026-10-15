@@ -55,8 +55,9 @@ Deno.serve(async (req) => {
     .select("phone, created_at").in("phone", [...new Set([lead.phone, digits])])
     .eq("direction", "inbound").order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (phoneError) return reply({ success: true, survey: "lookup_failed" });
-  const inbound = !linkedInbound || (phoneInbound && Date.parse(phoneInbound.created_at) > Date.parse(linkedInbound.created_at))
-    ? phoneInbound : linkedInbound;
+  const samePhoneLinked = linkedInbound?.phone?.replace(/\D/g, "") === digits ? linkedInbound : null;
+  const inbound = !samePhoneLinked || (phoneInbound && Date.parse(phoneInbound.created_at) > Date.parse(samePhoneLinked.created_at))
+    ? phoneInbound : samePhoneLinked;
   if (!inbound?.phone || Date.now() - Date.parse(inbound.created_at) > 7 * 86400000)
     return reply({ success: true, survey: "not_applicable" });
   const { data: previous, error: previousError } = await admin.from("whatsapp_messages")
