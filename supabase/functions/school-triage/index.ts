@@ -33,7 +33,7 @@ const GREETING_GAP_MS = 8 * 60 * 60 * 1000;
 function requestedSchoolFolder(text: string) {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return /\b(folder|folheto|catalogo|brochura|material de apresentacao)\b/.test(normalized) ||
-    /\b(conhecer mais|saber mais|mais informac(?:ao|oes))\b.{0,35}\b(escola|colegio|coc)\b/.test(normalized);
+    /\b(conhecer(?: mais)?|saber mais|(?:mais )?informac(?:ao|oes))\b.{0,35}\b(escola|colegio|coc)\b/.test(normalized);
 }
 
 function timeOfDayGreeting(now = new Date()) {
