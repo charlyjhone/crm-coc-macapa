@@ -132,7 +132,13 @@ function harness() {
 test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async () => {
   const h = harness();
   assert.equal((await h.send('Quero visitar a escola com meu filho.')).status, 200);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.match(h.state.sent.at(-1).message, /Responsável: Responsável de Teste/);
+  assert.match(h.state.sent.at(-1).message, /Posso cadastrar esse interesse/);
+  h.state.ai.cadastro.aluno = 'Nome inferido incorretamente';
+  await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.enrollment_opportunities[0].student_name, 'Aluno de Teste');
   assert.equal(h.state.rows.school_visits.length, 0);
   assert.match(h.state.sent.at(-1).message, /responda SIM/);
   assert.equal(h.state.rows.ana_followups.length, 0);
@@ -150,6 +156,7 @@ test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async 
 test('resposta diferente de SIM não agenda e repetir SIM não duplica a visita', async () => {
   const h = harness();
   await h.send('Visita');
+  await h.send('SIM');
   await h.send('pode');
   assert.equal(h.state.rows.school_visits.length, 0);
   await h.send('SIM');
@@ -168,6 +175,7 @@ test('data inexistente, passada ou hora inválida não produz proposta', async (
   for (const [date, time] of [['2027-02-30', '15:00'], ['2020-01-01', '15:00'], [visitDate, '25:00']]) {
     const h = harness(); h.state.ai.visita.data = date; h.state.ai.visita.horario = time;
     await h.send('Quero uma visita.');
+    await h.send('SIM');
     assert.doesNotMatch(h.state.sent.at(-1).message, /responda SIM/);
     assert.match(h.state.sent.at(-1).message, /data válida/);
     assert.equal(h.state.rows.school_visits.length, 0);
@@ -177,6 +185,7 @@ test('data inexistente, passada ou hora inválida não produz proposta', async (
 test('data e hora faltantes continuam a coleta após cadastrar a família', async () => {
   const h = harness(); h.state.ai.visita.data = null; h.state.ai.visita.horario = null;
   await h.send('Quero conhecer a escola.');
+  await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
   assert.match(h.state.sent.at(-1).message, /Qual dia e horário/);
   assert.equal(h.state.rows.ana_followups.length, 0);
@@ -201,7 +210,7 @@ test('solicitação explícita de humano não é substituída por proposta autom
 });
 
 test('proposta sem vínculo salvo nunca escolhe outro aluno no SIM', async () => {
-  const h = harness(); await h.send('Visita'); h.state.rows.activity_log.length = 0;
+  const h = harness(); await h.send('Visita'); await h.send('SIM'); h.state.rows.activity_log.length = 0;
   await h.send('SIM');
   assert.equal(h.state.rows.school_visits.length, 0);
   assert.match(h.state.sent.at(-1).message, /Não consegui registrar/);
@@ -220,4 +229,33 @@ test('preview não grava família, visita, atividade nem envia WhatsApp', async 
   assert.equal(h.state.rows.school_visits.length, 0);
   assert.equal(h.state.rows.activity_log.length, 0);
   assert.equal(h.state.sent.length, 0);
+});
+
+
+
+test('cadastro sem visita só grava após conferência; correção exige novo resumo', async () => {
+  const h = harness(); h.state.ai.visita.solicitada = false;
+  await h.send('Quero cadastrar meu filho.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  h.state.ai.cadastro.aluno = 'Aluno Corrigido';
+  await h.send('Não, o nome é Aluno Corrigido.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.match(h.state.sent.at(-1).message, /Aluno: Aluno Corrigido/);
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.enrollment_opportunities[0].student_name, 'Aluno Corrigido');
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+});
+
+test('SIM isolado, sem resumo anterior, não autoriza cadastro', async () => {
+  const h = harness();
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+});
+
+test('secretaria assume depois do resumo e impede cadastro pela Ana', async () => {
+  const h = harness(); await h.send('Quero cadastrar'); h.humanReply();
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
 });
