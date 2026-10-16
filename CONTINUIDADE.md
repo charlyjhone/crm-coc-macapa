@@ -507,3 +507,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Renato informou PDF de 16,5 MB e autorizou limite de 18 MB. Validação e textos da tela ajustados para 18 × 1024 × 1024 bytes.
 - Migration school_folder_limit_18mb aplicada no COC (20261016201551) e Conceito (20261016201552): bucket school-materials com file_size_limit 18874368; privacidade e restrição PDF preservadas.
 - Build de produção aprovado. Alteração da interface incluída na publicação via main. Upload do PDF real e entrega por WhatsApp dependem do teste de Renato; nenhum arquivo ou mensagem foi enviado nesta rodada.
+
+## 52. Ativação do folder da Ana (16/10/2026)
+
+- Renato carregou folder-digital.pdf (17667379 bytes) no COC e pediu envio quando responsáveis solicitarem informações da escola. A chave escola_folder_ativo estava ausente; ativada explicitamente nesta rodada.
+- Identificação ampliada para “informações da escola” e “conhecer a escola”, além dos pedidos de folder/mais informações. Mantidos envio apenas após resposta da Ana, respeito à intervenção humana e bloqueio de repetição em 24 horas.
+- Nenhum envio manual ou reprocessamento de conversa: Renato fará o teste pela próxima mensagem no WhatsApp. Entrega no aparelho ainda não homologada.
