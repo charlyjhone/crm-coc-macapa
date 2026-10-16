@@ -1,0 +1,223 @@
+// Runs the real Edge Function handler with in-memory Supabase and HTTP adapters.
+// No network, credentials, WhatsApp messages or production rows are used.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { test } from 'node:test';
+import ts from 'typescript';
+
+const source = readFileSync(new URL('../supabase/functions/school-triage/index.ts', import.meta.url), 'utf8')
+  .replace(/^import .*;\n/gm, '');
+const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+const visitDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+const defaultTriage = () => ({
+  assunto: 'matricula', interesse: 'alto', cadastro_interesse: true,
+  visita: { solicitada: true, data: visitDate, horario: '15:00' },
+  prioridade: 'normal', motivo_prioridade: 'Família deseja conhecer a escola',
+  precisa_humano: false, motivo_humano: null, resumo: 'Pedido de visita',
+  resposta: 'Vamos combinar a visita.', nome_extraido: null,
+  cadastro: { responsavel: 'Responsável de Teste', aluno: 'Aluno de Teste', ano: 2027, serie: '5º ano', turno: null },
+});
+
+function harness() {
+  let clock = Date.now() - 300000;
+  let serial = 0;
+  let handler;
+  const state = {
+    ai: defaultTriage(), aiCalls: 0, rpcCalls: [], sent: [], sendFails: false,
+    onAi: null, queryError: null,
+    rows: {
+      system_settings: [{ key: 'escola_agente_ativo', value: 'true' }],
+      leads: [{ id: 'lead-1', name: 'Responsável de Teste', phone: '00000000000', status: 'novo', triage_status: 'novo', handoff_at: null }],
+      whatsapp_messages: [], activity_log: [], enrollment_opportunities: [], ana_followups: [], school_visits: [],
+    },
+  };
+  const stamp = () => new Date(clock += 1000).toISOString();
+  const append = (table, row) => {
+    const result = { id: `row-${++serial}`, created_at: stamp(), ...row };
+    state.rows[table].push(result);
+    return result;
+  };
+  function field(row, key) {
+    return key.split(/->>?/).reduce((value, part) => value?.[part], row);
+  }
+  function query(table) {
+    const filters = [];
+    let limit = Infinity, ordering, single = false, operation = 'select', values;
+    const q = {
+      select() { return q; },
+      eq(key, value) { filters.push(row => field(row, key) === value); return q; },
+      gt(key, value) { filters.push(row => field(row, key) > value); return q; },
+      lt(key, value) { filters.push(row => field(row, key) < value); return q; },
+      lte(key, value) { filters.push(row => field(row, key) <= value); return q; },
+      in(key, values) { filters.push(row => values.includes(field(row, key))); return q; },
+      not(key, operator, value) {
+        filters.push(row => operator === 'is' ? field(row, key) != null : !JSON.parse(value.replace('(', '[').replace(')', ']')).includes(field(row, key)));
+        return q;
+      },
+      order(key, options) { ordering = { key, ...options }; return q; },
+      limit(value) { limit = value; return q; },
+      maybeSingle() { single = true; return q; },
+      single() { single = true; return q; },
+      insert(value) { operation = 'insert'; values = value; return q; },
+      update(value) { operation = 'update'; values = value; return q; },
+      then(resolve, reject) {
+        return Promise.resolve().then(() => {
+          if (state.queryError?.(table, operation)) return { data: null, error: { message: 'simulated database error' } };
+          let rows = state.rows[table].filter(row => filters.every(filter => filter(row)));
+          if (operation === 'insert') rows = (Array.isArray(values) ? values : [values]).map(row => append(table, row));
+          if (operation === 'update') rows.forEach(row => Object.assign(row, values));
+          if (ordering) rows.sort((a, b) => String(field(a, ordering.key)).localeCompare(String(field(b, ordering.key))) * (ordering.ascending ? 1 : -1));
+          rows = rows.slice(0, limit).map(row => structuredClone(row));
+          return { data: single ? rows[0] || null : rows, error: null };
+        }).then(resolve, reject);
+      },
+    };
+    return q;
+  }
+  const supabase = {
+    from: query,
+    async rpc(name, args) {
+      if (name === 'verify_school_triage_secret') return { data: true, error: null };
+      state.rpcCalls.push({ name, args });
+      if (name === 'register_ana_enrollment') {
+        let opportunity = state.rows.enrollment_opportunities.find(row => row.student_name === args.p_student_name);
+        const created = !opportunity;
+        if (!opportunity) opportunity = append('enrollment_opportunities', { legacy_lead_id: args.p_lead_id, student_name: args.p_student_name, stage: 'novo_interessado' });
+        return { data: { opportunity_id: opportunity.id, created }, error: null };
+      }
+      if (name === 'register_ana_school_visit') {
+        const opportunity = state.rows.enrollment_opportunities.find(row => row.id === args.p_opportunity_id && row.legacy_lead_id === args.p_lead_id);
+        if (!opportunity) return { data: null, error: { message: 'Opportunity not found' } };
+        let visit = state.rows.school_visits.find(row => row.opportunity_id === args.p_opportunity_id);
+        if (!visit) visit = append('school_visits', { opportunity_id: opportunity.id, scheduled_at: args.p_scheduled_at, status: 'agendada' });
+        opportunity.stage = 'visita_agendada';
+        return { data: visit.id, error: null };
+      }
+      throw Error(`Unexpected RPC: ${name}`);
+    },
+  };
+  async function fakeFetch(url, options) {
+    if (url === 'https://api.openai.com/v1/chat/completions') {
+      state.aiCalls++;
+      state.onAi?.();
+      return Response.json({ choices: [{ message: { content: JSON.stringify(state.ai) } }] });
+    }
+    if (url.endsWith('/functions/v1/send-whatsapp-message')) {
+      if (state.sendFails) return Response.json({ error: 'unavailable' }, { status: 503 });
+      const body = JSON.parse(options.body);
+      state.sent.push(body);
+      append('whatsapp_messages', { phone: body.phone, message: body.message, direction: 'outbound', raw_data: { sender_type: body.senderType } });
+      return Response.json({ success: true });
+    }
+    throw Error(`Unexpected HTTP request: ${url}`);
+  }
+  vm.runInNewContext(compiled, {
+    serve: fn => { handler = fn; }, createClient: () => supabase,
+    Deno: { env: { get: key => ({ SUPABASE_URL: 'https://test.invalid', SUPABASE_SERVICE_ROLE_KEY: 'mock', OPENAI_API_KEY: 'mock' })[key] } },
+    fetch: fakeFetch, Response, Request, AbortSignal, console: { log() {}, error() {} },
+  });
+  const humanReply = () => append('whatsapp_messages', { phone: '00000000000', direction: 'outbound', message: 'A secretaria assumiu.', raw_data: { sender_type: 'human' } });
+  async function send(text, options = {}) {
+    const inbound = append('whatsapp_messages', { phone: '00000000000', direction: 'inbound', message: text, raw_data: {} });
+    const response = await handler(new Request('https://test.invalid', {
+      method: 'POST', headers: { 'x-school-triage-secret': 'mock', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: inbound.phone, lead_id: 'lead-1', message_id: inbound.id, text, ...options }),
+    }));
+    return { status: response.status, body: await response.json() };
+  }
+  return { state, send, humanReply };
+}
+
+test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async () => {
+  const h = harness();
+  assert.equal((await h.send('Quero visitar a escola com meu filho.')).status, 200);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 0);
+  assert.match(h.state.sent.at(-1).message, /responda SIM/);
+  assert.equal(h.state.rows.ana_followups.length, 0);
+  // Mesmo que a IA troque o nome do aluno, a confirmação usa o ID da proposta.
+  h.state.ai.cadastro.aluno = 'Outro Aluno';
+  assert.equal((await h.send('SIM')).status, 200);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 1);
+  assert.equal(h.state.rows.school_visits[0].status, 'agendada');
+  assert.equal(h.state.rows.enrollment_opportunities[0].stage, 'visita_agendada');
+  assert.match(h.state.sent.at(-1).message, /secretaria vai conferir/);
+  assert.match(h.state.rows.leads[0].handoff_reason, /Pedido de visita registrado/);
+});
+
+test('resposta diferente de SIM não agenda e repetir SIM não duplica a visita', async () => {
+  const h = harness();
+  await h.send('Visita');
+  await h.send('pode');
+  assert.equal(h.state.rows.school_visits.length, 0);
+  await h.send('SIM');
+  await h.send('SIM');
+  assert.equal(h.state.rows.school_visits.length, 1);
+});
+
+test('dados incompletos perguntam somente o dado faltante', async () => {
+  const h = harness(); h.state.ai.cadastro.aluno = null;
+  await h.send('Meu nome é Responsável de Teste.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.match(h.state.sent.at(-1).message, /nome do aluno/);
+});
+
+test('data inexistente, passada ou hora inválida não produz proposta', async () => {
+  for (const [date, time] of [['2027-02-30', '15:00'], ['2020-01-01', '15:00'], [visitDate, '25:00']]) {
+    const h = harness(); h.state.ai.visita.data = date; h.state.ai.visita.horario = time;
+    await h.send('Quero uma visita.');
+    assert.doesNotMatch(h.state.sent.at(-1).message, /responda SIM/);
+    assert.match(h.state.sent.at(-1).message, /data válida/);
+    assert.equal(h.state.rows.school_visits.length, 0);
+  }
+});
+
+test('data e hora faltantes continuam a coleta após cadastrar a família', async () => {
+  const h = harness(); h.state.ai.visita.data = null; h.state.ai.visita.horario = null;
+  await h.send('Quero conhecer a escola.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.match(h.state.sent.at(-1).message, /Qual dia e horário/);
+  assert.equal(h.state.rows.ana_followups.length, 0);
+});
+
+test('secretaria tem prioridade antes e durante a geração da resposta', async () => {
+  const before = harness(); before.humanReply();
+  await before.send('Quero visitar.');
+  assert.equal(before.state.aiCalls, 0); assert.equal(before.state.sent.length, 0);
+  const during = harness(); during.state.onAi = during.humanReply;
+  await during.send('Quero visitar.');
+  assert.equal(during.state.rows.enrollment_opportunities.length, 0);
+  assert.equal(during.state.sent.length, 0);
+});
+
+test('solicitação explícita de humano não é substituída por proposta automática', async () => {
+  const h = harness(); h.state.ai.precisa_humano = true;
+  h.state.ai.resposta = 'A secretaria vai continuar o atendimento.';
+  await h.send('Quero falar com uma pessoa para marcar a visita.');
+  assert.doesNotMatch(h.state.sent.at(-1).message, /responda SIM/);
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
+});
+
+test('proposta sem vínculo salvo nunca escolhe outro aluno no SIM', async () => {
+  const h = harness(); await h.send('Visita'); h.state.rows.activity_log.length = 0;
+  await h.send('SIM');
+  assert.equal(h.state.rows.school_visits.length, 0);
+  assert.match(h.state.sent.at(-1).message, /Não consegui registrar/);
+});
+
+test('falha de envio não registra proposta como entregue', async () => {
+  const h = harness(); h.state.sendFails = true;
+  await h.send('Visita');
+  assert.equal(h.state.rows.activity_log.at(-1).metadata.visit_proposal, null);
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
+});
+
+test('preview não grava família, visita, atividade nem envia WhatsApp', async () => {
+  const h = harness(); await h.send('Visita', { action: 'preview' });
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.equal(h.state.rows.school_visits.length, 0);
+  assert.equal(h.state.rows.activity_log.length, 0);
+  assert.equal(h.state.sent.length, 0);
+});
