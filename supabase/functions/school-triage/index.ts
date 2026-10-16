@@ -54,6 +54,7 @@ interface Triagem {
   assunto: Assunto;
   interesse: "alto" | "medio" | "baixo" | "indefinido";
   cadastro_interesse: boolean;
+  visita: { solicitada: boolean; data: string | null; horario: string | null };
   prioridade: "urgente" | "atencao" | "normal" | "externo";
   motivo_prioridade: string;
   precisa_humano: boolean;
@@ -104,6 +105,31 @@ function confirmedDraftFromReply(message: string) {
 
 function isExplicitConfirmation(text: string) {
   return /^(?:sim|sim,? pode cadastrar|pode|pode sim|confirmo|confirmado|correto|isso mesmo|está correto|ta correto|pode cadastrar)[.!\s]*$/i.test(text.trim());
+}
+
+function isVisitConfirmation(text: string) {
+  return /^sim[.!\s]*$/i.test(text.trim());
+}
+
+function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
+  if (!c?.responsavel || c.responsavel.trim().split(/\s+/).length < 2) return "Qual é o nome completo do responsável?";
+  if (!c.aluno?.trim()) return "Qual é o nome do aluno?";
+  return "Qual é a série pretendida?";
+}
+
+function visitDateTime(date: string | null, time: string | null) {
+  if (!date || !time || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+  const local = `${date}T${time}:00-03:00`; // Escola em Macapá (UTC-3).
+  const instant = new Date(local);
+  if (Number.isNaN(instant.getTime()) ||
+      new Date(instant.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10) !== date ||
+      instant.getTime() < Date.now() + 60 * 60 * 1000) return null;
+  return { local, date, time };
+}
+
+function pendingVisit(message: string) {
+  const match = message.match(/Para registrar sua visita em (\d{4}-\d{2}-\d{2}) às (\d{2}:\d{2}) \(horário de Macapá\), responda SIM\. A secretaria confirmará a disponibilidade\./);
+  return match ? visitDateTime(match[1], match[2]) : null;
 }
 
 function json(body: unknown, status = 200) {
@@ -573,13 +599,14 @@ serve(async (req) => {
 
     const employeeAlreadyReplied = async () => {
       if (channel !== "whatsapp" || !phone || !inboundCreatedAt) return false;
-      const { data: outbound } = await supabase
+      const { data: outbound, error } = await supabase
         .from("whatsapp_messages")
         .select("id, message, raw_data")
         .eq("phone", phone)
         .eq("direction", "outbound")
         .gt("created_at", inboundCreatedAt)
         .limit(20);
+      if (error) throw new Error("concurrent_human_check_failed");
       return (outbound || []).some((m: any) => !isAnaOutbound(m));
     };
 
@@ -663,7 +690,7 @@ ${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : "VA
 REGRAS:
 - Assuntos "curriculo", "horario" e "localizacao": responda com a informação oficial e encerre com cordialidade. precisa_humano = false.
 - Assunto "matricula": você pode explicar o processo e informar os valores acima. Se a família pedir falar com uma pessoa, negociar, pedir desconto, tratar de caso específico da criança, documentos, vaga em turma específica, ou fizer qualquer pergunta que não esteja nas informações oficiais → precisa_humano = true.
-- Quando perguntarem pelos valores de 2027 ainda não cadastrados, use como referência: "Os valores para 2027 estarão disponíveis a partir de novembro. 😊 Se você quiser, será um prazer receber sua família para uma visita! Assim, vocês poderão conhecer nossa estrutura, as ferramentas que utilizamos e as novidades que estamos preparando para o próximo ano. Posso anotar seu interesse para entrarmos em contato quando os valores forem divulgados?" Para a informação geral, precisa_humano = false. Se a família aceitar o contato posterior ou pedir agendamento, precisa_humano = true para a secretaria registrar e acompanhar.\n- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são da SECRETARIA, com exceção da previsão geral de divulgação de 2027 acima. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
+- Quando perguntarem pelos valores de 2027 ainda não cadastrados, use como referência: "Os valores para 2027 estarão disponíveis a partir de novembro. 😊 Se você quiser, será um prazer receber sua família para uma visita! Assim, vocês poderão conhecer nossa estrutura, as ferramentas que utilizamos e as novidades que estamos preparando para o próximo ano. Posso anotar seu interesse para entrarmos em contato quando os valores forem divulgados?" Para a informação geral, precisa_humano = false. Se a família aceitar o contato posterior ou pedir agendamento, colete os dados necessários; a secretaria acompanha a disponibilidade da visita.\n- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são da SECRETARIA, com exceção da previsão geral de divulgação de 2027 acima. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
 - O FINANCEIRO atende somente famílias que já são clientes/alunos matriculados, e apenas em assuntos posteriores à matrícula, como mensalidade vencida, segunda via, pagamento não identificado ou negociação de débito existente. Só forneça o contato do Financeiro nesses casos.
 - Quando a pessoa confirmar que já é cliente e trouxer um desses assuntos posteriores à matrícula, classifique como "financeiro", informe a orientação oficial e use precisa_humano = false se a dúvida estiver totalmente respondida.
 - Se não estiver claro se a pessoa já é cliente, pergunte antes de indicar o Financeiro: "O aluno já está matriculado conosco?".
@@ -672,6 +699,7 @@ REGRAS:
 - Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
 - Se a família demonstrar interesse em uma NOVA matrícula e concordar em informar os dados para acompanhamento, marque cadastro_interesse=true. Isso inclui quando ela responde às perguntas que você fez para cadastrar o interesse. Marque false para aluno já matriculado, fornecedor, consulta genérica sem interesse ou dados de terceiros citados incidentalmente.
 - Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema cadastrará automaticamente a família, aluno e oportunidade; não peça uma segunda confirmação nem diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
+- Se a família pedir uma visita, marque visita.solicitada=true, colete dia/mês/ano e hora exatos no horário de Macapá. Só preencha data (AAAA-MM-DD) e horario (HH:mm) quando a família os informou explicitamente; não invente horário ou disponibilidade, não diga que a visita foi confirmada pela escola. Para visita, peça os dados de responsável, aluno e série necessários para o cadastro. Se faltar algo, pergunte naturalmente apenas o que falta. Enquanto estiver colhendo dados, não encaminhe à secretaria só por causa do pedido de visita.
 - Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. O sistema ainda aceita confirmações antigas.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
@@ -682,7 +710,7 @@ REGRAS:
 - Classifique o TEOR da última mensagem em prioridade. "urgente" somente para risco à integridade/segurança, prazo escolar iminente ou matrícula/vaga/documento com necessidade concreta de ação humana rápida; nesses casos, marque precisa_humano=true. "atencao" para dúvida escolar pendente que exige acompanhamento, sem urgência concreta. "normal" para conversa comum já respondível. "externo" para fornecedor, operadora, publicidade ou contato sem relação com atendimento de famílias; uma mensagem antiga ou um nome de empresa não a torna urgente. Não atribua urgência apenas pelo tempo decorrido: a interface calcula a espera. Dê motivo curto e verificável, sem inventar prazo. Em caso de dúvida, escolha "atencao".
 
 Responda SOMENTE com JSON válido:
-{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","cadastro_interesse":true|false,"prioridade":"urgente|atencao|normal|externo","motivo_prioridade":"motivo curto","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
+{"assunto":"matricula|financeiro|curriculo|horario|localizacao|outros","interesse":"alto|medio|baixo|indefinido","cadastro_interesse":true|false,"visita":{"solicitada":true|false,"data":"AAAA-MM-DD ou null","horario":"HH:mm ou null"},"prioridade":"urgente|atencao|normal|externo","motivo_prioridade":"motivo curto","precisa_humano":true|false,"motivo_humano":"texto curto ou null","resumo":"1 frase sobre o que a pessoa quer","resposta":"mensagem a enviar","nome_extraido":"nome real se a pessoa se apresentou nesta mensagem, ou null","cadastro":{"responsavel":"nome completo ou null","aluno":"nome ou null","ano":2027,"serie":"série ou null","turno":"manhã|tarde|integral ou null"}}`;
 
     const userPrompt = `Histórico recente da conversa:\n${historico || "(sem histórico)"}\n\nÚltima mensagem recebida:\n${text}`;
 
@@ -707,6 +735,7 @@ Responda SOMENTE com JSON válido:
                 assunto: { type: "string", enum: [...ASSUNTOS] },
                 interesse: { type: "string", enum: ["alto", "medio", "baixo", "indefinido"] },
                 cadastro_interesse: { type: "boolean" },
+                visita: { type: "object", properties: { solicitada: { type: "boolean" }, data: { type: ["string", "null"] }, horario: { type: ["string", "null"] } }, required: ["solicitada", "data", "horario"], additionalProperties: false },
                 prioridade: { type: "string", enum: ["urgente", "atencao", "normal", "externo"] },
                 motivo_prioridade: { type: "string" },
                 precisa_humano: { type: "boolean" },
@@ -727,7 +756,7 @@ Responda SOMENTE com JSON válido:
                   additionalProperties: false,
                 },
               },
-              required: ["assunto", "interesse", "cadastro_interesse", "prioridade", "motivo_prioridade", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
+              required: ["assunto", "interesse", "cadastro_interesse", "visita", "prioridade", "motivo_prioridade", "precisa_humano", "motivo_humano", "resumo", "resposta", "nome_extraido", "cadastro"],
               additionalProperties: false,
             },
           },
@@ -761,6 +790,7 @@ Responda SOMENTE com JSON válido:
     if (typeof triagem.resposta !== "string" || !triagem.resposta.trim() ||
         typeof triagem.precisa_humano !== "boolean" ||
         typeof triagem.cadastro_interesse !== "boolean" ||
+        typeof triagem.visita?.solicitada !== "boolean" ||
         !ASSUNTOS.includes(triagem.assunto) ||
         !["urgente", "atencao", "normal", "externo"].includes(triagem.prioridade) ||
         !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
@@ -777,13 +807,35 @@ Responda SOMENTE com JSON válido:
       ? enrollmentDraft(triagem.cadastro) : null;
     let shouldRegister = !!draft;
     let legacyConfirmation = false;
-    if (phone && !handoffPendente && channel === "whatsapp") {
-      const { data: previous } = await supabase.from("whatsapp_messages")
-        .select("message, raw_data").eq("phone", phone).eq("direction", "outbound")
+    let confirmedVisit: ReturnType<typeof visitDateTime> = null;
+    let confirmedOpportunityId: string | null = null;
+    let visitProposal: { opportunity_id: string; date: string; time: string } | null = null;
+    if (phone && channel === "whatsapp") {
+      let previousQuery = supabase.from("whatsapp_messages")
+        .select("message, raw_data, created_at").eq("phone", phone).eq("direction", "outbound");
+      if (inboundCreatedAt) previousQuery = previousQuery.lt("created_at", inboundCreatedAt);
+      const { data: previous, error: previousError } = await previousQuery
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (previousError) throw new Error("visit_confirmation_lookup_failed");
       const confirmedDraft = previous && isAnaOutbound(previous)
         ? confirmedDraftFromReply(previous.message || "") : null;
-      if (confirmedDraft && isExplicitConfirmation(text)) {
+      confirmedVisit = previous && isAnaOutbound(previous) && isVisitConfirmation(text)
+        ? pendingVisit(previous.message || "") : null;
+      if (confirmedVisit && leadId) {
+        const { data: proposalLog, error: proposalError } = await supabase.from("activity_log")
+          .select("metadata, created_at").eq("lead_id", leadId).eq("source", "school-triage")
+          .not("metadata->>visit_proposal", "is", null)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (proposalError) throw new Error("visit_proposal_lookup_failed");
+        const proposal = proposalLog?.metadata?.visit_proposal;
+        if (proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
+            typeof proposal.opportunity_id === "string") confirmedOpportunityId = proposal.opportunity_id;
+        // A confirmação pertence ao aluno da proposta, nunca a um novo cadastro inferido pela IA.
+        shouldRegister = false;
+        draft = null;
+        assunto = "matricula";
+      }
+      if (!handoffPendente && confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
         legacyConfirmation = true;
@@ -804,6 +856,12 @@ Responda SOMENTE com JSON válido:
       }
     }
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
+    const proposedVisit = !confirmedVisit && triagem.visita.solicitada
+      ? visitDateTime(triagem.visita.data, triagem.visita.horario) : null;
+    if (confirmedVisit) {
+      // A secretaria valida disponibilidade; a confirmação da família apenas autoriza o registro.
+      precisaHumano = true;
+    }
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
@@ -818,6 +876,8 @@ Responda SOMENTE com JSON válido:
         nome_extraido: triagem.nome_extraido,
         cadastro_pronto: !!draft,
         cadastro_automatico: shouldRegister,
+        visita_proposta: !!proposedVisit,
+        visita_confirmada_pela_familia: !!confirmedVisit,
       });
     }
 
@@ -861,11 +921,51 @@ Responda SOMENTE com JSON válido:
             : "Seu interesse já está registrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
         }
       }
-      if (!registration || registration.created || legacyConfirmation) {
+      if (!registration || legacyConfirmation || (registration.created && !triagem.visita.solicitada)) {
         precisaHumano = true;
         if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
       }
     }
+    let visitId: string | null = null;
+    if (confirmedVisit && leadId && channel === "whatsapp") {
+      if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_visit", lead_id: leadId });
+      if (confirmedOpportunityId) {
+        const { data, error } = await supabase.rpc("register_ana_school_visit", {
+          p_lead_id: leadId, p_opportunity_id: confirmedOpportunityId,
+          p_scheduled_at: confirmedVisit.local,
+        });
+        if (error) console.error("Falha ao registrar visita pela Ana:", error.message);
+        else visitId = data;
+      }
+      resposta = visitId
+        ? `Anotei o pedido de visita para ${confirmedVisit.date.split("-").reverse().join("/")} às ${confirmedVisit.time}. A secretaria vai conferir a disponibilidade e confirmar o horário com você.`
+        : "Não consegui registrar a visita agora. Encaminhei seu pedido à secretaria para conferir a data e combinar o horário com você.";
+    } else if (triagem.visita.solicitada && !precisaHumano && channel === "whatsapp" && leadId) {
+      let opportunityId = registration?.opportunity_id || null;
+      let ambiguousOpportunity = false;
+      if (!opportunityId) {
+        const { data: existing, error: opportunityError } = await supabase.from("enrollment_opportunities")
+          .select("id").eq("legacy_lead_id", leadId).not("stage", "in", '("matriculado","perdido")')
+          .limit(2);
+        if (opportunityError) throw new Error("visit_opportunity_lookup_failed");
+        if (existing?.length === 1) opportunityId = existing[0].id;
+        ambiguousOpportunity = (existing?.length || 0) > 1;
+      }
+      if (opportunityId && proposedVisit) {
+        resposta = `Para registrar sua visita em ${proposedVisit.date} às ${proposedVisit.time} (horário de Macapá), responda SIM. A secretaria confirmará a disponibilidade.`;
+        visitProposal = { opportunity_id: opportunityId, date: proposedVisit.date, time: proposedVisit.time };
+      } else if (opportunityId) {
+        resposta = triagem.visita.data && triagem.visita.horario
+          ? "Preciso de uma data válida e de um horário com pelo menos uma hora de antecedência. Qual dia e horário você prefere para a visita?"
+          : "Qual dia e horário você prefere para a visita? Informe a data completa e o horário de Macapá; a secretaria vai conferir a disponibilidade.";
+      } else if (ambiguousOpportunity) {
+        precisaHumano = true;
+        resposta = "Há mais de um interesse cadastrado para sua família. A secretaria vai conferir para qual aluno registrar a visita e combinar o horário com você.";
+      } else {
+        resposta = `Para anotar sua visita, preciso completar os dados da família. ${missingEnrollmentQuestion(triagem.cadastro)}`;
+      }
+    }
+    if ((confirmedVisit || proposedVisit) && deveSaudar) resposta = withGreeting(resposta, nomeReal);
     if (resposta) {
       try {
         if (channel === "whatsapp" && phone) {
@@ -920,9 +1020,11 @@ Responda SOMENTE com JSON válido:
     } else if (precisaHumano) {
       update.triage_status = "aguardando_secretaria";
       update.resolved_at = null;
-      if (!handoffPendente) {
-        update.handoff_at = now;
-        update.handoff_reason = shouldRegister
+      if (!handoffPendente || confirmedVisit) {
+        update.handoff_at = handoffPendente ? lead?.handoff_at || now : now;
+        update.handoff_reason = confirmedVisit
+          ? visitId ? "Pedido de visita registrado; secretaria deve confirmar disponibilidade" : "Pedido de visita exige revisão da secretaria"
+          : proposedVisit ? "Visita proposta à família; aguardando confirmação e disponibilidade" : shouldRegister
           ? registration?.created ? "Interesse cadastrado pela Ana para acompanhamento" : !registration ? "Cadastro automático precisa de revisão" : triagem.motivo_humano || "Interesse já cadastrado"
           : triagem.motivo_humano || "Pergunta fora das informações padrão";
       }
@@ -966,7 +1068,7 @@ Responda SOMENTE com JSON válido:
       } catch (error) { console.error("Falha ao compartilhar folder:", error); }
     }
 
-    await supabase.from("activity_log").insert({
+    const { error: activityError } = await supabase.from("activity_log").insert({
       lead_id: leadId,
       activity_type: "agent_triage",
       description: precisaHumano
@@ -974,8 +1076,9 @@ Responda SOMENTE com JSON válido:
         : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
-      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, prioridade: triagem.prioridade, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id },
+      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, prioridade: triagem.prioridade, resumo: triagem.resumo, opportunity_id: confirmedOpportunityId || registration?.opportunity_id, visit_id: visitId, visit_proposal: enviado ? visitProposal : null },
     });
+    if (activityError && visitProposal) throw new Error("visit_proposal_log_failed");
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
   } catch (error: any) {
