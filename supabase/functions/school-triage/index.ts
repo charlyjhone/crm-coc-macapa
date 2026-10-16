@@ -688,6 +688,7 @@ ${escolaInfo}
 ${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : "VALORES: ainda não cadastrados. Para perguntas gerais sobre os valores de 2027, informe que estarão disponíveis a partir de novembro, convide para conhecer a escola nesse período e pergunte se deseja registrar interesse para contato. Não informe preços nem prometa agendamento automático. Para pedidos de preço exato ou valores de outros anos, marque precisa_humano = true e encaminhe à secretaria."}
 
 REGRAS:
+- PRIORIDADE PARA MATRÍCULA: não ofereça contato da coordenação para tratar de matrícula, vagas ou documentação. A secretaria resolve a continuidade. Quando explicar as etapas, turnos e matrícula do 8º ano no COC Macapá Norte, use esta resposta e termine exatamente no ponto final, sem perguntas ou complementos: "O COC Macapá Norte atende da Educação Infantil ao Ensino Médio, com turmas do Maternal ao 7º ano nos turnos manhã e tarde, e do 8º ano à 3ª série do Ensino Médio somente no turno da manhã. A matrícula para o 8º ano depende da disponibilidade de vaga e é feita presencialmente na secretaria, com a documentação necessária." Para esse caso, precisa_humano=true. Esta regra prevalece sobre a orientação de anunciar o encaminhamento e oferecer ajuda abaixo.
 - Assuntos "curriculo", "horario" e "localizacao": responda com a informação oficial e encerre com cordialidade. precisa_humano = false.
 - Assunto "matricula": você pode explicar o processo e informar os valores acima. Se a família pedir falar com uma pessoa, negociar, pedir desconto, tratar de caso específico da criança, documentos, vaga em turma específica, ou fizer qualquer pergunta que não esteja nas informações oficiais → precisa_humano = true.
 - Quando perguntarem pelos valores de 2027 ainda não cadastrados, use como referência: "Os valores para 2027 estarão disponíveis a partir de novembro. 😊 Se você quiser, será um prazer receber sua família para uma visita! Assim, vocês poderão conhecer nossa estrutura, as ferramentas que utilizamos e as novidades que estamos preparando para o próximo ano. Posso anotar seu interesse para entrarmos em contato quando os valores forem divulgados?" Para a informação geral, precisa_humano = false. Se a família aceitar o contato posterior ou pedir agendamento, colete os dados necessários; a secretaria acompanha a disponibilidade da visita.\n- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são da SECRETARIA, com exceção da previsão geral de divulgação de 2027 acima. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
@@ -862,7 +863,13 @@ Responda SOMENTE com JSON válido:
       // A secretaria valida disponibilidade; a confirmação da família apenas autoriza o registro.
       precisaHumano = true;
     }
-    if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
+    const secretariaContinuaMatricula = assunto === "matricula" && precisaHumano;
+    if (secretariaContinuaMatricula) {
+      resposta = removeRepeatedHelpOffer(resposta);
+      const fimOrientacao = resposta.match(/A matrícula para o 8º ano depende da disponibilidade de vaga e é feita presencialmente na secretaria, com a documentação necessária\./i);
+      if (fimOrientacao?.index !== undefined) resposta = resposta.slice(0, fimOrientacao.index + fimOrientacao[0].length);
+    }
+    if (precisaHumano && !secretariaContinuaMatricula && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta)) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
     if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
@@ -1043,7 +1050,7 @@ Responda SOMENTE com JSON válido:
     const { error: updateError } = await supabase.from("leads").update(update).eq("id", leadId!);
     if (updateError) throw new Error("triage_update_failed");
 
-    if (channel === "whatsapp" && phone && precisaHumano && !handoffPendente && enviado) {
+    if (channel === "whatsapp" && phone && precisaHumano && !secretariaContinuaMatricula && !handoffPendente && enviado) {
       await supabase.from("ana_followups").insert({
         lead_id: leadId,
         phone,
