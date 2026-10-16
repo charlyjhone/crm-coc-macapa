@@ -520,3 +520,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Renato aprovou manter a explicação das etapas/turnos e a frase de matrícula do 8º ano até “com a documentação necessária.”, encerrando ali. Não oferecer coordenação nem pergunta adicional; secretaria continua o caso.
 - school-triage v61 ACTIVE no COC; fonte publicada conferida contra GitHub (código 3ebc605). Prompt inclui texto aprovado, proíbe encaminhar matrícula à coordenação; respostas de matrícula com handoff não recebem oferta automática de ajuda nem novo follow-up de cinco minutos. Corte determinístico após a frase aprovada quando presente na resposta de matrícula com handoff.
 - Verificação isolada com resposta original e complementos passou, preservando exatamente o texto aprovado. Não houve envio de WhatsApp nem teste completo de geração nesta rodada; validar na próxima conversa controlada de Renato. Conceito não foi republicado.
+
+
+## 54. Correção da preferência de encerramento (16/10/2026)
+
+- Renato esclareceu que “Posso ajudar em algo mais?” pode permanecer. A restrição é encaminhar matrícula, vagas e documentação à coordenação: esses assuntos permanecem com a secretaria.
+- Publicada school-triage v62 ACTIVE no COC, fonte conferida após publicação. Oferta de ajuda e follow-up voltaram às condições anteriores; mantida a remoção de complementos após a frase aprovada antes de adicionar a oferta de ajuda. Prompt atualizado para permitir ajuda e impedir indicação da coordenação nesse contexto. Esta preferência substitui a restrição de encerramento da seção 53. Sem envio manual de WhatsApp.
