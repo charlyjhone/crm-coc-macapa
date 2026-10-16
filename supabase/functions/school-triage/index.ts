@@ -92,7 +92,7 @@ function enrollmentDraft(c: Triagem["cadastro"]) {
 }
 
 function confirmationText(c: NonNullable<ReturnType<typeof enrollmentDraft>>) {
-  return `Para cadastrar o interesse, confirme estes dados:\nResponsável: ${c.responsible}\nAluno: ${c.student}\nAno letivo: ${c.year}\nSérie: ${c.grade}\nTurno: ${c.shift || "não informado"}\nPosso cadastrar esse interesse no CRM?`;
+  return `Para cadastrar o interesse, confirme estes dados:\nResponsável: ${c.responsible}\nAluno: ${c.student}\nAno letivo: ${c.year}\nSérie: ${c.grade}\nTurno: ${c.shift || "não informado"}\nPosso cadastrar esse interesse no CRM? Responda SIM se estiver tudo certo ou informe o que precisa corrigir.`;
 }
 
 function confirmedDraftFromReply(message: string) {
@@ -100,11 +100,11 @@ function confirmedDraftFromReply(message: string) {
   if (!match) return null;
   const draft = enrollmentDraft({ responsavel: match[1], aluno: match[2],
     ano: Number(match[3]), serie: match[4], turno: match[5] === "não informado" ? null : match[5] });
-  return draft && message.includes(confirmationText(draft)) ? draft : null;
+  return draft && confirmationText(draft).startsWith(match[0]) ? draft : null;
 }
 
 function isExplicitConfirmation(text: string) {
-  return /^(?:sim|sim,? pode cadastrar|pode|pode sim|confirmo|confirmado|correto|isso mesmo|está correto|ta correto|pode cadastrar)[.!\s]*$/i.test(text.trim());
+  return /^(?:sim|sim,? pode cadastrar|sim,? (?:está |esta )?tudo (?:certo|correto)|tudo certo|os dados estão corretos|pode|pode sim|confirmo|confirmado|correto|isso mesmo|está correto|ta correto|pode cadastrar)[.!\s]*$/i.test(text.trim());
 }
 
 function isVisitConfirmation(text: string) {
@@ -699,9 +699,9 @@ REGRAS:
 - Se a pessoa fizer um pedido amplo, como "quero mais informações da escola", não encaminhe imediatamente. Faça uma pergunta curta para identificar série, turno ou assunto, classifique como "matricula" quando houver interesse escolar e use precisa_humano = false enquanto estiver qualificando.
 - Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
 - Se a família demonstrar interesse em uma NOVA matrícula e concordar em informar os dados para acompanhamento, marque cadastro_interesse=true. Isso inclui quando ela responde às perguntas que você fez para cadastrar o interesse. Marque false para aluno já matriculado, fornecedor, consulta genérica sem interesse ou dados de terceiros citados incidentalmente.
-- Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema cadastrará automaticamente a família, aluno e oportunidade; não peça uma segunda confirmação nem diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
+- Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema enviará um resumo para a família conferir. Só cadastrará a família, aluno e oportunidade após confirmação explícita em resposta ao resumo. Se a família corrigir algum dado, atualize o resumo e aguarde nova confirmação. Nunca diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
 - Se a família pedir uma visita, marque visita.solicitada=true, colete dia/mês/ano e hora exatos no horário de Macapá. Só preencha data (AAAA-MM-DD) e horario (HH:mm) quando a família os informou explicitamente; não invente horário ou disponibilidade, não diga que a visita foi confirmada pela escola. Para visita, peça os dados de responsável, aluno e série necessários para o cadastro. Se faltar algo, pergunte naturalmente apenas o que falta. Enquanto estiver colhendo dados, não encaminhe à secretaria só por causa do pedido de visita.
-- Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. O sistema ainda aceita confirmações antigas.
+- Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. Mantenha também o pedido de visita e sua data/horário presentes no histórico. Confirmar o cadastro não confirma a visita; ela tem uma etapa separada. Enquanto estiver coletando/conferindo dados ou combinando a visita, use precisa_humano=false, salvo pedido explícito de pessoa, urgência ou dúvida que exija a secretaria.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
@@ -806,8 +806,9 @@ Responda SOMENTE com JSON válido:
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
-    let shouldRegister = !!draft;
-    let legacyConfirmation = false;
+    // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
+    let shouldRegister = false;
+    let enrollmentConfirmed = false;
     let confirmedVisit: ReturnType<typeof visitDateTime> = null;
     let confirmedOpportunityId: string | null = null;
     let visitProposal: { opportunity_id: string; date: string; time: string } | null = null;
@@ -839,7 +840,7 @@ Responda SOMENTE com JSON válido:
       if (!handoffPendente && confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
-        legacyConfirmation = true;
+        enrollmentConfirmed = true;
         assunto = "matricula";
       }
     }
@@ -856,6 +857,8 @@ Responda SOMENTE com JSON válido:
         resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
       }
     }
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !handoffPendente;
+    if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = !confirmedVisit && triagem.visita.solicitada
       ? visitDateTime(triagem.visita.data, triagem.visita.horario) : null;
@@ -922,13 +925,13 @@ Responda SOMENTE com JSON válido:
             .eq("source_channel", "ana_whatsapp");
           if (attributionError) console.error("Falha ao vincular origem à oportunidade:", attributionError.message);
         }
-        if (registration.created || legacyConfirmation) {
+        if (registration.created || enrollmentConfirmed) {
           resposta = registration.created
             ? "Cadastrei seu interesse para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos."
             : "Seu interesse já está registrado para a secretaria acompanhar. A matrícula ainda não está confirmada; nossa equipe vai orientar os próximos passos.";
         }
       }
-      if (!registration || legacyConfirmation || (registration.created && !triagem.visita.solicitada)) {
+      if (!registration || !triagem.visita.solicitada) {
         precisaHumano = true;
         if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
       }
@@ -947,7 +950,7 @@ Responda SOMENTE com JSON válido:
       resposta = visitId
         ? `Anotei o pedido de visita para ${confirmedVisit.date.split("-").reverse().join("/")} às ${confirmedVisit.time}. A secretaria vai conferir a disponibilidade e confirmar o horário com você.`
         : "Não consegui registrar a visita agora. Encaminhei seu pedido à secretaria para conferir a data e combinar o horário com você.";
-    } else if (triagem.visita.solicitada && !precisaHumano && channel === "whatsapp" && leadId) {
+    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation && !precisaHumano && channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
       let ambiguousOpportunity = false;
       if (!opportunityId) {
@@ -1099,3 +1102,4 @@ Responda SOMENTE com JSON válido:
     return json({ error: error?.message || "unknown" }, 500);
   }
 });
+

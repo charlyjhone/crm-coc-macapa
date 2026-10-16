@@ -28,6 +28,30 @@ serve(async (req) => {
       );
     }
 
+
+    // Nome obtido da sessão validada no servidor, nunca do corpo enviado pelo navegador.
+    let operatorId: string | null = null;
+    let operatorName: string | null = null;
+    if (!authorization.internal) {
+      const token = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") || "")?.[1];
+      const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: operator, error: operatorError } = await authClient.auth.getUser(token);
+      if (operatorError || !operator.user) {
+        return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders });
+      }
+      operatorId = operator.user.id;
+      const rawName = operator.user.user_metadata?.full_name;
+      operatorName = typeof rawName === 'string'
+        ? rawName.replace(/[\r\n*_~\x60]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+        : '';
+      if (!operatorName) {
+        return new Response(JSON.stringify({ error: 'Cadastre seu nome em Meu perfil antes de enviar mensagens.' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+    const outboundMessage = senderType === 'human' && operatorName
+      ? '*' + operatorName + ' — Secretaria COC*\n' + message.trim()
+      : message;
+
     const surveyOptions = surveyStep === 'origin' || surveyStep === 'rating';
     if ((optionList || surveyStep) && (!authorization.internal || requestedSender !== 'ana' || !surveyOptions)) {
       return new Response(JSON.stringify({ error: 'Lista não autorizada' }), { status: 403, headers: corsHeaders });
@@ -149,7 +173,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'Client-Token': ZAPI_CLIENT_TOKEN,
         },
-        body: JSON.stringify({ phone: target, message, ...(optionList ? { optionList } : {}) }),
+        body: JSON.stringify({ phone: target, message: outboundMessage, ...(optionList ? { optionList } : {}) }),
       });
       const data = await resp.json().catch(() => ({}));
       console.log(`Resposta Z-API (${target}):`, data);
@@ -191,12 +215,14 @@ serve(async (req) => {
         .insert({
           lead_id: null,
           phone: normalizedPhone,
-          message: message,
+          message: outboundMessage,
           direction: 'outbound',
           timestamp: new Date().toISOString(),
           raw_data: {
             ...zapiData,
             resolvedChatLid,
+            operator_id: operatorId,
+            operator_name: operatorName,
             sender_type: senderType === 'ana' ? 'ana' : 'human',
             source: senderType === 'ana' ? 'school-triage' : 'manual',
             survey_step: surveyOptions ? surveyStep : undefined,
