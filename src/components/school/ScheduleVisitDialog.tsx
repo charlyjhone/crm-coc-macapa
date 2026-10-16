@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { schoolDateTimeInput, schoolDateTimeToIso } from "@/lib/schoolDateTime";
 
 type OpportunityOption = {
   id: string;
@@ -56,11 +57,16 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
       toast({ title: "Selecione a oportunidade e o horário", variant: "destructive" });
       return;
     }
+    const scheduledIso = schoolDateTimeToIso(scheduledAt);
+    if (!scheduledIso || new Date(scheduledIso).getTime() <= Date.now()) {
+      toast({ title: "Escolha uma data e horário futuros", variant: "destructive" });
+      return;
+    }
 
     setSaving(true);
     const { error } = await (supabase as any).rpc("schedule_school_visit", {
       p_opportunity_id: opportunityId,
-      p_scheduled_at: new Date(scheduledAt).toISOString(),
+      p_scheduled_at: scheduledIso,
       p_participants: participants.trim() || null,
       p_notes: notes.trim() || null,
     });
@@ -111,7 +117,8 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="visit-at">Data e horário *</Label>
-              <Input id="visit-at" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
+              <Input id="visit-at" type="datetime-local" required min={schoolDateTimeInput(new Date())} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
+              <p className="text-xs text-slate-500">Horário local da escola.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="participants">Participantes</Label>

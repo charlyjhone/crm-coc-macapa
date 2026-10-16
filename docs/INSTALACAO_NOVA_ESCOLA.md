@@ -4,7 +4,7 @@ Decisão para os primeiros clientes: mesma base de código, um projeto Supabase 
 
 ## Dados necessários para provisionar
 
-- Nome da escola e identificador curto da instalação.
+- Escola informada: **Colégio Conceito**, parceira do COC. Identificador sugerido: `colegio-conceito` (ainda não provisionado).
 - Organização Supabase responsável pela cobrança e administração: CHARLY ou organização própria do cliente.
 - Plano e custo mensal aprovados antes de criar um recurso cobrado; consultar o custo da organização escolhida.
 - Região do banco, URL/subdomínio do CRM e e-mail do administrador inicial.
@@ -27,6 +27,10 @@ Cada instalação usa seu próprio banco, Auth, Storage, chaves, secrets, config
 
 ## Situação em 16/10/2026
 
-A organização CHARLY consultada está no plano Free e possui CRM e AIMEDU ativos. Os preços publicados nessa data são Pro a partir de US$ 25/mês, primeiro projeto incluído, e projetos adicionais a partir de US$ 10/mês, sujeitos a consumo e adicionais. O plano Free informa limite de dois projetos ativos. A criação do projeto do novo cliente não foi iniciada: nome, organização e custo ainda precisam ser definidos.
+A organização CHARLY consultada está no plano Free e possui CRM e AIMEDU ativos. Os preços publicados nessa data são Pro a partir de US$ 25/mês, primeiro projeto incluído, e projetos adicionais a partir de US$ 10/mês, sujeitos a consumo e adicionais. O plano Free informa limite de dois projetos ativos. O cliente foi identificado como Colégio Conceito; organização e custo ainda precisam ser definidos. Nenhum projeto novo foi criado.
 
-Referências: https://supabase.com/pricing e https://supabase.com/docs/guides/platform/billing-on-supabase
+Renato perguntou sobre Hostinger. A recomendação para esta etapa é manter o Supabase gerenciado, com instalação separada por escola, e concluir os fluxos atuais antes de migrar infraestrutura. Hospedar a interface na Hostinger é uma decisão separada de substituir o backend. Uma VPS pode executar Supabase com Docker, mas backups, restauração, segurança, atualização e disponibilidade passam a ser responsabilidade da operação; um banco MySQL isolado não substitui Auth, Postgres, RLS, Storage e Edge Functions usados pelo CRM. Não houve contratação nem migração para Hostinger.
+
+A agenda agora aceita `VITE_SCHOOL_TIME_ZONE` no build; padrão do COC: `America/Belem`. Isso não elimina a revisão dos demais fusos/textos fixos, especialmente os prompts da atendente.
+
+Referências: https://supabase.com/pricing, https://supabase.com/docs/guides/platform/billing-on-supabase, https://supabase.com/docs/guides/self-hosting e https://www.hostinger.com/br/servidor-vps
