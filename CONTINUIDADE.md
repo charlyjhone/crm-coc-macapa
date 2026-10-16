@@ -513,3 +513,10 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Renato carregou folder-digital.pdf (17667379 bytes) no COC e pediu envio quando responsáveis solicitarem informações da escola. A chave escola_folder_ativo estava ausente; ativada explicitamente nesta rodada.
 - Identificação ampliada para “informações da escola” e “conhecer a escola”, além dos pedidos de folder/mais informações. Mantidos envio apenas após resposta da Ana, respeito à intervenção humana e bloqueio de repetição em 24 horas.
 - Nenhum envio manual ou reprocessamento de conversa: Renato fará o teste pela próxima mensagem no WhatsApp. Entrega no aparelho ainda não homologada.
+
+
+## 53. Encerramento da orientação de matrícula (16/10/2026)
+
+- Renato aprovou manter a explicação das etapas/turnos e a frase de matrícula do 8º ano até “com a documentação necessária.”, encerrando ali. Não oferecer coordenação nem pergunta adicional; secretaria continua o caso.
+- school-triage v61 ACTIVE no COC; fonte publicada conferida contra GitHub (código 3ebc605). Prompt inclui texto aprovado, proíbe encaminhar matrícula à coordenação; respostas de matrícula com handoff não recebem oferta automática de ajuda nem novo follow-up de cinco minutos. Corte determinístico após a frase aprovada quando presente na resposta de matrícula com handoff.
+- Verificação isolada com resposta original e complementos passou, preservando exatamente o texto aprovado. Não houve envio de WhatsApp nem teste completo de geração nesta rodada; validar na próxima conversa controlada de Renato. Conceito não foi republicado.
