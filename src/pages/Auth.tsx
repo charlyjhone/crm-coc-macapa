@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { schoolDisplayName } from '@/lib/schoolBrand';
 
 const REMEMBERED_EMAIL_KEY = 'autolead_remembered_email';
 
@@ -98,7 +99,7 @@ export default function Auth() {
           <img src="/brand/ae-crm-logo.svg" alt="AE CRM" className="mx-auto mb-3 h-12 w-auto max-w-full" />
           <CardTitle className="text-2xl font-bold">Entrar</CardTitle>
           <CardDescription>
-            Faça login para acessar o sistema
+            {schoolDisplayName} · Faça login para acessar o sistema
           </CardDescription>
         </CardHeader>
         <CardContent>

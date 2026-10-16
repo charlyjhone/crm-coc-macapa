@@ -100,7 +100,7 @@ const GeneralSettingsTab = () => {
       {/* Escola */}
       <section className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">COC Macapá Norte</h3>
+          <h3 className="text-sm font-semibold">{settings.escola_nome || "Escola"}</h3>
           <p className="text-xs text-muted-foreground">
             Configurações gerais da integração do CRM escolar.
           </p>
@@ -111,7 +111,7 @@ const GeneralSettingsTab = () => {
             id="escola_nome"
             value={settings.escola_nome || ""}
             onChange={(e) => updateSetting("escola_nome", e.target.value)}
-            placeholder="COC Macapá Norte"
+            placeholder="Nome da escola"
           />
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { schoolDisplayName } from "@/lib/schoolBrand";
 
 export function useSchoolIdentity() {
   const { data } = useQuery({
@@ -14,7 +15,7 @@ export function useSchoolIdentity() {
     staleTime: 30_000,
   });
   return {
-    schoolName: data?.escola_nome || "Escola",
+    schoolName: data?.escola_nome || schoolDisplayName,
     agentName: data?.escola_agente_nome || "Ana",
   };
 }

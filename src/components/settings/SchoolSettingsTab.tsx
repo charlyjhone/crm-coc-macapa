@@ -74,8 +74,8 @@ export default function SchoolSettingsTab() {
 
   const uploadFolder = async (file: File | undefined) => {
     if (!file) return;
-    if (file.type !== "application/pdf" || file.size > 15 * 1024 * 1024 || file.size === 0) {
-      toast({ title: "Selecione um PDF de até 15 MB", variant: "destructive" });
+    if (file.type !== "application/pdf" || file.size > 18 * 1024 * 1024 || file.size === 0) {
+      toast({ title: "Selecione um PDF de até 18 MB", variant: "destructive" });
       return;
     }
     setUploading(true);
@@ -135,7 +135,7 @@ export default function SchoolSettingsTab() {
         <CardContent className="space-y-4">
           <Input type="file" accept="application/pdf,.pdf" aria-label="Selecionar folder digital em PDF"
             disabled={uploading} onChange={(event) => void uploadFolder(event.target.files?.[0])} />
-          <p className="text-xs text-muted-foreground">{folderExiste ? "PDF carregado na escola" : "Nenhum PDF carregado"} · Limite de 15 MB. O arquivo fica privado até o envio ao WhatsApp.</p>
+          <p className="text-xs text-muted-foreground">{folderExiste ? "PDF carregado na escola" : "Nenhum PDF carregado"} · Limite de 18 MB. O arquivo fica privado até o envio ao WhatsApp.</p>
           <div className="flex items-center gap-3">
             <Switch id="escola-folder-ativo" checked={folderAtivo} onCheckedChange={setFolderAtivo} disabled={!folderExiste} />
             <Label htmlFor="escola-folder-ativo">Permitir que a atendente envie o folder</Label>
@@ -151,7 +151,7 @@ export default function SchoolSettingsTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="escola-nome">Nome da escola</Label>
-            <Input id="escola-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: COC Macapá Norte" />
+            <Input id="escola-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome da escola" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="escola-info">Horário, endereço e currículos</Label>

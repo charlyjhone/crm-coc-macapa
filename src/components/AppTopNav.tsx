@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +54,7 @@ const NavLink = ({
 };
 
 export function AppTopNav() {
+  const { schoolName } = useSchoolIdentity();
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
@@ -162,7 +164,7 @@ export function AppTopNav() {
             <ChevronDown className="hidden h-3 w-3 text-slate-500 lg:block" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuLabel>COC Macapá Norte</DropdownMenuLabel>
+            <DropdownMenuLabel>{schoolName}</DropdownMenuLabel>
             <DropdownMenuItem asChild><Link to="/perfil"><CircleUserRound className="mr-2 h-4 w-4" />Meu perfil</Link></DropdownMenuItem>
             {isAdmin && <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>}
             <DropdownMenuSeparator />
