@@ -50,7 +50,7 @@ begin
   v_denied := false;
   begin perform public.register_ana_school_visit(v_lead,v_opportunity,'infinity'::timestamptz); exception when others then v_denied := true; end;
   if not v_denied then raise exception 'Data infinita aceita'; end if;
-  update public.enrollment_opportunities set stage='perdido' where id=v_opportunity;
+  update public.enrollment_opportunities set stage='perdido', loss_reason='Teste transacional' where id=v_opportunity;
   v_denied := false;
   begin perform public.register_ana_school_visit(v_lead,v_opportunity,v_scheduled); exception when others then v_denied := true; end;
   if not v_denied then raise exception 'Oportunidade encerrada aceita'; end if;

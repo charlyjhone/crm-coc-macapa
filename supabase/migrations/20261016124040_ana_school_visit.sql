@@ -172,7 +172,7 @@ begin
     'explanation', v_explanation
   );
 end;
-$function$
+$function$;
 
 
 -- A Ana registra somente um pedido de visita confirmado pela família.
