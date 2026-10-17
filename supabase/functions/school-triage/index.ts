@@ -199,7 +199,7 @@ function sanitizeSecretaryStyleReply(raw: string): string | null {
  * ela serve somente para classificar o assunto de forma ampla. Respostas com
  * dados pessoais/sensíveis são descartadas e os nomes mais comuns são removidos.
  */
-async function getSecretaryStyleExamples(supabase: any, excludePhone: string | null): Promise<string> {
+async function getSecretaryStyleExamples(supabase: any, excludePhone: string | null, currentText: string): Promise<string> {
   const { data: rows, error } = await supabase
     .from("whatsapp_messages")
     .select("id, phone, direction, message, raw_data, created_at")
@@ -247,7 +247,8 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
     }
   }
 
-  examples.sort((a, b) => b.at - a.at);
+  const requestedTopic = secretaryStyleTopic(currentText);
+  examples.sort((a, b) => Number(b.topic === requestedTopic) - Number(a.topic === requestedTopic) || b.at - a.at);
   return examples.slice(0, 4).map((item, index) =>
     (index + 1) + ". Tema: " + item.topic + "\n   Resposta humana anonimizada: " + item.reply
   ).join("\n");
@@ -778,7 +779,7 @@ serve(async (req) => {
       : `Você ainda não sabe o nome desta pessoa. Não invente um nome.`;
 
     const secretaryStyleExamples = channel === "whatsapp"
-      ? await getSecretaryStyleExamples(supabase, phone)
+      ? await getSecretaryStyleExamples(supabase, phone, text)
       : "";
     const systemPrompt = `Você é ${agentName}, atendente virtual de ${escolaNome}. Responda em português do Brasil pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}, com acolhimento e clareza. Escreva como uma atendente atenciosa conversaria: reconheça a dúvida, responda de forma útil e faça no máximo uma pergunta por vez. Prefira frases naturais e curtas, sem tom robótico, formulário ou respostas telegráficas. Um emoji discreto pode caber quando combinar com o contexto, sem repetir em toda mensagem. Não finja ser uma pessoa humana se perguntarem; apresente-se como atendente virtual. Evite repetir a mesma abertura ou despedida a cada resposta.
 
