@@ -262,8 +262,10 @@ test('secretaria assume depois do resumo e impede cadastro pela Ana', async () =
 });
 
 
-test('adiar dúvidas para o dia da visita não encerra a coleta nem cria outra visita', async () => {
+test('adiar dúvidas para o dia da visita mantém a coleta enquanto a secretaria ainda não respondeu', async () => {
   const h = harness();
+  h.state.rows.leads[0].triage_status = 'aguardando_secretaria';
+  h.state.rows.leads[0].handoff_at = new Date(Date.now() - 60000).toISOString();
   h.state.ai.assunto = 'outros';
   h.state.ai.cadastro_interesse = false;
   h.state.ai.precisa_humano = true;
@@ -275,7 +277,7 @@ test('adiar dúvidas para o dia da visita não encerra a coleta nem cria outra v
   assert.equal(h.state.rows.school_visits.length, 0);
   assert.match(h.state.sent.at(-1).message, /posso adiantar seu cadastro de interesse/i);
   assert.match(h.state.sent.at(-1).message, /nome completo do responsável/i);
-  assert.equal(h.state.rows.leads[0].triage_status, 'respondido_agente');
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
 });
 
 test('Ana usa respostas humanas recentes como referência de estilo sem enviar a mensagem original da família', async () => {
