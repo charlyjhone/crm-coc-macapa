@@ -76,9 +76,9 @@ serve(async (req) => {
     const isLidEvent = rawPhone.includes('@lid');
     
     console.log('=== IDENTIFICADORES ===');
-    console.log('rawPhone:', rawPhone);
-    console.log('chatLid:', chatLid);
-    console.log('isLidEvent:', isLidEvent, '(só true quando rawPhone contém @lid)');
+    console.log('rawPhone:');
+    console.log('chatLid:');
+    console.log('isLidEvent:');
 
     const selectedOption = payload.listResponseMessage || payload.listResponse || payload.selectedOption;
     let message = selectedOption?.title || selectedOption?.id || selectedOption?.selectedRowId
@@ -106,14 +106,14 @@ serve(async (req) => {
     const rawContactName = payload.senderName || payload.contactName || payload.name || payload.pushName || payload.notifyName || null;
     const contactName = (direction === 'inbound' && rawContactName) ? rawContactName : null;
     if (contactName) {
-      console.log('Nome do contato (inbound) recebido:', contactName);
+      console.log('Nome do contato (inbound) recebido:');
     }
     
     let isAudio = false;
     const audioUrl = payload.audio?.audioUrl || payload.audioUrl;
     
     if (audioUrl && !message) {
-      console.log('Áudio detectado, URL:', audioUrl);
+      console.log('Áudio detectado, URL:');
       isAudio = true;
       
       try {
@@ -129,13 +129,13 @@ serve(async (req) => {
         if (transcribeResponse.ok) {
           const { text } = await transcribeResponse.json();
           message = text || '[Áudio não transcrito]';
-          console.log('Áudio transcrito:', message);
+          console.log('Áudio transcrito:');
         } else {
           console.error('Erro ao transcrever áudio');
           message = '[Mensagem de áudio - erro na transcrição]';
         }
       } catch (error) {
-        console.error('Erro ao processar áudio:', error);
+        console.error('Erro ao processar áudio:');
         message = '[Mensagem de áudio - erro ao processar]';
       }
     }
@@ -172,7 +172,7 @@ serve(async (req) => {
       suffix10 = localPhone && localPhone.length >= 10 ? localPhone.slice(-10) : null;
       suffix8 = localPhone && localPhone.length >= 8 ? localPhone.slice(-8) : null;
       
-      console.log('Telefone normalizado:', normalizedPhone, 'local:', localPhone, 'suffix8:', suffix8);
+      console.log('Telefone normalizado:');
     } else if (isLidEvent) {
       console.log('Evento @lid detectado - NÃO será tratado como telefone');
     }
@@ -180,7 +180,7 @@ serve(async (req) => {
     // ===== EARLY EXIT: Contato interno (funcionário) =====
     // Funcionários/equipe NUNCA viram lead. Mensagens são descartadas pelo webhook.
     if (normalizedPhone && isInternalPhone(normalizedPhone)) {
-      console.log('⏭️ Ignorando mensagem de contato interno (funcionário):', normalizedPhone);
+      console.log('⏭️ Ignorando mensagem de contato interno (funcionário):');
       return new Response(
         JSON.stringify({ success: true, message: 'Contato interno ignorado', skipped: true, internal: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -198,7 +198,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingMsg) {
-        console.log('Mensagem duplicada detectada (messageId):', messageId);
+        console.log('Mensagem duplicada detectada (messageId):');
         return new Response(
           JSON.stringify({ success: true, message: 'Mensagem duplicada ignorada', messageId }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -222,11 +222,11 @@ serve(async (req) => {
         .contains('whatsapp_chat_lids', [chatLid]);
       
       if (chatLidError) {
-        console.error('Erro ao buscar leads por chatLid:', chatLidError);
+        console.error('Erro ao buscar leads por chatLid:');
       }
       
       if (leadsWithChatLid && leadsWithChatLid.length > 0) {
-        console.log(`Encontrados ${leadsWithChatLid.length} leads com este chatLid no campo whatsapp_chat_lids`);
+        console.log("CRM event");
         duplicateLeadsCount = leadsWithChatLid.length;
         
         // Prioritize by status
@@ -240,14 +240,14 @@ serve(async (req) => {
           leadId = activeLead.id;
           chosenLead = activeLead;
           resolveMethod = 'chatLid_field_active';
-          console.log('Lead ativo encontrado por whatsapp_chat_lids:', leadId, 'name:', activeLead.name);
+          console.log('Lead ativo encontrado por whatsapp_chat_lids:');
         } else {
           const wonLead = leadsWithChatLid.find((l: any) => (l.status === 'ganho' || l.status === 'produzido') && l.archived === false);
           if (wonLead) {
             leadId = wonLead.id;
             chosenLead = wonLead;
             resolveMethod = 'chatLid_field_ganho';
-            console.log('Lead ganho/produzido encontrado por whatsapp_chat_lids:', leadId, 'name:', wonLead.name);
+            console.log('Lead ganho/produzido encontrado por whatsapp_chat_lids:');
           }
         }
       }
@@ -264,12 +264,12 @@ serve(async (req) => {
           .limit(50);
         
         if (msgError) {
-          console.error('Erro ao buscar mensagens por chatLid:', msgError);
+          console.error('Erro ao buscar mensagens por chatLid:');
         }
         
         if (messagesWithChatLid && messagesWithChatLid.length > 0) {
           const uniqueLeadIds = [...new Set(messagesWithChatLid.map(m => m.lead_id).filter(Boolean))];
-          console.log('Lead IDs encontrados via histórico de mensagens:', uniqueLeadIds);
+          console.log('Lead IDs encontrados via histórico de mensagens:');
           
           if (uniqueLeadIds.length > 0) {
             const { data: candidateLeads, error: candidateError } = await supabase
@@ -278,7 +278,7 @@ serve(async (req) => {
               .in('id', uniqueLeadIds);
             
             if (candidateError) {
-              console.error('Erro ao buscar leads candidatos:', candidateError);
+              console.error('Erro ao buscar leads candidatos:');
             }
             
             if (candidateLeads && candidateLeads.length > 0) {
@@ -295,7 +295,7 @@ serve(async (req) => {
                 leadId = activeLead.id;
                 chosenLead = activeLead;
                 resolveMethod = 'chatLid_history_active';
-                console.log('Lead ativo encontrado por histórico chatLid:', leadId, 'name:', activeLead.name);
+                console.log('Lead ativo encontrado por histórico chatLid:');
               } else {
                 // Try ganho/produzido
                 const wonLead = candidateLeads.find((l: any) => (l.status === 'ganho' || l.status === 'produzido') && l.archived === false);
@@ -303,7 +303,7 @@ serve(async (req) => {
                   leadId = wonLead.id;
                   chosenLead = wonLead;
                   resolveMethod = 'chatLid_history_ganho';
-                  console.log('Lead ganho/produzido encontrado por histórico chatLid:', leadId, 'name:', wonLead.name);
+                  console.log('Lead ganho/produzido encontrado por histórico chatLid:');
                 } else {
                   // Check for entregue - but first cross-check by phone for ganho/produzido
                   const deliveredLead = candidateLeads.find((l: any) => l.status === 'entregue');
@@ -323,7 +323,7 @@ serve(async (req) => {
                       
                       if (crossLeads && crossLeads.length > 0) {
                         crossCheckLead = crossLeads[0];
-                        console.log('Cross-check encontrou lead ganho/produzido por telefone:', crossCheckLead.id, crossCheckLead.name);
+                        console.log('Cross-check encontrou lead ganho/produzido por telefone:');
                       }
                     }
                     
@@ -335,14 +335,14 @@ serve(async (req) => {
                       const existingLids = crossCheckLead.whatsapp_chat_lids || [];
                       if (!existingLids.includes(chatLid)) {
                         await supabase.from('leads').update({ whatsapp_chat_lids: [...existingLids, chatLid] }).eq('id', crossCheckLead.id);
-                        console.log('ChatLid propagado para lead ganho/produzido:', crossCheckLead.id);
+                        console.log('ChatLid propagado para lead ganho/produzido:');
                       }
                     } else {
                       // Política jun/2026: NÃO cria recorrente. Anexa mensagem ao próprio lead entregue.
                       leadId = deliveredLead.id;
                       chosenLead = deliveredLead;
                       resolveMethod = 'chatLid_history_attach_to_delivered';
-                      console.log('Anexando mensagem ao lead entregue existente:', leadId);
+                      console.log('Anexando mensagem ao lead entregue existente:');
                     }
                   } else {
                     // Use any non-unclassified lead, avoid phantom leads
@@ -353,7 +353,7 @@ serve(async (req) => {
                       leadId = validLead.id;
                       chosenLead = validLead;
                       resolveMethod = 'chatLid_history_any';
-                      console.log('Lead encontrado por histórico chatLid:', leadId, 'name:', validLead.name);
+                      console.log('Lead encontrado por histórico chatLid:');
                     }
                   }
                 }
@@ -393,15 +393,15 @@ serve(async (req) => {
         .or(orConditions.join(','));
 
       if (leadError) {
-        console.error('Erro ao buscar lead por telefone:', leadError);
+        console.error('Erro ao buscar lead por telefone:');
       }
 
       if (leads && leads.length > 0) {
         duplicateLeadsCount = Math.max(duplicateLeadsCount, leads.length);
-        console.log(`Encontrados ${leads.length} leads com este número`);
+        console.log("CRM event");
         
         if (leads.length > 1) {
-          console.log('⚠️ LEADS DUPLICADOS DETECTADOS:', leads.map(l => ({ id: l.id, name: l.name, status: l.status, archived: l.archived })));
+          console.log('⚠️ LEADS DUPLICADOS DETECTADOS:');
         }
         
         // Priority: em_aberto/em_negociacao/produzido > ganho/produzido > entregue (create new) > others
@@ -415,13 +415,13 @@ serve(async (req) => {
           leadId = activeLead.id;
           chosenLead = activeLead;
           resolveMethod = 'phone_active';
-          console.log('Lead ativo encontrado por telefone:', leadId, 'name:', activeLead.name);
+          console.log('Lead ativo encontrado por telefone:');
           // Propagate chatLid if missing
           if (chatLid) {
             const existingLids = activeLead.whatsapp_chat_lids || [];
             if (!existingLids.includes(chatLid)) {
               await supabase.from('leads').update({ whatsapp_chat_lids: [...existingLids, chatLid] }).eq('id', activeLead.id);
-              console.log('ChatLid propagado para lead ativo:', activeLead.id);
+              console.log('ChatLid propagado para lead ativo:');
             }
           }
         } else {
@@ -431,13 +431,13 @@ serve(async (req) => {
             leadId = wonLead.id;
             chosenLead = wonLead;
             resolveMethod = 'phone_ganho';
-            console.log('Lead ganho/produzido encontrado por telefone:', leadId, 'name:', wonLead.name);
+            console.log('Lead ganho/produzido encontrado por telefone:');
             // Propagate chatLid if missing
             if (chatLid) {
               const existingLids = wonLead.whatsapp_chat_lids || [];
               if (!existingLids.includes(chatLid)) {
                 await supabase.from('leads').update({ whatsapp_chat_lids: [...existingLids, chatLid] }).eq('id', wonLead.id);
-                console.log('ChatLid propagado para lead ganho/produzido:', wonLead.id);
+                console.log('ChatLid propagado para lead ganho/produzido:');
               }
             }
           } else {
@@ -458,7 +458,7 @@ serve(async (req) => {
                   .eq('archived', false);
                 if (crossLeads && crossLeads.length > 0) {
                   crossCheckLead = crossLeads[0];
-                  console.log('Cross-check encontrou lead ganho/produzido:', crossCheckLead.id, crossCheckLead.name);
+                  console.log('Cross-check encontrou lead ganho/produzido:');
                 }
               }
               
@@ -470,14 +470,14 @@ serve(async (req) => {
                 const existingLids = crossCheckLead.whatsapp_chat_lids || [];
                 if (chatLid && !existingLids.includes(chatLid)) {
                   await supabase.from('leads').update({ whatsapp_chat_lids: [...existingLids, chatLid] }).eq('id', crossCheckLead.id);
-                  console.log('ChatLid propagado para lead ganho/produzido:', crossCheckLead.id);
+                  console.log('ChatLid propagado para lead ganho/produzido:');
                 }
               } else {
                 // Política jun/2026: NÃO cria recorrente. Anexa mensagem ao próprio lead entregue.
                 leadId = deliveredLead.id;
                 chosenLead = deliveredLead;
                 resolveMethod = 'phone_attach_to_delivered';
-                console.log('Anexando mensagem ao lead entregue existente:', leadId);
+                console.log('Anexando mensagem ao lead entregue existente:');
               }
             } else {
               // Use best match from remaining leads
@@ -507,7 +507,7 @@ serve(async (req) => {
                 || top[0];
               leadId = chosenLead?.id || null;
               resolveMethod = 'phone_scored';
-              console.log('Lead encontrado por score:', leadId, 'name:', chosenLead?.name);
+              console.log('Lead encontrado por score:');
             }
           }
         }
@@ -525,7 +525,7 @@ serve(async (req) => {
           .limit(1000);
 
         if (leadsWithPhonesError) {
-          console.error('Erro no fallback de busca por phones:', leadsWithPhonesError);
+          console.error('Erro no fallback de busca por phones:');
         }
 
         if (leadsWithPhones && leadsWithPhones.length > 0) {
@@ -547,7 +547,7 @@ serve(async (req) => {
               leadId = l.id;
               chosenLead = l;
               resolveMethod = 'phone_fallback_active';
-              console.log('Lead ativo encontrado no fallback:', leadId, 'name:', l.name);
+              console.log('Lead ativo encontrado no fallback:');
               break;
             }
           }
@@ -568,7 +568,7 @@ serve(async (req) => {
                 leadId = l.id;
                 chosenLead = l;
                 resolveMethod = 'phone_fallback_ganho';
-                console.log('Lead ganho encontrado no fallback:', leadId, 'name:', l.name);
+                console.log('Lead ganho encontrado no fallback:');
                 break;
               }
             }
@@ -600,7 +600,7 @@ serve(async (req) => {
                     .eq('archived', false);
                   if (crossLeads && crossLeads.length > 0) {
                     crossCheckLead = crossLeads[0];
-                    console.log('Cross-check fallback encontrou lead ganho/produzido:', crossCheckLead.id, crossCheckLead.name);
+                    console.log('Cross-check fallback encontrou lead ganho/produzido:');
                   }
                 }
                 
@@ -611,14 +611,14 @@ serve(async (req) => {
                   const existingLids = crossCheckLead.whatsapp_chat_lids || [];
                   if (chatLid && !existingLids.includes(chatLid)) {
                     await supabase.from('leads').update({ whatsapp_chat_lids: [...existingLids, chatLid] }).eq('id', crossCheckLead.id);
-                    console.log('ChatLid propagado para lead ganho/produzido:', crossCheckLead.id);
+                    console.log('ChatLid propagado para lead ganho/produzido:');
                   }
                 } else {
                   // Política jun/2026: NÃO cria recorrente. Anexa mensagem ao próprio lead entregue.
                   leadId = l.id;
                   chosenLead = l;
                   resolveMethod = 'phone_fallback_attach_to_delivered';
-                  console.log('Anexando mensagem ao lead entregue existente (fallback):', leadId);
+                  console.log('Anexando mensagem ao lead entregue existente (fallback):');
                 }
                 break;
               }
@@ -641,7 +641,7 @@ serve(async (req) => {
                 chosenLead = l;
                 leadId = l.id;
                 resolveMethod = 'phone_fallback_any';
-                console.log('Lead encontrado no fallback:', leadId, 'name:', l.name);
+                console.log('Lead encontrado no fallback:');
                 break;
               }
             }
@@ -653,7 +653,7 @@ serve(async (req) => {
     // ===== STEP 6: If still not resolved and it's a LID event, do NOT create phantom lead =====
     if (!leadId && isLidEvent) {
       console.log('⚠️ Evento @lid sem lead associável - NÃO criando lead fantasma');
-      console.log('chatLid:', chatLid);
+      console.log('chatLid:');
       console.log('Esta mensagem não será associada a nenhum lead.');
       
       // Still save the message but without lead association for future reconciliation
@@ -670,7 +670,7 @@ serve(async (req) => {
         });
 
       if (insertError) {
-        console.error('Erro ao inserir mensagem órfã:', insertError);
+        console.error('Erro ao inserir mensagem órfã:');
       } else {
         console.log('Mensagem órfã salva para reconciliação futura');
       }
@@ -731,9 +731,9 @@ serve(async (req) => {
             .eq('id', leadId);
 
           if (updateChatLidError) {
-            console.error('Erro ao atualizar whatsapp_chat_lids/whatsapp_phone_lid_map:', updateChatLidError);
+            console.error('Erro ao atualizar whatsapp_chat_lids/whatsapp_phone_lid_map:');
           } else {
-            console.log('chatLid/mapa de telefone atualizado no lead:', chatLid, nextPhoneLidMap);
+            console.log('chatLid/mapa de telefone atualizado no lead:');
           }
         }
         if (chosenLead) {
@@ -741,7 +741,7 @@ serve(async (req) => {
           chosenLead.whatsapp_phone_lid_map = nextPhoneLidMap;
         }
       } catch (e) {
-        console.error('Erro ao persistir chatLid/mapa de telefone no lead:', e);
+        console.error('Erro ao persistir chatLid/mapa de telefone no lead:');
       }
     }
 
@@ -753,9 +753,9 @@ serve(async (req) => {
         .eq('id', leadId);
       
       if (nameError) {
-        console.error('Erro ao atualizar nome do lead:', nameError);
+        console.error('Erro ao atualizar nome do lead:');
       } else {
-        console.log('Nome do lead atualizado para:', contactName);
+        console.log('Nome do lead atualizado para:');
         if (chosenLead) chosenLead.name = contactName;
       }
     }
@@ -790,7 +790,7 @@ serve(async (req) => {
       // Make sure it's a real phone (not a LID or temp)
       if (realPhone && !realPhone.includes('@') && realPhone.length >= 10) {
         phoneToStore = normalizeWhatsAppPhone(realPhone);
-        console.log('Usando telefone real do lead ao invés do chatLid:', phoneToStore, mappedPhoneForLid ? '(via mapa)' : '(fallback)');
+        console.log('Usando telefone real do lead ao invés do chatLid:');
       }
     }
     
@@ -819,7 +819,7 @@ serve(async (req) => {
       .single();
 
     if (insertError) {
-      console.error('Erro ao inserir mensagem:', insertError);
+      console.error('Erro ao inserir mensagem:');
       return new Response(
         JSON.stringify({ error: 'Erro ao inserir mensagem' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -830,10 +830,10 @@ serve(async (req) => {
 
     console.log('=== RESULTADO ===');
     console.log('Mensagem WhatsApp salva com sucesso');
-    console.log('leadId:', leadId);
-    console.log('leadName:', chosenLead?.name);
-    console.log('direction:', direction);
-    console.log('resolveMethod:', resolveMethod);
+    console.log('leadId:');
+    console.log('leadName:');
+    console.log('direction:');
+    console.log('resolveMethod:');
 
     // ===== STEP 10: (removido) Nota de duplicidade =====
     // Clientes recorrentes têm legitimamente o mesmo telefone em vários leads.
@@ -861,7 +861,7 @@ serve(async (req) => {
       const validEmails = filterValidEmails(extractedEmails);
 
       if (validEmails.length > 0) {
-        console.log('E-mails extraídos da mensagem:', validEmails);
+        console.log('E-mails extraídos da mensagem:');
 
         const currentEmails: string[] = chosenLead.emails || [];
 
@@ -880,7 +880,7 @@ serve(async (req) => {
           const currentPrimary = (chosenLead.email || '').toLowerCase();
           if (!currentPrimary || currentPrimary.endsWith('@whatsapp.temp')) {
             leadUpdate.email = newEmails[0];
-            console.log('E-mail principal do lead promovido a partir do WhatsApp:', newEmails[0]);
+            console.log('E-mail principal do lead promovido a partir do WhatsApp:');
           }
 
           const { error: updateError } = await supabase
@@ -889,9 +889,9 @@ serve(async (req) => {
             .eq('id', leadId);
 
           if (updateError) {
-            console.error('Erro ao adicionar e-mails ao lead:', updateError);
+            console.error('Erro ao adicionar e-mails ao lead:');
           } else {
-            console.log('E-mails adicionados ao lead:', newEmails);
+            console.log('E-mails adicionados ao lead:');
           }
         }
       }
@@ -922,7 +922,7 @@ serve(async (req) => {
         fileUrl = documentUrl;
         fileName = documentFileName || 'documento';
         mimeType = documentMime || 'application/octet-stream';
-        console.log('📎 Documento detectado:', fileName, mimeType);
+        console.log('📎 Documento detectado:');
       } else if (imageUrl) {
         fileUrl = imageUrl;
         fileName = `imagem-${Date.now()}.jpg`;
@@ -952,7 +952,7 @@ serve(async (req) => {
             leadName: chosenLead?.name || 'cliente',
             whatsappMessageId: insertedWhatsappMessageId,
           })
-        }).catch(err => console.error('Erro ao disparar processamento de anexo:', err));
+        }).catch(err => console.error('Erro ao disparar processamento de anexo:'));
       }
     }
 
@@ -962,13 +962,13 @@ serve(async (req) => {
         const { triggerAutoDescription } = await import("../_shared/auto-generate-description.ts");
         triggerAutoDescription(leadId);
       } catch (e) {
-        console.error('Erro ao disparar auto-descrição:', e);
+        console.error('Erro ao disparar auto-descrição:');
       }
     }
 
     // ===== STEP 13: Fetch profile picture if needed =====
     if (direction === 'inbound' && chosenLead && !chosenLead.profile_picture_url) {
-      console.log('Tentando buscar foto de perfil para o lead:', leadId);
+      console.log('Tentando buscar foto de perfil para o lead:');
       try {
         fetch(`${supabaseUrl}/functions/v1/fetch-profile-picture`, {
           method: 'POST',
@@ -980,9 +980,9 @@ serve(async (req) => {
             phone: phoneToStore, 
             leadId 
           })
-        }).catch(err => console.error('Erro ao buscar foto de perfil:', err));
+        }).catch(err => console.error('Erro ao buscar foto de perfil:'));
       } catch (e) {
-        console.error('Erro ao iniciar busca de foto de perfil:', e);
+        console.error('Erro ao iniciar busca de foto de perfil:');
       }
     }
 
@@ -1001,7 +1001,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('Erro no Z-API webhook:', error);
+    console.error('Erro no Z-API webhook:');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
