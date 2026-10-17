@@ -264,6 +264,8 @@ test('intenção explícita de registrar interesse exige resumo antes de gravar'
   assert.match(h.state.sent.at(-1).message, /Para cadastrar o interesse, confirme estes dados/);
   await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 0);
+  await h.send('Sim, isso mesmo.');
   assert.equal(h.state.rows.school_visits.length, 1);
 });
 
