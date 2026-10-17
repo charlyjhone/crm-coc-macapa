@@ -55,10 +55,21 @@ serve(async (req) => {
       );
     }
 
-    // waitingMessage / viewOnce without actual content are media notifications, not messages
+    // Keep media-only events in the CRM even when they have no caption or transcription.
+    const hasMediaPayload = Boolean(
+      payload.audio?.audioUrl || payload.audioUrl ||
+      payload.image?.imageUrl || payload.image?.url || payload.imageUrl ||
+      payload.video?.videoUrl || payload.video?.url || payload.videoUrl ||
+      payload.document?.documentUrl || payload.document?.url || payload.documentUrl ||
+      payload.file?.fileUrl || payload.file?.url || payload.fileUrl ||
+      payload.sticker?.stickerUrl || payload.sticker?.url || payload.stickerUrl ||
+      payload.mediaUrl
+    );
+
+    // Ignore only transient notifications without text AND without actual media.
     if ((payload.waitingMessage === true || payload.viewOnce === true) && 
         !payload.text?.message && !payload.message && !payload.body && !payload.content && !payload.text &&
-        !payload.audio?.audioUrl && !payload.audioUrl) {
+        !hasMediaPayload) {
       console.log('⏭️ Ignorando callback waitingMessage/viewOnce sem conteúdo');
       return new Response(
         JSON.stringify({ success: true, message: 'Evento waitingMessage/viewOnce sem conteúdo ignorado', skipped: true }),
@@ -764,7 +775,7 @@ serve(async (req) => {
 
     // ===== STEP 9: Insert the message =====
     // Skip saving if message is empty AND it's not an audio (nothing useful to store)
-    if (!message && !isAudio) {
+    if (!message && !isAudio && !hasMediaPayload) {
       console.log('⏭️ Mensagem vazia e sem áudio — não salvando no banco');
       return new Response(
         JSON.stringify({ success: true, message: 'Mensagem vazia ignorada', skipped: true, leadId }),
