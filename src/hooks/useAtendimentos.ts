@@ -90,7 +90,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
     document?.mimeType, document?.mimetype, findValue("mimeType", "mimetype", "documentMimeType", "imageMimeType", "videoMimeType"),
   );
   const messageText = (message || "").trim();
-  const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito)/i.test(messageText);
+  const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(messageText);
   let mediaType: WhatsAppMediaType | null = null;
   if (isAudioFlag || audioUrl || /audio\//i.test(mimeType || "") || audioPlaceholder) mediaType = "audio";
   else if (imageUrl || /image\//i.test(mimeType || "")) mediaType = "image";
@@ -223,8 +223,10 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(100);
+      const phoneDigits = lead.phone?.replace(/\D/g, "") || "";
+      const canonicalPhone = phoneDigits.startsWith("55") || phoneDigits.length < 10 ? phoneDigits : `55${phoneDigits}`;
       const phoneVariants = lead.phone
-        ? [...new Set([lead.phone, lead.phone.replace(/\D/g, "")].filter(Boolean))]
+        ? [...new Set([lead.phone, phoneDigits, canonicalPhone].filter(Boolean))]
         : [];
       const whatsappByPhone = phoneVariants.length
         ? supabase
