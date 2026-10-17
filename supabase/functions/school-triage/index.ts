@@ -922,7 +922,8 @@ Responda SOMENTE com JSON válido:
     const defersDetailsUntilVisit = channel === "whatsapp" &&
       /\b(?:no dia da visita|na visita|quando formos visitar|quando eu for visitar)\b/i.test(text) &&
       /\b(?:verifico|confiro|pergunto|vejo|resolvo|esclareço|esclareco|tiro as dúvidas|tiro as duvidas|converso)\b/i.test(text);
-    if (defersDetailsUntilVisit && !handoffPendente &&
+    if (defersDetailsUntilVisit &&
+        triagem.prioridade !== "urgente" &&
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text)) {
       assunto = "matricula";
       triagem.cadastro_interesse = true;
