@@ -256,7 +256,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         const senderType = firstString(raw.sender_type, raw.source) || "";
         const operatorName = firstString(raw.operator_name, raw.attendant_name, raw.agent_name);
         const senderName = m.direction === "outbound"
-          ? (senderType === "ana" || /^\\*?\\[Atendente Ana\\]/i.test(m.message || "") ? "Ana" : operatorName)
+          ? (senderType === "ana" || /^\\*?\\[Atendente Ana\\]/i.test(m.message || "") ? "Atendente Ana" : operatorName)
           : null;
         return {
           id: m.id,
