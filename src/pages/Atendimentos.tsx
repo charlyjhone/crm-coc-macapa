@@ -38,7 +38,25 @@ function subjectLabel(value: string | null) {
   return names[value] || value.replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
+const mediaLabels: Record<string, string> = {
+  audio: "Áudio",
+  image: "Foto / imagem",
+  video: "Vídeo",
+  document: "Documento",
+  sticker: "Figurinha",
+  location: "Localização",
+  contact: "Contato compartilhado",
+  file: "Arquivo",
+};
+
+function formatMediaDuration(seconds: number | null) {
+  if (seconds === null) return null;
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 function Conversation({ lead }: { lead: Atendimento }) {
+  const priority = attendancePriority(lead);
   const { data: messages, isLoading, isError } = useMensagensAtendimento(lead);
   const send = useEnviarWhatsApp();
   const update = useUpdateTriage();
@@ -84,6 +102,15 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <div>
           <h2 className="font-semibold">{lead.name}</h2>
           <p className="text-xs text-slate-600">{lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
+          {priority.level >= 3 && (
+            <p className="mt-1 text-sm font-semibold text-red-700">URGENTE · {priority.reason}</p>
+          )}
+          {priority.level === 2 && (
+            <p className="mt-1 text-sm font-medium text-amber-700">ATENÇÃO · {priority.reason}</p>
+          )}
+          {priority.level === 1 && (
+            <p className="mt-1 text-xs text-amber-700">Aguardando equipe · {priority.reason}</p>
+          )}
           {lead.handoff_reason && lead.triage_status === "aguardando_secretaria" && (
             <p className="mt-1 text-xs text-red-700">Repasse: {lead.handoff_reason}</p>
           )}
@@ -106,14 +133,40 @@ function Conversation({ lead }: { lead: Atendimento }) {
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
         {isError && <p className="text-sm text-red-700">Não foi possível carregar o histórico.</p>}
         {!isLoading && !isError && !messages?.length && <p className="text-sm text-slate-600">Nenhuma mensagem encontrada.</p>}
-        {messages?.map((m) => (
-          <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${m.direction === "outbound" ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
-            <p className="whitespace-pre-wrap break-words">{m.message || "(mensagem sem texto)"}</p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {new Date(m.at).toLocaleString("pt-BR")}
-            </p>
-          </div>
-        ))}
+        {messages?.map((m) => {
+          const outgoing = m.direction === "outbound";
+          const text = m.message.trim();
+          const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito)/i.test(text);
+          const duration = formatMediaDuration(m.mediaDurationSeconds);
+          return (
+            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
+              {m.mediaType && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-300/70 bg-white/70 px-2 py-1.5 text-xs font-semibold text-slate-700">
+                  <span aria-hidden="true">{m.mediaType === "audio" ? "🎙️" : m.mediaType === "image" ? "🖼️" : m.mediaType === "video" ? "🎬" : m.mediaType === "document" || m.mediaType === "file" ? "📎" : m.mediaType === "location" ? "📍" : "📄"}</span>
+                  <span>{outgoing ? "Enviado" : "Recebido"} · {mediaLabels[m.mediaType] || "Mídia"}</span>
+                  {duration && m.mediaType === "audio" && <span className="font-normal">({duration})</span>}
+                </div>
+              )}
+              {m.mediaName && <p className="mb-1 break-words text-xs text-slate-700">Arquivo: {m.mediaName}</p>}
+              {m.mediaCaption && m.mediaCaption !== text && <p className="mb-1 whitespace-pre-wrap break-words text-xs text-slate-600">Legenda: {m.mediaCaption}</p>}
+              {text && !audioPlaceholder && (
+                <p className="whitespace-pre-wrap break-words">{m.isAudio ? `Transcrição: ${text}` : text}</p>
+              )}
+              {audioPlaceholder && m.isAudio && (
+                <p className="whitespace-pre-wrap break-words text-slate-600">Áudio recebido; o conteúdo não ficou disponível em texto.</p>
+              )}
+              {!text && !m.mediaType && <p className="whitespace-pre-wrap break-words">(mensagem sem texto)</p>}
+              {m.mediaType && m.mediaUrl && (
+                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-medium text-blue-700 underline">
+                  Abrir anexo
+                </a>
+              )}
+              <p className="mt-1 text-[11px] text-slate-500">
+                {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela escola" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          );
+        })}
       </div>
       <div className="border-t p-4">
         {lead.phone ? (
