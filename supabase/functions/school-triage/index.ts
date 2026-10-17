@@ -174,15 +174,15 @@ function secretaryStyleTopic(inbound: string): string | null {
 
 function sanitizeSecretaryStyleReply(raw: string): string | null {
   if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/i.test(raw)) return null;
-  if (/\bR\$\s*\d|\b\d{10,}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
+  if (/\bR\$\s*\d|\b\d{10,}\b|\b\d{4,5}[-.\s]?\d{4}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
   let text = raw
     .replace(/^\*[^*\r\n]{1,100}\*\s*/u, "")
-    .replace(/(\b(?:bom dia|boa tarde|boa noite|olá|oi)\s*,?\s+)[\p{L}'-]+(?:\s+[\p{L}'-]+){0,2}/giu, "$1")
+    .replace(/(\b(?:bom dia|boa tarde|boa noite|olá|oi))\s*,?\s+[\p{L}'-]+(?:\s+[\p{L}'-]+){0,2}/giu, "$1")
     .replace(/(\b(?:meu nome é|me chamo|sou o|sou a|aqui é|aqui quem fala é)\s+)[\p{L}'-]+(?:\s+[\p{L}'-]+){0,3}/giu, "$1[nome]")
     .replace(/(\b(?:seu filho|sua filha|aluno|aluna|responsável)\s+)[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){0,2}/gu, "$1[nome]")
     .replace(/\b(?:COC Macapá Norte|Secretaria COC)\b/gi, "a escola")
     .replace(/\b(?:Educação Infantil|Ensino Fundamental|Ensino Médio)\b/gi, "etapa escolar")
-    .replace(/(\b(?:a|o|para|com)\s+)[\p{Lu}][\p{L}'-]{2,}\b/gu, "$1[nome]")
+    .replace(/(\b(?:a|o|para|com)\s+)[\p{Lu}][\p{L}'-]{2,}\b/giu, "$1[nome]")
     .replace(/\s+/g, " ")
     .trim();
   if (text.length < 20 || text.length > 420) return null;
