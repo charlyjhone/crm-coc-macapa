@@ -47,7 +47,9 @@ export function PendingLeadRow({ lead }: { lead: PendingLead }) {
     .map((p) => p[0]?.toUpperCase())
     .join("");
   const valor = formatMoney(lead.valor, lead.moeda);
-  const isOld = Date.now() - new Date(lead.last_inbound_at).getTime() > 24 * 3600 * 1000;
+  const isOld = Date.now() - new Date(lead.pending_since).getTime() > 24 * 3600 * 1000;
+  const waitingForSecretary = lead.pending_reasons.includes("aguardando_secretaria");
+  const unansweredMessage = lead.pending_reasons.includes("unanswered_message");
 
   return (
     <Link
@@ -74,17 +76,30 @@ export function PendingLeadRow({ lead }: { lead: PendingLead }) {
                 <MessageCircle className="h-3 w-3" /> WhatsApp
               </Badge>
             )}
+            {waitingForSecretary && (
+              <Badge variant="destructive" className="text-xs">
+                Aguardando secretaria
+              </Badge>
+            )}
+            {unansweredMessage && !waitingForSecretary && (
+              <Badge variant="secondary" className="text-xs">
+                Mensagem sem resposta
+              </Badge>
+            )}
             <span
-              className={`text-xs ${
-                isOld ? "text-destructive font-medium" : "text-muted-foreground"
-              }`}
+              className={`text-xs ${isOld ? "text-destructive font-medium" : "text-muted-foreground"}`}
             >
-              {formatRelative(lead.last_inbound_at)}
+              {formatRelative(lead.pending_since)}
             </span>
           </div>
           {lead.last_inbound_preview && (
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
               "{lead.last_inbound_preview}"
+            </p>
+          )}
+          {lead.handoff_reason && waitingForSecretary && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+              Encaminhamento: {lead.handoff_reason}
             </p>
           )}
           <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
