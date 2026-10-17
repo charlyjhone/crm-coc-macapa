@@ -548,3 +548,10 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Advisor após hardening: 13 funções SECURITY DEFINER executáveis por authenticated continuam sinalizadas, mas as RPCs/helper functions usadas foram revisadas e têm guardas de papel. Não revogar em bloco. Proteção de senhas comprometidas continua desativada e depende de configuração no painel.
 - Auditoria detalhada registrada em docs/AUDITORIA_CRM_2026-10-17.md. Pendências prioritárias: teste real de coleta/resumo/SIM pela Ana, assinatura humana no aparelho, callback de entrega Z-API, edição de famílias/alunos, atribuição entre atendentes e perfis adicionais para SaaS.
 - Render não foi consultado nesta rodada. Antes de inspecionar deploys, Renato deve confirmar o workspace CRM COC para não confundir com AIM.Edu. O Conceito continua isolado e não foi alterado.
+
+
+## 57. Restrição de gravação direta na tabela de contatos (17/10/2026)
+
+- Migration crm_lead_column_permissions aplicada ao COC como 20261017131106. O cliente autenticado continua lendo leads e pode atualizar somente status, triage_status e resolved_at, usados pela interface de atendimentos. Não pode inserir/excluir leads nem alterar diretamente nome, telefone, e-mail, mensagens ou metadados da automação.
+- Transições diretas de status para resolvido/matriculado e de triage_status para resolvido foram bloqueadas para usuários autenticados. Conclusão passa por complete-school-attendance (inclui pesquisa de satisfação); confirmação de matrícula permanece no funil escolar. A automação de servidor com service_role continua funcionando.
+- Teste transacional com rollback aprovado: privilégios por coluna, atualização normal de status/triagem e bloqueio das transições terminais passaram. Nenhuma alteração persistiu.
