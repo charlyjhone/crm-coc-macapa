@@ -118,7 +118,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <div className="flex flex-wrap items-center gap-2">
           {lead.phone && (
             <a
-              href={`https://web.whatsapp.com/send?phone=${lead.phone.replace(/\\D/g, "")}`}
+              href={`https://web.whatsapp.com/send?phone=${lead.phone.replace(/\D/g, "")}`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-700 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
