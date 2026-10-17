@@ -575,7 +575,7 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 
 ### Referência de código e publicação
 - Repositório: `charlyjhone/crm-coc-macapa`, branch `main`.
-- Commit funcional mais recente: `34e54d7c0265a9b57c01462fa9e48f88891a9e80` — correção da fila Pendentes de resposta.
+- Commit funcional mais recente: `19dbea9b05a189649f9af17e2a270c064f8eedf3` — destaca handoffs aguardando secretaria. A correção de associação/paginação das mensagens está no commit anterior `18cee722ca70436518ca4949f797aad4f553f902`.
 - Render confirmou `build_ended: succeeded` e `deploy_ended: succeeded` para o CRM COC e também para o serviço CRM Conceito. O repo é compartilhado, mas o build do Conceito continua usando `scripts/build-conceito.mjs`; não foram alterados dados, usuários, configurações ou banco do Conceito.
 - A correção está publicada no frontend COC. Ainda falta confirmar a fila visualmente em sessão autenticada e homologar a lógica com mensagens controladas.
 
@@ -586,7 +586,7 @@ Commit de código usado como referência antes da criação do documento: **`3c1
   - paginar o histórico em blocos de 1.000 para não truncar silenciosamente o histórico;
   - não excluir contatos apenas por status ou classificação, para que mensagens novas em contatos resolvidos/não classificados possam voltar à fila;
   - preservar o comportamento de e-mail baseado em `lead_id`.
-- A fila determina pendência quando a última mensagem do canal é inbound. Telefones compartilhados por mais de um registro podem fazer a mesma conversa aparecer em múltiplos contatos; observar isso no teste e, se acontecer, ajustar com regra de desambiguação antes de escalar.
+- A fila inclui duas situações: (1) a última mensagem do canal é inbound; (2) `triage_status='aguardando_secretaria'`, mesmo quando a última mensagem armazenada é outbound da Ana. O segundo caso recebe o selo **Aguardando secretaria** e permanece visível até a equipe atualizar o andamento. Assim, a confirmação automática de encaminhamento não é confundida com resposta humana concluída. Telefones compartilhados por mais de um registro podem fazer a mesma conversa aparecer em múltiplos contatos; observar isso no teste e, se acontecer, ajustar com regra de desambiguação antes de escalar.
 - Não houve alteração no banco nem atualização em lote de contatos.
 
 ### Configurações COC verificadas no Supabase
