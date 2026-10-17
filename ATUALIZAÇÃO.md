@@ -4,7 +4,7 @@
 
 ## Última atualização
 
-**Data:** 17/10/2026 — 16h48, horário de Macapá  
+**Data:** 17/10/2026 — 16h58, horário de Macapá  
 **Objetivo atual:** auditar o que já existe, validar o mínimo indispensável e preparar o CRM para uso real sem abrir uma reforma interminável.
 
 ## Ambiente confirmado
@@ -74,9 +74,9 @@ A tabela legada `leads` contém 176 contatos não arquivados no momento da consu
 1. **O CRM já tem base para acompanhar tarefas e prazos.** As telas e funções existem, mas há zero tarefas cadastradas; precisamos testar o fluxo completo pela interface.
 2. **A atribuição ainda precisa de validação operacional.** Existem campos de responsável nas oportunidades/tarefas, mas a distribuição e reatribuição entre atendentes e a visibilidade de cada responsável ainda não foram homologadas.
 3. **Há contatos em handoff que precisam ser revisados.** Os 29 casos em `aguardando_secretaria` não devem ser simplesmente encerrados em massa. Identificar quais ainda exigem retorno e atribuir um responsável.
-4. **A fila “Pendentes de resposta” tem um risco técnico concreto.** O hook `src/hooks/usePendingLeads.ts` só analisa mensagens com `lead_id` preenchido. No banco existem 382 mensagens recebidas e 1.332 enviadas com `lead_id` nulo. Como parte do fluxo WhatsApp usa telefone para relacionar mensagens, a tela pode subcontar pendências e até mostrar zero indevidamente. Corrigir a reconciliação por telefone sem duplicar conversas e testar com mensagens vinculadas e não vinculadas antes de confiar nessa fila.
+4. **Correção da fila “Pendentes de resposta” publicada em 17/10.** O hook `src/hooks/usePendingLeads.ts` agora considera mensagens WhatsApp com `lead_id` ou relacionadas por telefone/variantes e identificadores `@lid`, pagina o histórico além do limite de 1.000 linhas e não exclui contatos apenas por status ou classificação. O commit `34e54d7c0265a9b57c01462fa9e48f88891a9e80` foi implantado com sucesso no Render COC. A validação visual autenticada e o teste controlado com mensagens reais ainda são necessários; telefones compartilhados entre registros podem aparecer em mais de um contato e devem ser observados.
 5. **Não declarar WhatsApp homologado só porque existem mensagens no banco.** Há histórico de mensagens recebidas/enviadas, mas `delivery_logs` está vazio. Precisamos confirmar a entrada do webhook, o envio no aparelho, o retorno de entrega e o registro do resultado.
-6. **Configurações institucionais incompletas ou não localizadas.** Na consulta às chaves usadas pela função `school-triage`, apenas `escola_agente_ativo=true` foi encontrada entre as chaves consultadas. Não foram encontradas `escola_info`, `escola_valores`, `escola_nome`, `escola_agente_nome` ou `escola_folder_ativo`. A função possui respostas padrão e regras específicas do COC, mas isso não substitui uma conferência das configurações oficiais. A ausência de `escola_folder_ativo` pode fazer a Ana dizer que o folder automático não está habilitado, mesmo que o envio manual funcione.
+6. **Configurações da Ana verificadas no banco.** Estão presentes `escola_nome=COC Macapá Norte`, `escola_agente_nome=Ana`, `escola_agente_ativo=true`, `escola_folder_ativo=true` e `escola_info`. `escola_valores` e `media_kit_link` estão vazios. Portanto, a Ana não deve informar preços sem fonte oficial, e o caminho de envio do folder precisa ser confirmado no WhatsApp real mesmo com a opção ligada.
 7. **A triagem atual ainda é ampla.** O esquema da Ana classifica principalmente matrícula, financeiro, currículo, horário, localização e outros. Ainda não há uma fila setorial comprovadamente homologada para secretaria, coordenação, transferência, reclamações e demais solicitações de famílias atuais.
 8. **Há duas camadas que precisam continuar sincronizadas:** o contato/conversa na tabela legada `leads` e o cadastro escolar de responsável, aluno e oportunidade. A confirmação da família deve gerar um cadastro único, sem duplicação, e a equipe deve conseguir localizar o histórico da conversa a partir do cadastro escolar.
 9. **A pesquisa de satisfação está implementada, mas falta comprovar o ciclo real.** Os seis registros com status enviado não provam que a família recebeu e respondeu. Validar uma conversa controlada, a pesquisa de origem, a nota e o encerramento.
@@ -88,7 +88,7 @@ A tabela legada `leads` contém 176 contatos não arquivados no momento da consu
 1. Corrigir a fila **Pendentes de resposta** para considerar mensagens WhatsApp sem `lead_id`, com vínculo seguro por telefone e sem duplicar contatos. Validar a contagem antes/depois com casos controlados.
 2. Confirmar no Render que a versão do frontend está `live` após o último commit. Não confundir o deploy do site Conceito com o deploy do COC.
 3. Revisar os 29 atendimentos em `aguardando_secretaria` e cruzar a fila preliminar de 51 contatos com última entrada posterior à última saída. Não apagar nem encerrar em lote.
-4. Conferir as configurações oficiais da Ana: nome visível, informações da escola, valores, campanha/ano letivo e habilitação do folder automático.
+4. Conferir no WhatsApp real a resposta da Ana e o envio do folder. O banco confirma nome, informações da escola e agente/folder habilitados; valores e `media_kit_link` estão vazios. Confirmar campanha/ano letivo e origem do arquivo do folder sem inventar valores.
 5. Fazer um teste controlado com número autorizado: mensagem recebida → registro no CRM → resposta da Ana → resposta humana → retomada sem duplicidade → encerramento → pesquisa de satisfação. Confirmar no próprio WhatsApp, não apenas no retorno técnico.
 6. Testar cadastro de família/aluno/oportunidade com confirmação explícita e um caso de correção antes da confirmação; verificar que não há duplicidade.
 7. Testar agendamento, confirmação separada, reagendamento e conclusão de visita.
@@ -116,4 +116,6 @@ Não ativar automações novas nem alterar em lote contatos existentes durante e
 
 ## Próximo passo exato
 
-**Primeiro, corrigir e validar a fila “Pendentes de resposta”, revisar os contatos que parecem exigir retorno e confirmar as configurações da Ana.** Em seguida, homologar uma conversa completa no WhatsApp real e testar tarefa/visita pela interface. Só então fechar a lista P0 e decidir quais melhorias P1 entram antes ou logo após o lançamento.
+**Próxima etapa:** abrir a fila publicada com uma sessão autenticada e conferir mensagens órfãs por telefone; depois revisar manualmente os 29 atendimentos em `aguardando_secretaria`. A consulta agregada encontrou 6 casos em que a última entrada é posterior à última saída ou não há saída registrada. Isso é sinal para revisar o histórico, não autorização para enviar mensagens ou encerrar casos automaticamente.
+
+Em seguida, fazer uma homologação controlada no WhatsApp com número autorizado: recebimento → Ana → resposta humana → retomada/encerramento → pesquisa. Não enviar mensagens reais nem alterar status em lote sem confirmação do responsável. Testar cadastro, visita e tarefa pela interface antes de liberar a operação diária.
