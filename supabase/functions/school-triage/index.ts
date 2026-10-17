@@ -125,6 +125,41 @@ function pendingEnrollmentField(message: string): "responsavel" | "aluno" | "ser
   return null;
 }
 
+function parseEnrollmentAnswer(field: "responsavel" | "aluno" | "serie", raw: string): string | null {
+  const answer = raw.trim().replace(/[.!?]+$/, "");
+  if (!answer || answer.length > 160) return null;
+  if (field === "responsavel") {
+    const value = answer.replace(/^(?:meu nome (?:e|é)|me chamo|sou)\s+/i, "").trim();
+    return value.split(/\s+/).length >= 2 ? value : null;
+  }
+  if (field === "aluno") {
+    const value = answer.replace(/^(?:(?:o nome do aluno|meu filho|minha filha)\s+(?:e|é|se chama)\s+)/i, "").trim();
+    return value.length >= 2 ? value : null;
+  }
+  const normalizedAnswer = normalizedStyleText(answer);
+  return SERIES.find((item) => normalizedAnswer.includes(normalizedStyleText(item))) || null;
+}
+
+function collectEnrollmentAnswers(messages: any[]): {
+  responsavel: string | null;
+  aluno: string | null;
+  serie: string | null;
+} {
+  const collected = { responsavel: null as string | null, aluno: null as string | null, serie: null as string | null };
+  let pendingField: "responsavel" | "aluno" | "serie" | null = null;
+  for (const message of messages) {
+    if (message.direction === "outbound" && isAnaOutbound(message)) {
+      pendingField = pendingEnrollmentField(String(message.message || ""));
+      continue;
+    }
+    if (message.direction !== "inbound" || !pendingField) continue;
+    const value = parseEnrollmentAnswer(pendingField, String(message.message || ""));
+    if (value) collected[pendingField] = value;
+    pendingField = null;
+  }
+  return collected;
+}
+
 function visitDateTime(date: string | null, time: string | null) {
   if (!date || !time || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const local = `${date}T${time}:00-03:00`; // Escola em Macapá (UTC-3).
@@ -745,6 +780,7 @@ serve(async (req) => {
     let historico = "";
     let lastSchoolMessageAt: string | null = null;
     let lastOutboundMessage: any = null;
+    let historyMessages: any[] = [];
     if (phone) {
       const { data: msgs } = await supabase
         .from("whatsapp_messages")
@@ -755,8 +791,8 @@ serve(async (req) => {
       const latestOutbound = (msgs || []).find((m: { direction: string }) => m.direction === "outbound");
       lastSchoolMessageAt = latestOutbound?.created_at || null;
       lastOutboundMessage = latestOutbound || null;
-      historico = (msgs || [])
-        .reverse()
+      historyMessages = [...(msgs || [])].reverse();
+      historico = historyMessages
         .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").slice(0, 400)}`)
         .join("\n");
     } else if (leadId) {
@@ -917,6 +953,13 @@ Responda SOMENTE com JSON válido:
         !["urgente", "atencao", "normal", "externo"].includes(triagem.prioridade) ||
         !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
       throw new Error("invalid_triage_response");
+    }
+
+    // Reconstruir os campos que a família já respondeu a perguntas explícitas
+    // da Ana, para que o cadastro não dependa de a IA reextrair todo o histórico.
+    const collectedAnswers = collectEnrollmentAnswers(historyMessages);
+    for (const field of ["responsavel", "aluno", "serie"] as const) {
+      if (collectedAnswers[field]) triagem.cadastro[field] = collectedAnswers[field]!;
     }
 
     let assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
