@@ -1189,7 +1189,7 @@ Responda SOMENTE com JSON válido:
           assunto = "matricula";
         }
       }
-      if (!handoffPendente && confirmedDraft && isExplicitConfirmation(text)) {
+      if (confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
         enrollmentConfirmed = true;
@@ -1209,7 +1209,7 @@ Responda SOMENTE com JSON válido:
         resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
       }
     }
-    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !handoffPendente;
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano;
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = !confirmedVisit && triagem.visita.solicitada
