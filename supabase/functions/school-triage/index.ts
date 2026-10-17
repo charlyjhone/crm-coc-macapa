@@ -152,7 +152,7 @@ function isAnaOutbound(message: { message?: string | null; raw_data?: Record<str
   if (senderType) return senderType === "ana";
   const source = String(message.raw_data?.source || "").toLowerCase();
   if (source) return source === "school-triage";
-  return /^\*\[Atendente Ana\]\*/i.test(message.message || "");
+  return /^\*\[Atendente [^\]\r\n]+\]\*/i.test(message.message || "");
 }
 
 function normalizedStyleText(value: string): string {
