@@ -128,6 +128,9 @@ function pendingEnrollmentField(message: string): "responsavel" | "aluno" | "ser
 function parseEnrollmentAnswer(field: "responsavel" | "aluno" | "serie", raw: string): string | null {
   const answer = raw.trim().replace(/[.!?]+$/, "");
   if (!answer || answer.length > 160) return null;
+  const normalizedAnswer = normalizedStyleText(answer);
+  if (field !== "serie" &&
+      /\\b(?:visita|verifico|confiro|pergunto|resolvo|esclareco|nao quero|prefiro|somente|apenas|quanto|preco|valor|mensalidade|matricula|como funciona|qual e|onde fica|horario)\\b/.test(normalizedAnswer)) return null;
   if (field === "responsavel") {
     const value = answer.replace(/^(?:meu nome (?:e|é)|me chamo|sou)\s+/i, "").trim();
     return value.split(/\s+/).length >= 2 ? value : null;
