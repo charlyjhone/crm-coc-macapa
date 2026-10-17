@@ -24,7 +24,7 @@ function harness() {
   let serial = 0;
   let handler;
   const state = {
-    ai: defaultTriage(), aiCalls: 0, rpcCalls: [], sent: [], sendFails: false,
+    ai: defaultTriage(), aiCalls: 0, aiPayload: null, rpcCalls: [], sent: [], sendFails: false,
     onAi: null, queryError: null,
     rows: {
       system_settings: [{ key: 'escola_agente_ativo', value: 'true' }],
@@ -100,6 +100,7 @@ function harness() {
   async function fakeFetch(url, options) {
     if (url === 'https://api.openai.com/v1/chat/completions') {
       state.aiCalls++;
+      state.aiPayload = JSON.parse(options.body);
       state.onAi?.();
       return Response.json({ choices: [{ message: { content: JSON.stringify(state.ai) } }] });
     }
@@ -258,4 +259,37 @@ test('secretaria assume depois do resumo e impede cadastro pela Ana', async () =
   const h = harness(); await h.send('Quero cadastrar'); h.humanReply();
   await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+});
+
+
+test('adiar dúvidas para o dia da visita não encerra a coleta nem cria outra visita', async () => {
+  const h = harness();
+  h.state.ai.assunto = 'outros';
+  h.state.ai.cadastro_interesse = false;
+  h.state.ai.precisa_humano = true;
+  h.state.ai.visita = { solicitada: true, data: visitDate, horario: '15:00' };
+  h.state.ai.cadastro = { responsavel: null, aluno: null, ano: 2027, serie: null, turno: null };
+  h.state.ai.resposta = 'A secretaria continuará o atendimento.';
+  await h.send('No dia da visita eu verifico tudo isso.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.equal(h.state.rows.school_visits.length, 0);
+  assert.match(h.state.sent.at(-1).message, /posso adiantar seu cadastro de interesse/i);
+  assert.match(h.state.sent.at(-1).message, /nome completo do responsável/i);
+  assert.equal(h.state.rows.leads[0].triage_status, 'respondido_agente');
+});
+
+test('Ana usa respostas humanas recentes como referência de estilo sem enviar a mensagem original da família', async () => {
+  const h = harness();
+  const now = Date.now();
+  h.state.rows.whatsapp_messages.push(
+    { id: 'sample-in', phone: '00000000001', direction: 'inbound', message: 'Gostaria de conhecer a escola', created_at: new Date(now - 60000).toISOString(), raw_data: {} },
+    { id: 'sample-out', phone: '00000000001', direction: 'outbound', message: '*Renato — Secretaria COC*\\nOlá, Maria! Será um prazer receber sua família para conhecer a escola. 😊', created_at: new Date(now - 30000).toISOString(), raw_data: { sender_type: 'human', source: 'manual' } },
+  );
+  await h.send('Quero conhecer a escola.');
+  const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
+  assert.match(system, /ESTILO OBSERVADO NAS RESPOSTAS RECENTES DA SECRETARIA/);
+  assert.match(system, /visita à escola/);
+  assert.match(system, /Será um prazer receber sua família/);
+  assert.doesNotMatch(system, /Olá, Maria/);
+  assert.doesNotMatch(system, /Gostaria de conhecer a escola/);
 });
