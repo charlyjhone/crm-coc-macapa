@@ -87,10 +87,62 @@ function normalizeGrade(value: string | null | undefined): string | null {
   const jardim = normalized.match(/^jardim\s*(i{1,2}|[12])$/);
   if (jardim) return jardim[1] === "ii" || jardim[1] === "2" ? "Jardim II" : "Jardim I";
   const ano = normalized.match(/^([1-9])\s*(?:o\s*)?(?:ano)?$/);
-  if (ano) return `${ano[1]}º ano`;
+  if (ano) return ano[1] + "º ano";
+  const anoPorExtenso = normalized.match(/^(primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|setimo|setima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano$/);
+  if (anoPorExtenso) {
+    const numero: Record<string, string> = {
+      primeiro: "1", primeira: "1", segundo: "2", segunda: "2",
+      terceiro: "3", terceira: "3", quarto: "4", quarta: "4",
+      quinto: "5", quinta: "5", sexto: "6", sexta: "6",
+      setimo: "7", setima: "7", oitavo: "8", oitava: "8",
+      nono: "9", nona: "9",
+    };
+    return numero[anoPorExtenso[1]] + "º ano";
+  }
   const serie = normalized.match(/^([1-3])\s*a?\s*serie$/);
-  if (serie) return `${serie[1]}ª série`;
+  if (serie) return serie[1] + "ª série";
   return null;
+}
+
+function extractGradeAndShift(text: string): { grade: string | null; shift: string | null } {
+  const normalized = (text || "").toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[º°]/g, "")
+    .replace(/ª/g, "a")
+    .replace(/\s+/g, " ").trim();
+  const gradeMatch = normalized.match(/\b(maternal|jardim\s*(?:i{1,2}|[12])|[1-9]\s*(?:o\s*)?ano|(?:primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|setimo|setima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano|[1-3]\s*a?\s*serie)\b/i);
+  let grade: string | null = null;
+  if (gradeMatch) grade = normalizeGrade(gradeMatch[0]);
+  const shiftMatch = normalized.match(/\b(manha|tarde|integral)\b/i);
+  const shift = shiftMatch ? (shiftMatch[1].toLowerCase() === "manha" ? "manhã" : shiftMatch[1].toLowerCase()) : null;
+  return { grade, shift };
+}
+
+function stripGradeAndShiftFromStudentName(value: string | null | undefined): string | null {
+  if (!value?.trim()) return value?.trim() || null;
+  const original = value.trim();
+  const suffix = original.match(/^(.*?)(?:[,;]?\s+)(maternal|jardim\s*(?:i{1,2}|[12])|[1-9]\s*(?:[º°o]\s*)?ano|(?:primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|s[eé]timo|s[eé]tima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano|[1-3]\s*[ªa]?\s*s[eé]rie)(?:\s*[,;]?\s*(?:manhã|manha|tarde|integral))?$/iu);
+  if (!suffix) return original;
+  const studentName = suffix[1].trim().replace(/[\s,;:–—-]+$/u, "").trim();
+  return studentName.length >= 2 ? studentName : null;
+}
+
+function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, currentText: string) {
+  const lines = (historico || "").split("\n").filter((line) => line.startsWith("Família:"));
+  lines.push("Família: " + (currentText || ""));
+  let grade: string | null = null;
+  let shift: string | null = null;
+  for (const line of lines.slice(-12)) {
+    const facts = extractGradeAndShift(line.replace(/^Família:\s*/, ""));
+    if (facts.grade) grade = facts.grade;
+    if (facts.shift) shift = facts.shift;
+  }
+  if (!triagem.cadastro) return;
+  if (grade) triagem.cadastro.serie = grade;
+  if (shift) triagem.cadastro.turno = shift;
+  // A família pode informar nome, série e turno na mesma frase sem pontuação.
+  // Não salvar a série/turno como parte do nome do aluno.
+  triagem.cadastro.aluno = stripGradeAndShiftFromStudentName(triagem.cadastro.aluno);
 }
 
 function enrollmentDraft(c: Triagem["cadastro"]) {
@@ -930,6 +982,9 @@ Responda SOMENTE com JSON válido:
         !["alto", "medio", "baixo", "indefinido"].includes(triagem.interesse)) {
       throw new Error("invalid_triage_response");
     }
+
+    // Reconcile series/shift from family messages, including combined replies.
+    mergeExplicitEnrollmentFacts(triagem, historico, text);
 
     let assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
     // Usa apenas mensagens da família para reconhecer intenção explícita; respostas
