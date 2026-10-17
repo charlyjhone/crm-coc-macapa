@@ -53,7 +53,7 @@ export function PendingLeadRow({ lead }: { lead: PendingLead }) {
 
   return (
     <Link
-      to={`/opportunity/${lead.id}`}
+      to={`/atendimentos?status=todos&lead=${encodeURIComponent(lead.id)}`}
       className="block border-b border-border hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-start gap-3 p-4">
