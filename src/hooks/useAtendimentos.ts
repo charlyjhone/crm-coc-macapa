@@ -21,6 +21,7 @@ export interface MensagemAtendimento {
   mediaStoragePath: string | null;
   mediaMimeType: string | null;
   isAudio: boolean;
+  senderName: string | null;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -250,14 +251,23 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
       const uniqueWhatsApp = new Map(
         [...(byLead.data || []), ...(byPhone.data || [])].map((m) => [m.id, m]),
       );
-      const whatsappBase: MensagemAtendimento[] = [...uniqueWhatsApp.values()].map((m) => ({
-        id: m.id,
-        channel: "whatsapp",
-        direction: m.direction,
-        message: m.message || "",
-        at: m.timestamp || m.created_at,
-        ...describeWhatsAppMedia(m.raw_data, m.is_audio, m.message),
-      }));
+      const whatsappBase: MensagemAtendimento[] = [...uniqueWhatsApp.values()].map((m) => {
+        const raw = asRecord(m.raw_data) || {};
+        const senderType = firstString(raw.sender_type, raw.source) || "";
+        const operatorName = firstString(raw.operator_name, raw.attendant_name, raw.agent_name);
+        const senderName = m.direction === "outbound"
+          ? (senderType === "ana" || /^\\*?\\[Atendente Ana\\]/i.test(m.message || "") ? "Ana" : operatorName)
+          : null;
+        return {
+          id: m.id,
+          channel: "whatsapp",
+          direction: m.direction,
+          message: m.message || "",
+          at: m.timestamp || m.created_at,
+          senderName,
+          ...describeWhatsAppMedia(m.raw_data, m.is_audio, m.message),
+        };
+      });
       const whatsapp: MensagemAtendimento[] = await Promise.all(whatsappBase.map(async (message) => {
         if (!message.mediaStoragePath || message.mediaUrl) return message;
         const { data: signed, error: signedError } = await supabase.storage
@@ -281,6 +291,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         mediaStoragePath: null,
         mediaMimeType: null,
         isAudio: false,
+        senderName: null,
       }));
       return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     },
