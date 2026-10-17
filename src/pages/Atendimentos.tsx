@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useAtendimentos, useEnviarWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus } from "@/hooks/useAtendimentos";
+import { useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ExternalLink, Loader2, MessageCircle, Send } from "lucide-react";
+import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { attendancePriority } from "@/lib/attendancePriority";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
@@ -55,13 +56,149 @@ function formatMediaDuration(seconds: number | null) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+function isPdfMedia(message: MensagemAtendimento) {
+  const mime = (message.mediaMimeType || "").toLowerCase().split(";")[0];
+  return mime === "application/pdf" ||
+    /\\.pdf(?:$|[?#])/i.test(message.mediaName || "") ||
+    /\\.pdf(?:$|[?#])/i.test(message.mediaUrl || "");
+}
+
 function Conversation({ lead }: { lead: Atendimento }) {
   const priority = attendancePriority(lead);
   const { data: messages, isLoading, isError } = useMensagensAtendimento(lead);
   const send = useEnviarWhatsApp();
+  const sendAudio = useEnviarAudioWhatsApp();
   const update = useUpdateTriage();
   const updateStatus = useUpdateLeadStatus();
   const [draft, setDraft] = useState("");
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordedDuration, setRecordedDuration] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartRef = useRef(0);
+  const recordingTimerRef = useRef<number | null>(null);
+  const discardRecordingRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+    };
+  }, [audioPreviewUrl]);
+
+  const stopRecordingTimer = () => {
+    if (recordingTimerRef.current !== null) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast.error("Este navegador não permite gravar áudio. Use uma versão atual do Chrome ou Edge.");
+      return;
+    }
+    try {
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+      setAudioPreviewUrl(null);
+      setRecordedAudio(null);
+      setRecordingSeconds(0);
+      setRecordedDuration(0);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const candidates = ["audio/ogg;codecs=opus", "audio/webm;codecs=opus", "audio/mp4"];
+      const preferredType = candidates.find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      discardRecordingRef.current = false;
+      recordingStartRef.current = Date.now();
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        stopRecordingTimer();
+        setIsRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          return;
+        }
+        const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+        const mimeType = (recorder.mimeType || "audio/webm").split(";")[0];
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (!blob.size) {
+          toast.error("Não foi possível capturar o áudio. Tente novamente.");
+          return;
+        }
+        if (blob.size > 10 * 1024 * 1024) {
+          toast.error("O áudio ultrapassou 10 MB. Grave uma mensagem mais curta.");
+          return;
+        }
+        setRecordedAudio(blob);
+        setRecordedDuration(duration);
+        setAudioPreviewUrl(URL.createObjectURL(blob));
+      };
+      recorder.onerror = () => {
+        stopRecordingTimer();
+        setIsRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        toast.error("Ocorreu um erro durante a gravação do áudio.");
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setIsRecording(true);
+      recordingTimerRef.current = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordingStartRef.current) / 1000);
+        setRecordingSeconds(elapsed);
+        if (elapsed >= 120 && recorder.state === "recording") recorder.stop();
+      }, 1000);
+    } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      toast.error(error instanceof Error && error.name === "NotAllowedError"
+        ? "Permita o acesso ao microfone para gravar o áudio."
+        : "Não foi possível iniciar a gravação. Verifique o microfone.");
+    }
+  };
+
+  const stopRecording = () => {
+    stopRecordingTimer();
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+  };
+
+  const cancelRecording = () => {
+    if (recorderRef.current?.state === "recording") {
+      discardRecordingRef.current = true;
+      stopRecordingTimer();
+      recorderRef.current.stop();
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+    setAudioPreviewUrl(null);
+    setRecordedAudio(null);
+    setRecordedDuration(0);
+    setRecordingSeconds(0);
+    setIsRecording(false);
+  };
+
+  const sendRecordedAudio = async () => {
+    if (!recordedAudio || sendAudio.isPending) return;
+    try {
+      const result = await sendAudio.mutateAsync({ lead, blob: recordedAudio, durationSeconds: recordedDuration });
+      cancelRecording();
+      if (result.warning) toast.warning(result.warning);
+      else toast.success("Áudio enviado pelo WhatsApp");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o áudio.");
+    }
+  };
 
   const sendMessage = async () => {
     const message = draft.trim();
@@ -168,7 +305,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 <p className="whitespace-pre-wrap break-words">{m.isAudio ? `Transcrição: ${text}` : text}</p>
               )}
               {audioPlaceholder && m.isAudio && (
-                <p className="whitespace-pre-wrap break-words text-slate-600">Áudio recebido; o conteúdo não ficou disponível em texto.</p>
+                <p className="whitespace-pre-wrap break-words text-slate-600">{outgoing ? "Áudio enviado pela secretaria." : "Áudio recebido; o conteúdo não ficou disponível em texto."}</p>
               )}
               {!text && !m.mediaType && <p className="whitespace-pre-wrap break-words">(mensagem sem texto)</p>}
               {m.mediaType === "image" && m.mediaUrl && (
@@ -190,10 +327,17 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 </div>
               )}
               {m.mediaType && m.mediaUrl && m.mediaType !== "image" && m.mediaType !== "audio" && (
-                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-700 underline">
-                  {m.mediaType === "document" || m.mediaType === "file" ? "Abrir documento / arquivo" : "Abrir anexo"}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  {isPdfMedia(m) && (
+                    <Button size="sm" variant="outline" onClick={() => setPdfPreview({ url: m.mediaUrl!, name: m.mediaName || "Documento PDF" })}>
+                      <FileText className="mr-2 h-4 w-4" /> Visualizar PDF
+                    </Button>
+                  )}
+                  <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 underline">
+                    {isPdfMedia(m) ? "Abrir PDF em nova aba" : m.mediaType === "document" || m.mediaType === "file" ? "Abrir documento / arquivo" : "Abrir anexo"}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               )}
               {m.mediaType === "document" && (
                 <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos e imprimir a documentação da família, use o atalho WhatsApp Web no cabeçalho.</p>
@@ -207,18 +351,65 @@ function Conversation({ lead }: { lead: Atendimento }) {
       </div>
       <div className="border-t p-4">
         {lead.phone ? (
-          <div className="flex gap-2">
-            <Input aria-label="Mensagem de WhatsApp" placeholder="Escreva uma resposta para a família" value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendMessage(); } }}
-              disabled={send.isPending} />
-            <Button onClick={() => void sendMessage()} disabled={!draft.trim() || send.isPending}>
-              {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              <span className="ml-2">Enviar</span>
-            </Button>
-          </div>
+          <>
+            {isRecording && (
+              <div className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <span className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-red-600" /> Gravando áudio · {formatMediaDuration(recordingSeconds)}</span>
+                <Button size="sm" variant="destructive" onClick={stopRecording}><Square className="mr-2 h-3.5 w-3.5" /> Parar</Button>
+              </div>
+            )}
+            {recordedAudio && audioPreviewUrl && !isRecording && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 p-3">
+                <audio controls src={audioPreviewUrl} className="min-w-[180px] flex-1" />
+                <Button variant="outline" size="sm" onClick={cancelRecording} disabled={sendAudio.isPending}>
+                  <Trash2 className="mr-1 h-4 w-4" /> Descartar
+                </Button>
+                <Button size="sm" onClick={() => void sendRecordedAudio()} disabled={sendAudio.isPending}>
+                  {sendAudio.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+                  Enviar áudio
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input aria-label="Mensagem de WhatsApp" placeholder={isRecording ? "Gravação em andamento..." : "Escreva uma resposta para a família"} value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendMessage(); } }}
+                disabled={send.isPending || isRecording || sendAudio.isPending} />
+              {isRecording ? (
+                <Button variant="outline" title="Parar gravação" aria-label="Parar gravação" onClick={stopRecording}>
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button variant="outline" title="Gravar áudio" aria-label="Gravar áudio" onClick={() => void startRecording()}
+                  disabled={send.isPending || sendAudio.isPending}>
+                  <Mic className="h-4 w-4" />
+                </Button>
+              )}
+              <Button onClick={() => void sendMessage()} disabled={!draft.trim() || send.isPending || isRecording || sendAudio.isPending}>
+                {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <span className="ml-2">Enviar</span>
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Você pode gravar até 2 minutos, ouvir antes de enviar e descartar se necessário.</p>
+          </>
         ) : <p className="text-sm text-slate-600">Sem WhatsApp cadastrado. O envio por e-mail será integrado depois.</p>}
       </div>
+      <Dialog open={!!pdfPreview} onOpenChange={(open) => { if (!open) setPdfPreview(null); }}>
+        <DialogContent className="flex h-[85vh] w-[96vw] max-w-5xl flex-col gap-3">
+          <DialogHeader>
+            <DialogTitle>{pdfPreview?.name || "Visualizar PDF"}</DialogTitle>
+            <DialogDescription>Se o arquivo não aparecer aqui, use a opção para abrir em uma nova aba.</DialogDescription>
+          </DialogHeader>
+          {pdfPreview && (
+            <>
+              <iframe src={pdfPreview.url} title={pdfPreview.name} className="min-h-0 w-full flex-1 rounded-md border bg-white" />
+              <a href={pdfPreview.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 underline">
+                Abrir PDF em nova aba <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
