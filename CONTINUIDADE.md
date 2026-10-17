@@ -98,7 +98,7 @@ O responsável informou explicitamente que a atendente virtual não está funcio
 
 Não presumir que a Ana funciona apenas porque `school-triage` existe.
 
-### Melhoria em andamento — aprendizado contextual com respostas da secretaria
+### Melhoria implementada — aprendizado contextual com respostas da secretaria
 
 - A função `school-triage` recupera as mensagens recentes do próprio CRM COC e usa no máximo quatro respostas humanas como exemplos contextuais.
 - As mensagens da família são usadas somente para classificar o assunto em uma categoria ampla; o texto original da família não é inserido nos exemplos enviados ao modelo.
@@ -106,7 +106,8 @@ Não presumir que a Ana funciona apenas porque `school-triage` existe.
 - A Ana usa os exemplos para aproximar tom e padrões de resposta, além de conteúdo escolar geral. As informações oficiais de `system_settings` sempre prevalecem; exemplos antigos não autorizam valores, datas, prazos ou promessas.
 - Isso é recuperação contextual por mensagem, não treinamento permanente ou fine-tuning do modelo.
 - Regra de matrícula/visita: se a família disser que prefere esclarecer dúvidas no dia da visita, a Ana deve continuar a coleta de interesse com uma pergunta por vez, se a secretaria ainda não assumiu. Não deve criar uma segunda visita sem data/horário explícitos nem pressionar quem disser que só quer encerrar.
-- Foram adicionados testes de regressão em `scripts/test-ana-visits.mjs` para o cenário de adiamento até a visita e para o uso de exemplos humanos anonimizados. Executar `node --test scripts/test-ana-visits.mjs` antes da publicação.
+- Os testes `node --test scripts/test-ana-visits.mjs` passaram no GitHub Actions: 15 aprovados, 0 falhas.
+- PR #51 incorporada na `main`; Edge Function `school-triage` publicada no Supabase COC como versão 65 ACTIVE. A validação final de conversa real e a confirmação de cadastro no funil ainda precisam ser feitas no WhatsApp.
 
 ## 6. Fluxo esperado da Ana
 
