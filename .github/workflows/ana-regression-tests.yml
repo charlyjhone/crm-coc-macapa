@@ -1,0 +1,30 @@
+name: Ana regression tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/school-triage/**"
+      - "scripts/test-ana-visits.mjs"
+      - ".github/workflows/ana-regression-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/school-triage/**"
+      - "scripts/test-ana-visits.mjs"
+      - ".github/workflows/ana-regression-tests.yml"
+
+jobs:
+  ana-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run Ana visit and enrollment regression tests
+        run: node --test scripts/test-ana-visits.mjs
