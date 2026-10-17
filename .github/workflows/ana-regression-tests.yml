@@ -2,6 +2,7 @@ name: Ana regression tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "supabase/functions/school-triage/**"
       - "scripts/test-ana-visits.mjs"
