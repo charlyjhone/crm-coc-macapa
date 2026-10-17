@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { usePendingLeads, type PendingChannel } from "@/hooks/usePendingLeads";
 import { PendingLeadRow } from "@/components/pendentes/PendingLeadRow";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { BellDot, Loader2 } from "lucide-react";
 
 type Filter = "all" | PendingChannel;
@@ -27,7 +26,6 @@ export default function Pendentes() {
   return (
     <div className="flex flex-col h-screen">
       <header className="h-12 flex items-center gap-2 border-b px-3 shrink-0">
-        <SidebarTrigger />
         <BellDot className="h-4 w-4 text-primary" />
         <h1 className="font-semibold">Pendentes de resposta</h1>
         <span className="text-sm text-muted-foreground">({counts.all})</span>
