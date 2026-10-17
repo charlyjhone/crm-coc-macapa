@@ -287,11 +287,15 @@ function Conversation({ lead }: { lead: Atendimento }) {
         {!isLoading && !isError && !messages?.length && <p className="text-sm text-slate-600">Nenhuma mensagem encontrada.</p>}
         {messages?.map((m) => {
           const outgoing = m.direction === "outbound";
-          const text = m.message.trim();
+          const rawText = m.message.trim();
+          const text = outgoing
+            ? rawText.replace(/^\\*(?:\\[Atendente\\s+Ana\\]|[^*\\r\\n]*(?:Secretaria COC|Atendente Ana))\\*\\s*/i, "")
+            : rawText;
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
             <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
+              {outgoing && m.senderName && <p className="mb-1 text-xs font-semibold text-emerald-900">[{m.senderName}]</p>}
               {m.mediaType && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-300/70 bg-white/70 px-2 py-1.5 text-xs font-semibold text-slate-700">
                   <span aria-hidden="true">{m.mediaType === "audio" ? "🎙️" : m.mediaType === "image" ? "🖼️" : m.mediaType === "video" ? "🎬" : m.mediaType === "document" || m.mediaType === "file" ? "📎" : m.mediaType === "location" ? "📍" : "📄"}</span>
