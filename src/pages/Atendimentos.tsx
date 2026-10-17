@@ -288,7 +288,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
         {messages?.map((m) => {
           const outgoing = m.direction === "outbound";
           const text = m.message.trim();
-          const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito)/i.test(text);
+          const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
             <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
