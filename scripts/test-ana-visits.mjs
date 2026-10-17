@@ -154,12 +154,16 @@ test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async 
   assert.match(h.state.rows.leads[0].handoff_reason, /Pedido de visita registrado/);
 });
 
-test('confirmação natural de visita é aceita e repetição não duplica', async () => {
+test('resposta não confirmatória não agenda; confirmação natural agenda sem duplicar', async () => {
   const h = harness();
   await h.send('Visita');
   await h.send('SIM');
   await h.send('pode');
   assert.equal(h.state.rows.school_visits.length, 0);
+  assert.match(h.state.sent.at(-1).message, /Para cadastrar o interesse, confirme estes dados/);
+  await h.send('SIM');
+  assert.equal(h.state.rows.school_visits.length, 0);
+  assert.match(h.state.sent.at(-1).message, /responda SIM/);
   await h.send('Sim, isso mesmo.');
   assert.equal(h.state.rows.school_visits.length, 1);
   await h.send('SIM');
