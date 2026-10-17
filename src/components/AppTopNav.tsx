@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3,
+  BellDot,
   CalendarDays,
   ChevronDown,
   ClipboardList,
@@ -59,7 +60,7 @@ export function AppTopNav() {
   const { isAdmin } = useUserRole();
   const location = useLocation();
   const schoolActive = ["/captacao", "/matriculas", "/familias", "/visitas", "/tarefas-captacao", "/origem-conversao", "/possibilidades", "/"].includes(location.pathname);
-  const serviceActive = ["/atendimentos"].some((path) =>
+  const serviceActive = ["/atendimentos", "/pendentes"].some((path) =>
     location.pathname.startsWith(path),
   );
 
@@ -145,6 +146,7 @@ export function AppTopNav() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
               <DropdownMenuItem asChild className="rounded-lg"><Link to="/atendimentos"><Inbox className="mr-2 h-4 w-4" />Atendimentos da escola</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg"><Link to="/pendentes"><BellDot className="mr-2 h-4 w-4" />Pendentes de resposta</Link></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
