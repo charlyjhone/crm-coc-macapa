@@ -61,7 +61,7 @@ begin
 
   if exists (
     select 1
-    from jsonb_array_elements(p_students) as item
+    from jsonb_array_elements(p_students) as entries(item)
     where nullif(item->>'id', '') is null
        or nullif(trim(coalesce(item->>'full_name', '')), '') is null
   ) then
@@ -70,14 +70,14 @@ begin
 
   if (
     select count(distinct item->>'id')
-    from jsonb_array_elements(p_students) as item
+    from jsonb_array_elements(p_students) as entries(item)
   ) <> v_received_students then
     raise exception 'A lista contém alunos duplicados';
   end if;
 
   if exists (
     select 1
-    from jsonb_array_elements(p_students) as item
+    from jsonb_array_elements(p_students) as entries(item)
     where not exists (
       select 1
       from public.student_guardians sg
