@@ -4,7 +4,7 @@ import { useAtendimentos, useEnviarWhatsApp, useMensagensAtendimento, useUpdateT
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Send } from "lucide-react";
+import { ExternalLink, Loader2, MessageCircle, Send } from "lucide-react";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { attendancePriority } from "@/lib/attendancePriority";
 
@@ -115,9 +115,24 @@ function Conversation({ lead }: { lead: Atendimento }) {
             <p className="mt-1 text-xs text-red-700">Repasse: {lead.handoff_reason}</p>
           )}
         </div>
-        <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
-          {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Concluir atendimento"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {lead.phone && (
+            <a
+              href={`https://web.whatsapp.com/send?phone=${lead.phone.replace(/\\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-700 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
+              title="Abrir esta conversa no WhatsApp Web para consultar e imprimir documentos"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp Web
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+          <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
+            {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Concluir atendimento"}
+          </Button>
+        </div>
       </header>
       <div className="flex flex-wrap items-center gap-3 border-b bg-white px-4 py-3">
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
@@ -156,10 +171,32 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 <p className="whitespace-pre-wrap break-words text-slate-600">Áudio recebido; o conteúdo não ficou disponível em texto.</p>
               )}
               {!text && !m.mediaType && <p className="whitespace-pre-wrap break-words">(mensagem sem texto)</p>}
-              {m.mediaType && m.mediaUrl && (
-                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-medium text-blue-700 underline">
-                  Abrir anexo
+              {m.mediaType === "image" && m.mediaUrl && (
+                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 block" aria-label="Ampliar imagem recebida">
+                  <img
+                    src={m.mediaUrl}
+                    alt={m.mediaCaption || m.mediaName || "Imagem enviada nesta conversa"}
+                    loading="lazy"
+                    className="max-h-72 max-w-full rounded-lg border object-contain"
+                  />
+                  <span className="mt-1 inline-block text-xs font-medium text-blue-700 underline">Ampliar imagem</span>
                 </a>
+              )}
+              {m.mediaType === "audio" && m.mediaUrl && (
+                <div className="mt-2 min-w-0">
+                  <audio controls preload="metadata" src={m.mediaUrl} className="w-full max-w-xs">
+                    Seu navegador não conseguiu reproduzir este áudio.
+                  </audio>
+                </div>
+              )}
+              {m.mediaType && m.mediaUrl && m.mediaType !== "image" && m.mediaType !== "audio" && (
+                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-700 underline">
+                  {m.mediaType === "document" || m.mediaType === "file" ? "Abrir documento / arquivo" : "Abrir anexo"}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              {m.mediaType === "document" && (
+                <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos e imprimir a documentação da família, use o atalho WhatsApp Web no cabeçalho.</p>
               )}
               <p className="mt-1 text-[11px] text-slate-500">
                 {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela escola" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
