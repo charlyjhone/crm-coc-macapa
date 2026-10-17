@@ -566,3 +566,50 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Migration crm_lead_column_permissions aplicada ao COC como 20261017131106. O cliente autenticado continua lendo leads e pode atualizar somente status, triage_status e resolved_at, usados pela interface de atendimentos. Não pode inserir/excluir leads nem alterar diretamente nome, telefone, e-mail, mensagens ou metadados da automação.
 - Transições diretas de status para resolvido/matriculado e de triage_status para resolvido foram bloqueadas para usuários autenticados. Conclusão passa por complete-school-attendance (inclui pesquisa de satisfação); confirmação de matrícula permanece no funil escolar. A automação de servidor com service_role continua funcionando.
 - Teste transacional com rollback aprovado: privilégios por coluna, atualização normal de status/triagem e bloqueio das transições terminais passaram. Nenhuma alteração persistiu.
+
+---
+
+## Estado operacional atualizado — 17/10/2026
+
+> Esta seção é a referência mais recente e **supersede informações históricas anteriores** que indiquem que o CRM/Atendimentos ainda está em um estado de setembro ou que a Ana/configurações não foram verificadas. A validação real de ponta a ponta ainda não está concluída.
+
+### Referência de código e publicação
+- Repositório: `charlyjhone/crm-coc-macapa`, branch `main`.
+- Commit funcional mais recente: `34e54d7c0265a9b57c01462fa9e48f88891a9e80` — correção da fila Pendentes de resposta.
+- Render confirmou `build_ended: succeeded` e `deploy_ended: succeeded` para o CRM COC e também para o serviço CRM Conceito. O repo é compartilhado, mas o build do Conceito continua usando `scripts/build-conceito.mjs`; não foram alterados dados, usuários, configurações ou banco do Conceito.
+- A correção está publicada no frontend COC. Ainda falta confirmar a fila visualmente em sessão autenticada e homologar a lógica com mensagens controladas.
+
+### Correção da fila “Pendentes de resposta”
+- Antes, `src/hooks/usePendingLeads.ts` filtrava mensagens por `lead_id` e usava apenas as primeiras 1.000 linhas por canal. No banco havia 1.714 de 2.750 mensagens WhatsApp sem `lead_id` (382 inbound e 1.332 outbound).
+- O hook foi alterado para:
+  - considerar mensagens WhatsApp vinculadas por `lead_id` ou por telefone/variantes e identificadores `@lid`;
+  - paginar o histórico em blocos de 1.000 para não truncar silenciosamente o histórico;
+  - não excluir contatos apenas por status ou classificação, para que mensagens novas em contatos resolvidos/não classificados possam voltar à fila;
+  - preservar o comportamento de e-mail baseado em `lead_id`.
+- A fila determina pendência quando a última mensagem do canal é inbound. Telefones compartilhados por mais de um registro podem fazer a mesma conversa aparecer em múltiplos contatos; observar isso no teste e, se acontecer, ajustar com regra de desambiguação antes de escalar.
+- Não houve alteração no banco nem atualização em lote de contatos.
+
+### Configurações COC verificadas no Supabase
+- `school-triage`: v66 ACTIVE; `zapi-webhook`: v19 ACTIVE; `send-whatsapp-message`: v13 ACTIVE; `complete-school-attendance`: v3 ACTIVE; `send-school-folder`: v1 ACTIVE.
+- `escola_nome=COC Macapá Norte`, `escola_agente_nome=Ana`, `escola_agente_ativo=true`, `escola_folder_ativo=true` e `escola_info` estão presentes.
+- `escola_valores` e `media_kit_link` estão vazios. Não inventar valores; confirmar o mecanismo/arquivo de envio do folder no WhatsApp real.
+- A presença de configurações e funções ativas não equivale a homologação de entrega no WhatsApp. `delivery_logs` continua sem registros na fotografia consultada.
+
+### Pendências de atendimento observadas
+- Há 29 contatos ativos com `triage_status='aguardando_secretaria'`.
+- Uma consulta agregada encontrou 6 desses casos com última entrada posterior à última saída ou sem saída registrada; 5 casos têm um dos timestamps de entrada/saída ausente. Esses grupos podem se sobrepor. É necessário abrir o histórico de cada caso, verificar se houve resposta humana fora do CRM e atribuir responsável. **Não encerrar, apagar ou enviar mensagem em lote.**
+- O número anterior de 51 contatos com última entrada posterior à última saída era uma triagem ampla entre diferentes status; não significa que todos estejam sem resposta.
+
+### Plano urgente para liberação até segunda-feira
+1. Conferir visualmente **Pendentes de resposta** em sessão autenticada; comparar ao menos um contato com `lead_id` e um contato WhatsApp relacionado só por telefone.
+2. Revisar individualmente os 29 casos `aguardando_secretaria`; marcar para retorno somente após ler o histórico.
+3. Com um número de teste autorizado, homologar mensagem recebida, resposta da Ana, resposta humana, encerramento e pesquisa de satisfação. Confirmar no aparelho e no CRM.
+4. Testar cadastro de família/aluno/oportunidade com confirmação explícita e correção antes da confirmação.
+5. Testar visita (agendamento, confirmação separada, reagendamento e conclusão) e tarefa (responsável, prazo, conclusão e próxima ação).
+6. Antes de operar, conferir quem assume os atendimentos na secretaria e revisar diariamente pendências e atrasos na primeira semana.
+
+### Limites desta etapa
+- Não foram enviados WhatsApps de teste por esta sessão.
+- Não foram alterados status, responsáveis ou dados pessoais dos contatos.
+- Não foram executadas migrações ou mudanças no banco.
+- A prioridade continua sendo confiabilidade operacional, não ampliar o escopo antes do lançamento.
