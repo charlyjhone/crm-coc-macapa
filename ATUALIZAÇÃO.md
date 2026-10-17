@@ -4,7 +4,7 @@
 
 ## Última atualização
 
-**Data:** 17/10/2026 — 16h43, horário de Macapá  
+**Data:** 17/10/2026 — 16h48, horário de Macapá  
 **Objetivo atual:** auditar o que já existe, validar o mínimo indispensável e preparar o CRM para uso real sem abrir uma reforma interminável.
 
 ## Ambiente confirmado
@@ -67,31 +67,33 @@ Consulta somente de leitura; contagens agregadas, sem expor dados pessoais.
 
 As duas oportunidades escolares estão na etapa `novo_interessado`. Os totais de mensagens/follow-ups incluem o histórico legado; não representam, por si só, comprovação de que cada mensagem foi entregue ou respondida. As contagens são uma fotografia de momento e devem ser atualizadas após a homologação.
 
-A tabela legada `leads` contém 176 contatos não arquivados no momento da consulta: 29 com `aguardando_secretaria`, 44 com `respondido_agente` e 103 com `resolvido`. Uma consulta preliminar também encontrou 51 contatos cuja última mensagem recebida é posterior à última enviada. Isso **não significa automaticamente 51 mensagens sem resposta** — o estado, a pesquisa e o histórico precisam ser cruzados —, mas é uma fila obrigatória de revisão antes de considerar o atendimento sob controle.
+A tabela legada `leads` contém 176 contatos não arquivados no momento da consulta: 29 com `aguardando_secretaria`, 44 com `respondido_agente` e 103 com `resolvido`. Uma consulta preliminar encontrou 51 contatos cuja última mensagem recebida é posterior à última enviada: 6 estão em `aguardando_secretaria`, 38 em `resolvido` e 7 em `respondido_agente`. Isso **não significa automaticamente 51 mensagens sem resposta** — o estado, a pesquisa e o histórico precisam ser cruzados. Os 29 casos em `aguardando_secretaria` continuam exigindo revisão, mesmo quando a última saída parece posterior à entrada.
 
 ## Achados da auditoria inicial
 
 1. **O CRM já tem base para acompanhar tarefas e prazos.** As telas e funções existem, mas há zero tarefas cadastradas; precisamos testar o fluxo completo pela interface.
 2. **A atribuição ainda precisa de validação operacional.** Existem campos de responsável nas oportunidades/tarefas, mas a distribuição e reatribuição entre atendentes e a visibilidade de cada responsável ainda não foram homologadas.
 3. **Há contatos em handoff que precisam ser revisados.** Os 29 casos em `aguardando_secretaria` não devem ser simplesmente encerrados em massa. Identificar quais ainda exigem retorno e atribuir um responsável.
-4. **Não declarar WhatsApp homologado só porque existem mensagens no banco.** Há histórico de mensagens recebidas/enviadas, mas `delivery_logs` está vazio. Precisamos confirmar a entrada do webhook, o envio no aparelho, o retorno de entrega e o registro do resultado.
-5. **Configurações institucionais incompletas ou não localizadas.** Na consulta às chaves usadas pela função `school-triage`, apenas `escola_agente_ativo=true` foi encontrada entre as chaves consultadas. Não foram encontradas `escola_info`, `escola_valores`, `escola_nome`, `escola_agente_nome` ou `escola_folder_ativo`. A função possui respostas padrão e regras específicas do COC, mas isso não substitui uma conferência das configurações oficiais. A ausência de `escola_folder_ativo` pode fazer a Ana dizer que o folder automático não está habilitado, mesmo que o envio manual funcione.
-6. **A triagem atual ainda é ampla.** O esquema da Ana classifica principalmente matrícula, financeiro, currículo, horário, localização e outros. Ainda não há uma fila setorial comprovadamente homologada para secretaria, coordenação, transferência, reclamações e demais solicitações de famílias atuais.
-7. **Há duas camadas que precisam continuar sincronizadas:** o contato/conversa na tabela legada `leads` e o cadastro escolar de responsável, aluno e oportunidade. A confirmação da família deve gerar um cadastro único, sem duplicação, e a equipe deve conseguir localizar o histórico da conversa a partir do cadastro escolar.
-8. **A pesquisa de satisfação está implementada, mas falta comprovar o ciclo real.** Os seis registros com status enviado não provam que a família recebeu e respondeu. Validar uma conversa controlada, a pesquisa de origem, a nota e o encerramento.
-9. **Não implementar novos painéis antes de validar os dados de base.** Indicadores de conversão, tempo de primeira resposta, pendências por setor e desempenho por atendente só serão confiáveis quando as mensagens, responsáveis, tarefas e encerramentos estiverem consistentes.
+4. **A fila “Pendentes de resposta” tem um risco técnico concreto.** O hook `src/hooks/usePendingLeads.ts` só analisa mensagens com `lead_id` preenchido. No banco existem 382 mensagens recebidas e 1.332 enviadas com `lead_id` nulo. Como parte do fluxo WhatsApp usa telefone para relacionar mensagens, a tela pode subcontar pendências e até mostrar zero indevidamente. Corrigir a reconciliação por telefone sem duplicar conversas e testar com mensagens vinculadas e não vinculadas antes de confiar nessa fila.
+5. **Não declarar WhatsApp homologado só porque existem mensagens no banco.** Há histórico de mensagens recebidas/enviadas, mas `delivery_logs` está vazio. Precisamos confirmar a entrada do webhook, o envio no aparelho, o retorno de entrega e o registro do resultado.
+6. **Configurações institucionais incompletas ou não localizadas.** Na consulta às chaves usadas pela função `school-triage`, apenas `escola_agente_ativo=true` foi encontrada entre as chaves consultadas. Não foram encontradas `escola_info`, `escola_valores`, `escola_nome`, `escola_agente_nome` ou `escola_folder_ativo`. A função possui respostas padrão e regras específicas do COC, mas isso não substitui uma conferência das configurações oficiais. A ausência de `escola_folder_ativo` pode fazer a Ana dizer que o folder automático não está habilitado, mesmo que o envio manual funcione.
+7. **A triagem atual ainda é ampla.** O esquema da Ana classifica principalmente matrícula, financeiro, currículo, horário, localização e outros. Ainda não há uma fila setorial comprovadamente homologada para secretaria, coordenação, transferência, reclamações e demais solicitações de famílias atuais.
+8. **Há duas camadas que precisam continuar sincronizadas:** o contato/conversa na tabela legada `leads` e o cadastro escolar de responsável, aluno e oportunidade. A confirmação da família deve gerar um cadastro único, sem duplicação, e a equipe deve conseguir localizar o histórico da conversa a partir do cadastro escolar.
+9. **A pesquisa de satisfação está implementada, mas falta comprovar o ciclo real.** Os seis registros com status enviado não provam que a família recebeu e respondeu. Validar uma conversa controlada, a pesquisa de origem, a nota e o encerramento.
+10. **Não implementar novos painéis antes de validar os dados de base.** Indicadores de conversão, tempo de primeira resposta, pendências por setor e desempenho por atendente só serão confiáveis quando as mensagens, responsáveis, tarefas e encerramentos estiverem consistentes.
 
 ## Plano de entrada em operação — sem atrasar o lançamento
 
 ### P0 — Antes de liberar o atendimento real
-1. Confirmar no Render que a versão do frontend está `live` após o último commit. Não confundir o deploy do site Conceito com o deploy do COC.
-2. Revisar os 29 atendimentos em `aguardando_secretaria` e cruzar a fila preliminar de 51 contatos com última entrada posterior à última saída. Não apagar nem encerrar em lote.
-3. Conferir as configurações oficiais da Ana: nome visível, informações da escola, valores, campanha/ano letivo e habilitação do folder automático.
-4. Fazer um teste controlado com número autorizado: mensagem recebida → registro no CRM → resposta da Ana → resposta humana → retomada sem duplicidade → encerramento → pesquisa de satisfação. Confirmar no próprio WhatsApp, não apenas no retorno técnico.
-5. Testar cadastro de família/aluno/oportunidade com confirmação explícita e um caso de correção antes da confirmação; verificar que não há duplicidade.
-6. Testar agendamento, confirmação separada, reagendamento e conclusão de visita.
-7. Criar uma tarefa real de teste, atribuir responsável, definir prazo, concluir e agendar a próxima ação. Verificar que aparece na fila correta.
-8. Confirmar que a secretaria sabe localizar mensagens pendentes, assumir um contato, registrar o atendente e concluir o atendimento.
+1. Corrigir a fila **Pendentes de resposta** para considerar mensagens WhatsApp sem `lead_id`, com vínculo seguro por telefone e sem duplicar contatos. Validar a contagem antes/depois com casos controlados.
+2. Confirmar no Render que a versão do frontend está `live` após o último commit. Não confundir o deploy do site Conceito com o deploy do COC.
+3. Revisar os 29 atendimentos em `aguardando_secretaria` e cruzar a fila preliminar de 51 contatos com última entrada posterior à última saída. Não apagar nem encerrar em lote.
+4. Conferir as configurações oficiais da Ana: nome visível, informações da escola, valores, campanha/ano letivo e habilitação do folder automático.
+5. Fazer um teste controlado com número autorizado: mensagem recebida → registro no CRM → resposta da Ana → resposta humana → retomada sem duplicidade → encerramento → pesquisa de satisfação. Confirmar no próprio WhatsApp, não apenas no retorno técnico.
+6. Testar cadastro de família/aluno/oportunidade com confirmação explícita e um caso de correção antes da confirmação; verificar que não há duplicidade.
+7. Testar agendamento, confirmação separada, reagendamento e conclusão de visita.
+8. Criar uma tarefa real de teste, atribuir responsável, definir prazo, concluir e agendar a próxima ação. Verificar que aparece na fila correta.
+9. Confirmar que a secretaria sabe localizar mensagens pendentes, assumir um contato, registrar o atendente e concluir o atendimento.
 
 ### P1 — Melhorias de curto prazo, após estabilizar o básico
 - Atribuição e reatribuição explícita de conversas, oportunidades e tarefas a atendentes.
@@ -114,4 +116,4 @@ Não ativar automações novas nem alterar em lote contatos existentes durante e
 
 ## Próximo passo exato
 
-**Primeiro, revisar os contatos que parecem exigir retorno; em paralelo, confirmar as configurações da Ana e homologar uma conversa completa no WhatsApp real.** Depois executar o teste da tarefa e da visita pela interface. Só então fechar a lista P0 e decidir quais melhorias P1 entram antes ou logo após o lançamento.
+**Primeiro, corrigir e validar a fila “Pendentes de resposta”, revisar os contatos que parecem exigir retorno e confirmar as configurações da Ana.** Em seguida, homologar uma conversa completa no WhatsApp real e testar tarefa/visita pela interface. Só então fechar a lista P0 e decidir quais melhorias P1 entram antes ou logo após o lançamento.
