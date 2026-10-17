@@ -8,7 +8,7 @@ on:
       - "scripts/test-ana-visits.mjs"
       - ".github/workflows/ana-regression-tests.yml"
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**"]
     paths:
       - "supabase/functions/school-triage/**"
       - "scripts/test-ana-visits.mjs"
