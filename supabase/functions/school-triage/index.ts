@@ -164,7 +164,7 @@ function secretaryStyleTopic(inbound: string): string | null {
   const t = normalizedStyleText(inbound);
   if (/\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/.test(t)) return null;
   if (/\b(visita|visitar|conhecer a escola|conhecer o colegio)\b/.test(t)) return "visita à escola";
-  if (/\b(valor|valores|mensalidade|preco|preços|desconto|condicao comercial)\b/.test(t)) return "valores e condições comerciais";
+  if (/\b(valor|valores|mensalidade|preco|precos|desconto|condicao comercial)\b/.test(t)) return "valores e condições comerciais";
   if (/\b(matricula|vaga|serie|ano letivo|turno|aluno|aluna)\b/.test(t)) return "interesse em matrícula";
   if (/\b(horario|funcionamento|abre|fecha)\b/.test(t)) return "horários";
   if (/\b(endereco|localizacao|chegar|fica onde)\b/.test(t)) return "localização";
@@ -205,50 +205,51 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
     .limit(300);
   if (error || !Array.isArray(rows)) return "";
 
-  const ordered = [...rows].sort((a: any, b: any) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  const usedInbound = new Set<string>();
-  const examples: { topic: string; reply: string }[] = [];
-  const seenReplies = new Set<string>();
-
-  for (const outgoing of ordered) {
-    if (outgoing.direction !== "outbound" ||
-        String(outgoing.raw_data?.sender_type || "").toLowerCase() !== "human" ||
-        !outgoing.phone || outgoing.phone === excludePhone) continue;
-
-    const outgoingAt = new Date(outgoing.created_at).getTime();
-    let inbound: any = null;
-    for (const candidate of ordered) {
-      if (candidate.direction !== "inbound" || candidate.phone !== outgoing.phone ||
-          !candidate.id || usedInbound.has(candidate.id)) continue;
-      const inboundAt = new Date(candidate.created_at).getTime();
-      if (inboundAt >= outgoingAt || outgoingAt - inboundAt > 12 * 60 * 60 * 1000) continue;
-      const interveningOutbound = ordered.some((other: any) =>
-        other.phone === outgoing.phone && other.direction === "outbound" &&
-        new Date(other.created_at).getTime() > inboundAt &&
-        new Date(other.created_at).getTime() < outgoingAt);
-      if (interveningOutbound) continue;
-      inbound = candidate;
-      break;
-    }
-    if (!inbound) continue;
-
-    const topic = secretaryStyleTopic(String(inbound.message || ""));
-    const reply = sanitizeSecretaryStyleReply(String(outgoing.message || ""));
-    if (!topic || !reply) continue;
-    const key = normalizedStyleText(reply);
-    if (seenReplies.has(key)) continue;
-    seenReplies.add(key);
-    usedInbound.add(inbound.id);
-    examples.push({ topic, reply });
-    if (examples.length >= 4) break;
+  const grouped = new Map<string, any[]>();
+  for (const row of rows) {
+    if (!row.phone || row.phone === excludePhone) continue;
+    const group = grouped.get(row.phone) || [];
+    group.push(row);
+    grouped.set(row.phone, group);
   }
 
-  return examples.map((item, index) =>
+  const examples: { topic: string; reply: string; at: number }[] = [];
+  const seenReplies = new Set<string>();
+  for (const [phone, conversation] of grouped) {
+    conversation.sort((a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    let lastInbound: any = null;
+    for (const message of conversation) {
+      if (message.direction === "inbound") {
+        lastInbound = message;
+        continue;
+      }
+      if (message.direction !== "outbound") continue;
+      const isHuman = String(message.raw_data?.sender_type || "").toLowerCase() === "human";
+      if (isHuman && lastInbound) {
+        const age = new Date(message.created_at).getTime() - new Date(lastInbound.created_at).getTime();
+        if (age >= 0 && age <= 12 * 60 * 60 * 1000) {
+          const topic = secretaryStyleTopic(String(lastInbound.message || ""));
+          const reply = sanitizeSecretaryStyleReply(String(message.message || ""));
+          if (topic && reply) {
+            const key = normalizedStyleText(reply);
+            if (!seenReplies.has(key)) {
+              seenReplies.add(key);
+              examples.push({ topic, reply, at: new Date(message.created_at).getTime() });
+            }
+          }
+        }
+      }
+      // Uma resposta enviada encerra o par. Não reutilizar a mesma fala da família.
+      lastInbound = null;
+    }
+  }
+
+  examples.sort((a, b) => b.at - a.at);
+  return examples.slice(0, 4).map((item, index) =>
     (index + 1) + ". Tema: " + item.topic + "\n   Resposta humana anonimizada: " + item.reply
   ).join("\n");
 }
-
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
