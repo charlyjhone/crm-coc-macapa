@@ -132,7 +132,8 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
     triagem.cadastro = { responsavel: null, aluno: null, ano: ENROLLMENT_CAMPAIGN_YEAR, serie: null, turno: null };
   }
   const lines = (historico || "").split("\n").filter(Boolean);
-  lines.push("Família: " + (currentText || ""));
+  const currentLine = "Família: " + (currentText || "");
+  if (lines[lines.length - 1] !== currentLine) lines.push(currentLine);
   let grade: string | null = null;
   let shift: string | null = null;
   let lastAskedField: "responsavel" | "aluno" | "serie" | null = null;
@@ -284,7 +285,8 @@ function extractExplicitVisitFacts(text: string): { date: string | null; time: s
 function mergeExplicitVisitFacts(triagem: Triagem, historico: string, currentText: string) {
   if (!triagem.visita) triagem.visita = { solicitada: false, data: null, horario: null };
   const lines = (historico || "").split("\n").filter((line) => line.startsWith("Família:"));
-  lines.push("Família: " + (currentText || ""));
+  const currentLine = "Família: " + (currentText || "");
+  if (lines[lines.length - 1] !== currentLine) lines.push(currentLine);
   let date: string | null = null;
   let time: string | null = null;
   for (const line of lines.slice(-12)) {
