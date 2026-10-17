@@ -20,6 +20,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Atendimentos = lazy(() => import("./pages/Atendimentos"));
+const Pendentes = lazy(() => import("./pages/Pendentes"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/origem-conversao" element={<ProtectedLayout><AcquisitionAnalytics /></ProtectedLayout>} />
             <Route path="/possibilidades" element={<ProtectedLayout><EnrollmentPossibilities /></ProtectedLayout>} />
             <Route path="/atendimentos" element={<ProtectedLayout><Atendimentos /></ProtectedLayout>} />
+            <Route path="/pendentes" element={<ProtectedLayout><Pendentes /></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
             <Route path="/auditoria" element={<ProtectedLayout><AdminRoute><Auditoria /></AdminRoute></ProtectedLayout>} />
