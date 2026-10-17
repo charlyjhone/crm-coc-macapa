@@ -1,48 +1,52 @@
 # CRM Colégio Conceito
 
-Instalação independente autorizada por Renato em 16/10/2026. Organização Supabase: AE SYSTEM (`uailpmrcipmrlykdpyvd`). Projeto exclusivo: `xkcxvbagzxwwauofvlin`, atualmente chamado `CRM Escolas`; nome solicitado `CRM CONCEITO` ainda depende de alteração no painel. Região existente: `us-west-2`, mantida. Não foi criado outro projeto nem contratado plano pago.
+Instalação independente autorizada por Renato em 16/10/2026. Projeto Supabase exclusivo: `xkcxvbagzxwwauofvlin`, atualmente chamado `CRM Escolas`, na organização AE SYSTEM, região `us-west-2`. O projeto COC continua separado em `fenqnbzdjnyvgrmjczoi`. AIMEDU permanece fora desta instalação.
 
-O COC foi transferido para a mesma organização, mantendo o projeto `fenqnbzdjnyvgrmjczoi`, São Paulo, atualmente `crm-escola`; nome solicitado `CRM COC` ainda pendente. AIMEDU permanece fora desta instalação.
+## Banco e segurança
 
-## Banco aplicado
+- Baseline exclusiva em `deployments/conceito/supabase/migrations/20261016152954_conceito_school_baseline.sql`. Não reaplicar migrations antigas da raiz no Conceito.
+- 24 tabelas públicas com RLS, visão de previsão com `security_invoker`, funções escolares, auditoria e bucket privado `school-materials`.
+- Nenhum contato, usuário, senha, secret, arquivo, cron ou callback do COC foi copiado.
+- Em 17/10/2026 foram aplicadas e registradas as migrations `concept_crm_school_write_path_hardening`, `concept_crm_lead_column_permissions` e `concept_update_school_family_rpc`. Elas alinham as gravações escolares a RPCs/Edge Functions validadas, restringem escritas diretas do navegador e habilitam edição segura de famílias e alunos.
+- A auditoria Supabase não aponta tabelas públicas sem RLS. As tabelas internas `ana_followups` e `crm_survey_claims` não têm políticas para clientes, intencionalmente. Os avisos de funções `SECURITY DEFINER` devem continuar sendo revistos conforme as funções forem habilitadas.
+- Validação após as migrations: privilégios diretos do papel `authenticated` limitados a SELECT nas tabelas escolares protegidas; RPC `update_school_family` executável por autenticados e protegida por papel; RPCs de cadastro da Ana e alteração de perfil não executáveis por `anon` nem `authenticated`.
 
-- Baseline própria em `supabase/migrations/20261016152954_conceito_school_baseline.sql`, neste diretório de implantação. Não executar as migrations antigas da raiz no Conceito.
-- 24 tabelas com RLS, visão de previsão com `security_invoker`, 51 funções públicas escolares/de compatibilidade, auditoria privada, políticas e bucket privado `school-materials`.
-- Estrutura obtida do catálogo atual do COC e revisada; nenhuma linha, usuário, senha, secret, arquivo, cron ou callback do COC foi copiado. Excluídas tabelas de reuniões comerciais, workers, prompts antigos e Outlook. Tabelas auxiliares ainda referenciadas pelo frontend foram mantidas vazias.
-- Agente e envio de folder desligados. Nome da escola `Colégio Conceito`; nome provisório do agente `Assistente`; informações e valores vazios.
-- Trigger de triagem aponta somente para o projeto Conceito e verifica o agente ativo antes de qualquer chamada. Segredos de Vault ainda não configurados; nenhuma credencial foi copiada.
-- Migration `20261016153113_conceito_restrict_platform_event_trigger.sql` restringe EXECUTE do event trigger `rls_auto_enable`, criado pela própria plataforma, para impedir exposição a clientes.
-- Auditor: nenhuma tabela pública sem RLS; os avisos de RPC autenticada correspondem a funções com guardas de papel. As tabelas internas `ana_followups` e `crm_survey_claims` não têm políticas para cliente, intencionalmente.
+## Backend
 
-## Backend publicado
+Estão ACTIVE no Supabase Conceito: `admin-manage-users`, `complete-school-attendance`, `send-school-folder`, `send-whatsapp-message`, `zapi-webhook` e `school-triage`. As funções foram verificadas sem autenticação e recusam chamadas não autorizadas. Isso não comprova uma integração real com o WhatsApp.
 
-Versão 1 ACTIVE de `admin-manage-users`, `complete-school-attendance`, `send-school-folder`, `send-whatsapp-message`, `zapi-webhook` e `school-triage`. Código da base escolar corrente; autenticação interna preservada. `complete-school-attendance` mantém verify_jwt=true; as demais verificam autenticação dentro do handler. Todas responderam HTTP 401 a POST sem autenticação. Isso não comprova integração WhatsApp ou login de operador.
+## Interface publicada
 
-## Interface pronta para publicação
+- URL: https://crm-conceito.onrender.com
+- Render Static Site: `crm-conceito`
+- Repositório: `charlyjhone/crm-coc-macapa`, branch `main`
+- Build: `npm ci && node scripts/build-conceito.mjs`
+- Diretório publicado: `dist-conceito`
+- Configuração pública aponta para o projeto `xkcxvbagzxwwauofvlin`, não para o banco COC.
 
-Build: `npm ci && node scripts/build-conceito.mjs` a partir da raiz do repositório.
+O deploy inicial foi concluído e a publicação da atualização de segurança em 17/10/2026 ficou LIVE. Ainda é necessário configurar no painel Render o rewrite SPA `/*` → `/index.html`, para que a atualização direta de páginas internas funcione.
 
-Diretório publicado: `dist-conceito`. Configurar rewrite SPA `/*` → `/index.html` no Render.
+## Estado da configuração escolar
 
-Serviço proposto: `crm-conceito`, Static Site, repositório `charlyjhone/crm-coc-macapa`, branch que contém esta entrega. Ainda não criado: o conector Render exige confirmação explícita do workspace. Disponíveis `CRM COC` e `AIM.Edu`; preferência proposta para `CRM COC`, aguardando Renato.
+- Nome: `Colégio Conceito`.
+- Nome provisório da atendente: `Assistente`.
+- Informações institucionais e valores: ainda vazios.
+- Atendente virtual e envio automático do folder: desativados.
+- Folder PDF: ainda não enviado ao bucket privado.
+- Segredos exclusivos de WhatsApp/Vault: ainda não configurados.
+- Usuários Auth: zero. Nenhuma conta administrativa foi criada ainda.
 
-`public-config.json` contém somente identidade e chave publicável (não é secret). O script fixa URL/chave/referência do Conceito e não herda o banco COC da configuração da raiz. Teste do bundle confirmou ausência das referências COC/AIMEDU.
-
-## Validação concluída
-
-- Build Conceito, TypeScript, ESLint dos arquivos principais alterados e 13 testes locais aprovados.
-- `verify-visits.sql`: usuário sintético sem senha/sessão, cadastro pelo serviço, agenda, repetição, confirmação, notas, reagendamento, conclusão, histórico, datas inválidas, etapas avançadas e bloqueio sem perfil. Tudo em rollback.
-- Cadastro manual de família e auditoria também testados em rollback.
-- Consulta posterior: zero contatos, responsáveis, alunos, visitas e usuários Auth. Nenhum WhatsApp enviado.
+A função `school-triage` ainda contém campanha de matrícula 2027 e horário de Macapá como valores padrão. Confirmar ano letivo, fuso horário, etapas e turnos do Conceito antes de ativar a atendente.
 
 ## Pendências para uso real
 
-1. Renomear os dois projetos no painel Supabase; o conector não oferece atualização de nomes.
-2. Confirmar workspace Render, publicar o Static Site e configurar rewrite SPA.
-3. Criar primeiro usuário administrador pelo Auth com senha definida de forma segura; atribuir `admin` ao ID confirmado. Não abrir cadastro público nem criar conta automaticamente a partir de metadados editáveis.
-4. Configurar Site URL e redirects Auth com o endereço publicado; validar login e cadastro pela interface.
-5. Cadastrar informações oficiais, valores, séries, horários e nome final da atendente. A função corrente usa campanha 2027 e horário de Macapá; confirmar adequação com a escola antes de ativar.
-6. Configurar secrets próprios `OPENAI_API_KEY`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`; gerar secrets exclusivos no Vault `school_triage_webhook_secret` e `zapi_webhook_secret`, respeitando os nomes esperados pelas RPCs.
-7. Configurar callbacks na instância Z-API do Conceito somente após autorização de compartilhamento do novo segredo com o provedor. Testar número controlado, intervenção humana, pesquisa e entrega; só então ligar agente.
+1. No Render, adicionar rewrite SPA `/*` → `/index.html`.
+2. Criar o primeiro usuário em Supabase → Authentication → Users, com senha definida pelo próprio administrador e e-mail confirmado. Depois, atribuir o papel `admin` ao usuário correto. Não abrir cadastro público nem criar contas a partir de metadados editáveis.
+3. Criar `charlyjhone77@gmail.com` como segundo usuário e atribuir também `admin`; confirmar ambos os perfis antes do uso.
+4. Configurar Site URL e redirects Auth para `https://crm-conceito.onrender.com` e validar login.
+5. Cadastrar informações oficiais do Conceito: endereço, etapas/turnos, horários, diferenciais, calendário e política de valores; definir o nome final da atendente.
+6. Enviar o PDF final do folder (até 18 MiB) ao bucket privado e só depois ativar o envio.
+7. Configurar secrets próprios `OPENAI_API_KEY`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, além dos segredos exclusivos esperados pelas RPCs/Vault. Nunca reutilizar credenciais do COC.
+8. Configurar os callbacks na instância Z-API do Conceito, testar mensagens de entrada/saída, cadastro de interesse, visita, atendimento humano, pesquisa e envio do folder com número controlado; só então ativar a atendente.
 
-Não reconectar sincronização automática do GitHub/Supabase antes de revisar a pasta correta de migrations. Nunca reaplicar esta baseline no COC.
+Nunca reaplicar a baseline do Conceito no COC. Antes de ativar automações, confirmar que todos os segredos e callbacks apontam exclusivamente para o projeto do Conceito.
