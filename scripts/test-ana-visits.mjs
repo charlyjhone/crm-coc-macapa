@@ -287,7 +287,7 @@ test('Ana usa respostas humanas recentes como referência de estilo sem enviar a
   );
   await h.send('Quero conhecer a escola.');
   const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
-  assert.match(system, /ESTILO OBSERVADO NAS RESPOSTAS RECENTES DA SECRETARIA/);
+  assert.match(system, /ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA/);
   assert.match(system, /visita à escola/);
   assert.match(system, /Será um prazer receber sua família/);
   assert.doesNotMatch(system, /Olá, Maria/);
