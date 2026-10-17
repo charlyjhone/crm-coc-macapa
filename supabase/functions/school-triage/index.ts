@@ -117,6 +117,14 @@ function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
   return "Qual é a série pretendida?";
 }
 
+function pendingEnrollmentField(message: string): "responsavel" | "aluno" | "serie" | null {
+  const normalized = normalizedStyleText(message);
+  if (/qual e o nome completo do responsavel/.test(normalized)) return "responsavel";
+  if (/qual e o nome do aluno/.test(normalized)) return "aluno";
+  if (/qual e a serie pretendida/.test(normalized)) return "serie";
+  return null;
+}
+
 function visitDateTime(date: string | null, time: string | null) {
   if (!date || !time || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const local = `${date}T${time}:00-03:00`; // Escola em Macapá (UTC-3).
@@ -257,7 +265,7 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
-  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
+  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi) so isso|(?:somente|apenas|so) (?:isso|so isso)(?: mesmo)?|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
   // Despedidas explícitas podem vir acompanhadas de agradecimento e promessa de retorno.
   // Não exigir que a última mensagem da Ana contenha uma oferta de ajuda.
   if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado)[ ,]+)?(?:muito )?obrigad[oa](?: mesmo)?\s+(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
@@ -736,14 +744,17 @@ serve(async (req) => {
     // ---- Histórico curto para dar contexto ao agente ----
     let historico = "";
     let lastSchoolMessageAt: string | null = null;
+    let lastOutboundMessage: any = null;
     if (phone) {
       const { data: msgs } = await supabase
         .from("whatsapp_messages")
-        .select("direction, message, timestamp, created_at")
+        .select("direction, message, timestamp, created_at, raw_data")
         .eq("phone", phone)
         .order("created_at", { ascending: false })
         .limit(12);
-      lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
+      const latestOutbound = (msgs || []).find((m: { direction: string }) => m.direction === "outbound");
+      lastSchoolMessageAt = latestOutbound?.created_at || null;
+      lastOutboundMessage = latestOutbound || null;
       historico = (msgs || [])
         .reverse()
         .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").slice(0, 400)}`)
@@ -934,6 +945,50 @@ Responda SOMENTE com JSON válido:
       resposta = draft
         ? confirmationText(draft)
         : "Claro! No dia da visita a equipe poderá esclarecer tudo. Para deixar seu atendimento organizado, posso adiantar seu cadastro de interesse? " + missingEnrollmentQuestion(triagem.cadastro);
+    }
+
+    // Se a última pergunta da Ana foi um campo do cadastro, a resposta seguinte
+    // pertence a esse fluxo. Isso evita que a triagem volte para "outros" entre
+    // nome do responsável, aluno e série. O handoff humano tem prioridade acima.
+    const fieldAskedByAna = channel === "whatsapp" && lastOutboundMessage &&
+      isAnaOutbound(lastOutboundMessage)
+      ? pendingEnrollmentField(String(lastOutboundMessage.message || ""))
+      : null;
+    const explicitlyDeclinesData = /\b(?:nao quero informar|prefiro nao informar|nao quero passar|prefiro nao passar)\b/i.test(text);
+    const explicitlyRequestsHuman = /\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text);
+    if (fieldAskedByAna && explicitlyDeclinesData) {
+      assunto = "matricula";
+      triagem.cadastro_interesse = false;
+      triagem.visita = { solicitada: false, data: null, horario: null };
+      precisaHumano = false;
+      draft = null;
+      resposta = "Sem problema! Você não precisa informar esses dados agora. Quando quiser, podemos retomar o cadastro por aqui. 😊";
+    } else if (fieldAskedByAna && !explicitlyRequestsHuman && triagem.prioridade !== "urgente") {
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
+      precisaHumano = false;
+      triagem.visita = { solicitada: false, data: null, horario: null };
+
+      const answer = text.trim().replace(/[.!?]+$/, "");
+      if (fieldAskedByAna === "responsavel" &&
+          (!triagem.cadastro.responsavel || triagem.cadastro.responsavel.trim().split(/\s+/).length < 2)) {
+        const value = answer.replace(/^(?:meu nome (?:e|é)|me chamo|sou)\s+/i, "").trim();
+        if (value.split(/\s+/).length >= 2 && value.length <= 160) triagem.cadastro.responsavel = value;
+      } else if (fieldAskedByAna === "aluno" && !triagem.cadastro.aluno?.trim()) {
+        const value = answer.replace(/^(?:(?:o nome do aluno|meu filho|minha filha)\s+(?:e|é|se chama)\s+)/i, "").trim();
+        if (value.length >= 2 && value.length <= 160) triagem.cadastro.aluno = value;
+      } else if (fieldAskedByAna === "serie" && !triagem.cadastro.serie) {
+        const normalizedAnswer = normalizedStyleText(text);
+        const matchedSeries = SERIES.find((item) => normalizedAnswer.includes(normalizedStyleText(item)));
+        if (matchedSeries) triagem.cadastro.serie = matchedSeries;
+      }
+      const yearMatch = text.match(/\b(20\d{2})\b/);
+      if (yearMatch) triagem.cadastro.ano = Number(yearMatch[1]);
+
+      draft = enrollmentDraft(triagem.cadastro);
+      resposta = draft
+        ? confirmationText(draft)
+        : missingEnrollmentQuestion(triagem.cadastro);
     }
 
     // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
