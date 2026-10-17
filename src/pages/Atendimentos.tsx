@@ -143,7 +143,7 @@ export default function Atendimentos() {
   const isValidRequestedFilter = filters.some((item) => item.key === requestedFilter);
   const filter: Filter = isValidRequestedFilter ? requestedFilter as Filter : "aguardando_secretaria";
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("lead"));
   const counts = useMemo(() => ({
     urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
     atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
@@ -160,7 +160,9 @@ export default function Atendimentos() {
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
     (Date.parse(a.last_inbound_message_at || "") || 0) - (Date.parse(b.last_inbound_message_at || "") || 0));
+  const requestedLeadId = searchParams.get("lead");
   const selected = list.find((lead) => lead.id === selectedId)
+    || (requestedLeadId ? (data || []).find((lead) => lead.id === requestedLeadId) ?? null : null)
     || (isValidRequestedFilter || stageFilter ? list[0] ?? null : null);
 
   return (
