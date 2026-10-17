@@ -42,7 +42,14 @@ export type EditableFamily = {
   }>;
 };
 
-type StudentDraft = FamilyStudent;
+type StudentDraft = {
+  id: string;
+  full_name: string;
+  preferred_name: string;
+  birth_date: string;
+  current_school: string;
+  notes: string;
+};
 
 export function EditFamilyDialog({
   guardian,
