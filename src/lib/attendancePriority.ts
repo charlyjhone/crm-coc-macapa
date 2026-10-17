@@ -1,7 +1,7 @@
 import type { Atendimento } from "@/hooks/useAtendimentos";
 
 const safetyWords = /\b(urgente|emergencia|acidente|machucad[oa]|hospital|socorro|violencia|ameaca|abuso|desaparecid[oa]|agressao|risco|perigo)\b/i;
-const schoolTopics = /matricul|document|declarac|vaga|transferenc|visita|serie|turno/;
+const schoolTopics = /matricul|document|declarac|vaga|transferenc|visita/;
 const enrollmentDeadline = /\b(ultimo dia|prazo (?:final|termina|vence|encerra|acaba)|ate hoje|ainda hoje|preciso.{0,35}(?:hoje|amanha)|necessito.{0,35}(?:hoje|amanha)|matricula.{0,25}(?:hoje|amanha)|vaga.{0,25}(?:hoje|amanha)|documentos?.{0,25}(?:hoje|amanha))\b/i;
 
 export function attendancePriority(lead: Atendimento, now = Date.now()) {
