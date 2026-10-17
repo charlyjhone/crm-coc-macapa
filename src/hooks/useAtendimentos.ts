@@ -47,7 +47,7 @@ function safeHttpUrl(value: string | null): string | null {
 }
 
 function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, message: string | null) {
-  const raw = asRecord(rawValue) || {};
+  const raw: JsonRecord = asRecord(rawValue) || {};
   const nested = [asRecord(raw.payload), asRecord(raw.data), asRecord(raw.messageData)].filter(Boolean) as JsonRecord[];
   const records = [raw, ...nested];
   const findObject = (...keys: string[]) => {
