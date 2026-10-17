@@ -295,3 +295,42 @@ test('Ana usa respostas humanas recentes como referência de estilo sem enviar a
   assert.doesNotMatch(system, /Maria/);
   assert.doesNotMatch(system, /Gostaria de conhecer a escola/);
 });
+
+
+test('Somente isso mesmo encerra a conversa sem voltar a encaminhar para a secretaria', async () => {
+  const h = harness();
+  await h.send('Somente isso mesmo.');
+  assert.equal(h.state.aiCalls, 0);
+  assert.equal(h.state.rows.leads[0].triage_status, 'resolvido');
+  assert.ok(h.state.sent.some(message => /Combinado/.test(message.message)));
+});
+
+test('Ana mantém a coleta de responsável, aluno e série entre mensagens até confirmar o resumo', async () => {
+  const h = harness();
+  h.state.ai.assunto = 'matricula';
+  h.state.ai.cadastro_interesse = true;
+  h.state.ai.visita.solicitada = false;
+  h.state.ai.cadastro = { responsavel: null, aluno: null, ano: 2027, serie: null, turno: null };
+  h.state.ai.resposta = 'Qual é o nome completo do responsável?';
+
+  await h.send('Quero registrar meu interesse para matrícula.');
+  assert.match(h.state.sent.at(-1).message, /nome completo do responsável/i);
+
+  await h.send('Renato Coutinho');
+  assert.match(h.state.sent.at(-1).message, /nome do aluno/i);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+
+  await h.send('Lucas Coutinho');
+  assert.match(h.state.sent.at(-1).message, /série pretendida/i);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+
+  await h.send('1º ano do Ensino Fundamental');
+  assert.match(h.state.sent.at(-1).message, /Para cadastrar o interesse, confirme estes dados/);
+  assert.match(h.state.sent.at(-1).message, /Responsável: Renato Coutinho/);
+  assert.match(h.state.sent.at(-1).message, /Aluno: Lucas Coutinho/);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.enrollment_opportunities[0].student_name, 'Lucas Coutinho');
+});
