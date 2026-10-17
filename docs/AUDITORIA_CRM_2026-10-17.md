@@ -33,7 +33,7 @@ Estado do conjunto escolar após a limpeza: 2 responsáveis, 2 alunos, 2 oportun
 - As tabelas do CRM têm RLS; as políticas principais exigem perfil admin ou user (Secretaria). A amostra de funções SECURITY DEFINER revisada verifica o papel necessário. O advisor ainda lista 13 funções privilegiadas executáveis por usuários autenticados; são RPCs/helper functions usados pelo CRM e devem continuar sendo revisadas por assinatura e autorização, não revogadas em bloco.
 - A proteção de senhas comprometidas do Supabase Auth está desativada. Ativar no painel de Auth se a opção estiver disponível no plano.
 - A trilha de auditoria administrativa é somente leitura pelo cliente; a gravação é feita por triggers.
-- O webhook Z-API já valida segredo antes de processar payloads. A branch fix/crm-school-write-hardening sanitiza os logs das funções principais para não imprimir mensagens, números, nomes, e-mails, LIDs ou objetos de erro com dados pessoais. As novas versões das Edge Functions ainda não foram implantadas.
+- O webhook Z-API já valida segredo antes de processar payloads. Após a mesclagem do PR #47, as Edge Functions zapi-webhook v19, send-whatsapp-message v13 e school-triage v64 estão ACTIVE no COC. Os logs foram sanitizados para não imprimir mensagens, números, nomes, e-mails, LIDs ou objetos de erro com dados pessoais. Nenhuma mensagem foi enviada durante a publicação.
 - delivery_logs continua vazio. Aceitação de envio pelo provedor não comprova entrega no aparelho; o callback precisa ser validado com um teste controlado.
 
 ## Desempenho e manutenção
