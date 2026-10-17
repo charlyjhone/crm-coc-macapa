@@ -173,7 +173,7 @@ function secretaryStyleTopic(inbound: string): string | null {
 }
 
 function sanitizeSecretaryStyleReply(raw: string): string | null {
-  if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/i.test(raw)) return null;
+  if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios|reais|custa|fica em|a partir de|hoje|amanha|ontem|novembro|dezembro|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|este ano|proximo ano|semana que vem|mes que vem)\b/i.test(raw)) return null;
   if (/\bR\$\s*\d|\b\d{2,}\b|\b\d{4,5}[-.\s]?\d{4}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
   let text = raw
     .replace(/^\*[^*\r\n]{1,100}\*\s*/u, "")
