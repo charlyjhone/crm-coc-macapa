@@ -128,20 +128,51 @@ function stripGradeAndShiftFromStudentName(value: string | null | undefined): st
 }
 
 function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, currentText: string) {
-  const lines = (historico || "").split("\n").filter((line) => line.startsWith("Família:"));
+  if (!triagem.cadastro) {
+    triagem.cadastro = { responsavel: null, aluno: null, ano: ENROLLMENT_CAMPAIGN_YEAR, serie: null, turno: null };
+  }
+  const lines = (historico || "").split("\n").filter(Boolean);
   lines.push("Família: " + (currentText || ""));
   let grade: string | null = null;
   let shift: string | null = null;
-  for (const line of lines.slice(-12)) {
-    const facts = extractGradeAndShift(line.replace(/^Família:\s*/, ""));
+  let lastAskedField: "responsavel" | "aluno" | "serie" | null = null;
+
+  for (const line of lines.slice(-24)) {
+    if (line.startsWith("Escola:")) {
+      const question = normalizedStyleText(line.replace(/^Escola:\s*/, "").replace(/^\*\[Atendente [^\]]+\]\*\s*/, ""));
+      if (/\b(nome completo do responsavel|nome do responsavel)\b/.test(question)) lastAskedField = "responsavel";
+      else if (/\b(nome do aluno|nome da aluna)\b/.test(question)) lastAskedField = "aluno";
+      else if (/\b(serie pretendida|qual e a serie|qual serie|qual ano)\b/.test(question)) lastAskedField = "serie";
+      else lastAskedField = null;
+      continue;
+    }
+    if (!line.startsWith("Família:")) continue;
+    const answer = line.replace(/^Família:\s*/, "").trim();
+    const facts = extractGradeAndShift(answer);
     if (facts.grade) grade = facts.grade;
     if (facts.shift) shift = facts.shift;
+
+    if (lastAskedField === "responsavel") {
+      const name = answer
+        .replace(/^(?:meu nome (?:é|e)|sou (?:o|a)?|responsavel\s*:)\s*/i, "")
+        .trim();
+      if (name.length >= 3 && name.length <= 160 && name.split(/\s+/).length >= 2 &&
+          !/^(?:matriculas?|bom dia|boa tarde|boa noite|oi|ola)\b/i.test(normalizedStyleText(name))) {
+        triagem.cadastro.responsavel = name;
+      }
+    } else if (lastAskedField === "aluno") {
+      const name = answer
+        .replace(/^(?:(?:o|a)\s+)?(?:nome do aluno|nome da aluna)\s*:?\s*/i, "")
+        .replace(/^(?:meu filho|minha filha|o aluno|a aluna)\s+(?:é|e)?\s*/i, "")
+        .trim();
+      triagem.cadastro.aluno = stripGradeAndShiftFromStudentName(name);
+    }
+    lastAskedField = null;
   }
-  if (!triagem.cadastro) return;
+
   if (grade) triagem.cadastro.serie = grade;
   if (shift) triagem.cadastro.turno = shift;
-  // A família pode informar nome, série e turno na mesma frase sem pontuação.
-  // Não salvar a série/turno como parte do nome do aluno.
+  // Remove série e turno do nome caso tenham sido escritos na mesma frase.
   triagem.cadastro.aluno = stripGradeAndShiftFromStudentName(triagem.cadastro.aluno);
 }
 
@@ -190,6 +221,79 @@ function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
   if (!c?.responsavel || c.responsavel.trim().split(/\s+/).length < 2) return "Qual é o nome completo do responsável?";
   if (!c.aluno?.trim()) return "Qual é o nome do aluno?";
   return "Qual é a série pretendida?";
+}
+
+function extractExplicitVisitFacts(text: string): { date: string | null; time: string | null } {
+  const normalized = normalizedStyleText(text || "");
+  let date: string | null = null;
+  let time: string | null = null;
+
+  const localNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const currentYear = localNow.getUTCFullYear();
+  const currentMonth = localNow.getUTCMonth();
+  const currentDay = localNow.getUTCDate();
+  const weekdayNames: Record<string, number> = {
+    domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6,
+  };
+  const weekdayMatch = normalized.match(/\b(domingo|segunda(?:[-\s]*feira)?|terca(?:[-\s]*feira)?|quarta(?:[-\s]*feira)?|quinta(?:[-\s]*feira)?|sexta(?:[-\s]*feira)?|sabado)\b/);
+  if (weekdayMatch) {
+    const weekday = weekdayNames[weekdayMatch[1].replace(/[-\s]*feira$/, "")];
+    const today = new Date(Date.UTC(currentYear, currentMonth, currentDay));
+    const currentWeekday = today.getUTCDay();
+    let delta = (weekday - currentWeekday + 7) % 7;
+    const timeForDay = normalized.match(/\b(?:as\s*)?([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h|horas?)\b/);
+    if (delta === 0 && timeForDay) {
+      let hour = Number(timeForDay[1]);
+      const minute = Number(timeForDay[2] || "0");
+      if (/\b(?:tarde|noite)\b/.test(normalized) && hour >= 1 && hour <= 11) hour += 12;
+      const currentHour = localNow.getUTCHours();
+      if (hour * 60 + minute <= currentHour * 60 + localNow.getUTCMinutes()) delta = 7;
+    } else if (delta === 0 && !timeForDay) {
+      delta = 7;
+    }
+    date = new Date(Date.UTC(currentYear, currentMonth, currentDay + delta)).toISOString().slice(0, 10);
+  } else if (/\bamanha\b/.test(normalized)) {
+    date = new Date(Date.UTC(currentYear, currentMonth, currentDay + 1)).toISOString().slice(0, 10);
+  } else if (/\bhoje\b/.test(normalized)) {
+    date = new Date(Date.UTC(currentYear, currentMonth, currentDay)).toISOString().slice(0, 10);
+  } else {
+    const numericDate = normalized.match(/\b(?:dia\s*)?([0-3]?\d)[\/.-]([01]?\d)(?:[\/.-](\d{4}))?\b/);
+    if (numericDate) {
+      const day = Number(numericDate[1]);
+      const month = Number(numericDate[2]) - 1;
+      let year = numericDate[3] ? Number(numericDate[3]) : currentYear;
+      let candidate = new Date(Date.UTC(year, month, day));
+      if (!numericDate[3] && candidate.getTime() < Date.UTC(currentYear, currentMonth, currentDay)) {
+        year += 1;
+        candidate = new Date(Date.UTC(year, month, day));
+      }
+      if (candidate.getUTCDate() === day && candidate.getUTCMonth() === month) date = candidate.toISOString().slice(0, 10);
+    }
+  }
+
+  const timeMatch = normalized.match(/\b(?:as\s*)?([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h|horas?)\b/);
+  if (timeMatch) {
+    let hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2] || "0");
+    if (/\b(?:tarde|noite)\b/.test(normalized) && hour >= 1 && hour <= 11) hour += 12;
+    time = String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+  }
+  return { date, time };
+}
+
+function mergeExplicitVisitFacts(triagem: Triagem, historico: string, currentText: string) {
+  if (!triagem.visita) triagem.visita = { solicitada: false, data: null, horario: null };
+  const lines = (historico || "").split("\n").filter((line) => line.startsWith("Família:"));
+  lines.push("Família: " + (currentText || ""));
+  let date: string | null = null;
+  let time: string | null = null;
+  for (const line of lines.slice(-12)) {
+    const facts = extractExplicitVisitFacts(line.replace(/^Família:\s*/, ""));
+    if (facts.date) date = facts.date;
+    if (facts.time) time = facts.time;
+  }
+  if (date) triagem.visita.data = date;
+  if (time) triagem.visita.horario = time;
 }
 
 function visitDateTime(date: string | null, time: string | null) {
@@ -817,7 +921,7 @@ serve(async (req) => {
         .select("direction, message, timestamp, created_at")
         .eq("phone", phone)
         .order("created_at", { ascending: false })
-        .limit(12);
+        .limit(24);
       lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
       historico = (msgs || [])
         .reverse()
@@ -983,7 +1087,7 @@ Responda SOMENTE com JSON válido:
       throw new Error("invalid_triage_response");
     }
 
-    // Reconcile series/shift from family messages, including combined replies.
+    // Reconcile family data from short, informal answers and the recent conversation.
     mergeExplicitEnrollmentFacts(triagem, historico, text);
 
     let assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
@@ -1002,12 +1106,20 @@ Responda SOMENTE com JSON válido:
     }
     if (visitIntentInConversation && channel === "whatsapp") {
       triagem.visita = { ...triagem.visita, solicitada: true };
+      mergeExplicitVisitFacts(triagem, historico, text);
+      // Agendar visita também exige criar/recuperar o interesse da família no funil.
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
     }
 
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
     let precisaHumano = triagem.prioridade === "urgente" || (!apenasColetandoNome && !!triagem.precisa_humano);
+    const explicitHumanRequest = /\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text);
+    if (visitIntentInConversation && channel === "whatsapp" && triagem.prioridade !== "urgente" && !explicitHumanRequest) {
+      precisaHumano = false;
+    }
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
