@@ -81,6 +81,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
   const videoUrl = mediaUrl(video, "videoUrl", "url", "mediaUrl") || firstString(findValue("videoUrl"));
   const documentUrl = mediaUrl(document, "documentUrl", "url", "mediaUrl", "fileUrl") || firstString(findValue("documentUrl", "fileUrl"));
   const stickerUrl = mediaUrl(sticker, "stickerUrl", "url", "mediaUrl") || firstString(findValue("stickerUrl"));
+  const genericUrl = firstString(findValue("fileUrl", "mediaUrl", "url"));
   const mimeType = firstString(
     audio?.mimeType, image?.mimeType, image?.mimetype, video?.mimeType, video?.mimetype,
     document?.mimeType, document?.mimetype, findValue("mimeType", "mimetype", "documentMimeType", "imageMimeType", "videoMimeType"),
@@ -95,7 +96,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
   else if (stickerUrl || sticker) mediaType = "sticker";
   else if (location) mediaType = "location";
   else if (contact) mediaType = "contact";
-  else if (mimeType || firstString(findValue("fileName", "filename", "title"))) mediaType = "file";
+  else if (genericUrl || mimeType || firstString(findValue("fileName", "filename", "title"))) mediaType = "file";
 
   const durationValue = audio?.seconds ?? audio?.duration ?? findValue("seconds", "duration", "durationSeconds");
   const duration = typeof durationValue === "number" && Number.isFinite(durationValue) && durationValue >= 0
@@ -111,7 +112,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
     image?.caption, video?.caption, document?.caption, sticker?.caption,
     findValue("caption", "description"),
   );
-  const url = safeHttpUrl(audioUrl || imageUrl || videoUrl || documentUrl || stickerUrl);
+  const url = safeHttpUrl(audioUrl || imageUrl || videoUrl || documentUrl || stickerUrl || genericUrl);
   return {
     mediaType,
     mediaName: name,
