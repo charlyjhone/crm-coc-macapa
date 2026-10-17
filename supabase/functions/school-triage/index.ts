@@ -174,7 +174,7 @@ function secretaryStyleTopic(inbound: string): string | null {
 
 function sanitizeSecretaryStyleReply(raw: string): string | null {
   if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/i.test(raw)) return null;
-  if (/\bR\$\s*\d|\b\d{10,}\b|\b\d{4,5}[-.\s]?\d{4}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
+  if (/\bR\$\s*\d|\b\d{2,}\b|\b\d{4,5}[-.\s]?\d{4}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
   let text = raw
     .replace(/^\*[^*\r\n]{1,100}\*\s*/u, "")
     .replace(/(\b(?:[Bb]om dia|[Bb]oa tarde|[Bb]oa noite|[Oo]lá|[Oo]i))\s*,?\s+[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){0,2}/gu, "$1")
