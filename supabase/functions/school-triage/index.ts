@@ -212,7 +212,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
     }),
   });
   if (res.ok) return true;
-  console.error(`Falha ao enviar lista ${step}:`, (await res.text()).slice(0, 300));
+  console.error("CRM event");
   // Algumas versões do WhatsApp não exibem listas. Mantém a pesquisa na conversa.
   const fallback = await fetch(endpoint, { method: "POST", headers,
     body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
@@ -220,7 +220,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
         ? SURVEY_ORIGINS.map((item) => item.title).join(" · ")
         : "Responda com 1, 2, 3, 4 ou 5."}` }),
   });
-  if (!fallback.ok) console.error(`Falha no texto da pesquisa ${step}:`, (await fallback.text()).slice(0, 300));
+  if (!fallback.ok) console.error("CRM event");
   return fallback.ok;
 }
 
@@ -328,7 +328,7 @@ serve(async (req) => {
       { p_secret: internalSecret },
     );
     if (secretError || secretIsValid !== true) {
-      if (secretError) console.error("Falha ao validar a chamada interna:", secretError.message);
+      if (secretError) console.error("Falha ao validar a chamada interna:");
       return json({ error: "unauthorized" }, 401);
     }
 
@@ -387,7 +387,7 @@ serve(async (req) => {
         .select("id")
         .single();
       if (createErr) {
-        console.error("Falha ao criar contato:", createErr);
+        console.error("Falha ao criar contato:");
         return json({ error: "create_lead_failed" }, 500);
       }
       leadId = created.id;
@@ -581,7 +581,7 @@ serve(async (req) => {
           .eq("id", leadId!);
 
         handoffPendente = false;
-        console.log(`Handoff esfriou para lead ${leadId} — Ana retomando atendimento.`);
+        console.log("CRM event");
       }
     }
 
@@ -771,7 +771,7 @@ Responda SOMENTE com JSON válido:
 
     if (!aiRes.ok) {
       const detail = await aiRes.text();
-      console.error("Erro no gateway de IA:", aiRes.status, detail);
+      console.error("Erro no gateway de IA:");
       if (!previewOnly) await supabase.from("leads").update({ triage_status: "aguardando_secretaria", resolved_at: null, handoff_at: new Date().toISOString(), handoff_reason: "Falha do agente de IA" }).eq("id", leadId!);
       return json({ error: "ai_gateway_error", status: aiRes.status, detail }, aiRes.status === 429 || aiRes.status >= 500 ? 503 : 500);
     }
@@ -896,7 +896,7 @@ Responda SOMENTE com JSON válido:
       const nomeExtraido = triagem.nome_extraido.trim();
       if (nomeExtraido.length > 1) {
         await supabase.from("leads").update({ name: nomeExtraido }).eq("id", leadId!);
-        console.log(`Nome extraído e salvo para lead ${leadId}: "${nomeExtraido}"`);
+        console.log("CRM event");
       }
     }
 
@@ -911,7 +911,7 @@ Responda SOMENTE com JSON válido:
         p_desired_grade: draft.grade, p_desired_shift: draft.shift,
       });
       if (error) {
-        console.error("Falha no cadastro escolar pela Ana:", error.message);
+        console.error("Falha no cadastro escolar pela Ana:");
         resposta = "Não consegui concluir o cadastro automaticamente. Encaminhei seus dados à secretaria para conferir e continuar o atendimento.";
       } else {
         registration = data;
@@ -923,7 +923,7 @@ Responda SOMENTE com JSON válido:
           const { error: attributionError } = await supabase.from("enrollment_opportunities")
             .update({ source_channel: sourceChannel }).eq("id", registration.opportunity_id)
             .eq("source_channel", "ana_whatsapp");
-          if (attributionError) console.error("Falha ao vincular origem à oportunidade:", attributionError.message);
+          if (attributionError) console.error("Falha ao vincular origem à oportunidade:");
         }
         if (registration.created || enrollmentConfirmed) {
           resposta = registration.created
@@ -944,7 +944,7 @@ Responda SOMENTE com JSON válido:
           p_lead_id: leadId, p_opportunity_id: confirmedOpportunityId,
           p_scheduled_at: confirmedVisit.local,
         });
-        if (error) console.error("Falha ao registrar visita pela Ana:", error.message);
+        if (error) console.error("Falha ao registrar visita pela Ana:");
         else visitId = data;
       }
       resposta = visitId
@@ -989,7 +989,7 @@ Responda SOMENTE com JSON válido:
             body: JSON.stringify({ phone, message: respostaComIdentificacao, leadId, senderType: "ana" }),
           });
           enviado = r.ok;
-          if (!r.ok) console.error("Falha ao enviar WhatsApp:", await r.text());
+          if (!r.ok) console.error("Falha ao enviar WhatsApp:");
         } else if (channel === "email" && lead?.email) {
           const r = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
             method: "POST",
@@ -1002,10 +1002,10 @@ Responda SOMENTE com JSON válido:
             }),
           });
           enviado = r.ok;
-          if (!r.ok) console.error("Falha ao enviar e-mail:", await r.text());
+          if (!r.ok) console.error("Falha ao enviar e-mail:");
         }
       } catch (e) {
-        console.error("Erro no envio da resposta:", e);
+        console.error("Erro no envio da resposta:");
       }
     }
 
@@ -1074,8 +1074,8 @@ Responda SOMENTE com JSON válido:
         });
         const result = await response.json().catch(() => ({}));
         folderSent = response.ok && result.sent === true;
-        if (!response.ok) console.error("Falha ao compartilhar folder:", response.status, result.error);
-      } catch (error) { console.error("Falha ao compartilhar folder:", error); }
+        if (!response.ok) console.error("Falha ao compartilhar folder:");
+      } catch (error) { console.error("Falha ao compartilhar folder:"); }
     }
 
     const { error: activityError } = await supabase.from("activity_log").insert({
@@ -1098,7 +1098,7 @@ Responda SOMENTE com JSON válido:
         handoff_at: new Date().toISOString(), handoff_reason: "Falha técnica no atendimento automático",
       }).eq("id", failureLeadId);
     }
-    console.error("Erro no school-triage:", error);
+    console.error("Erro no school-triage:");
     return json({ error: error?.message || "unknown" }, 500);
   }
 });

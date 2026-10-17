@@ -105,9 +105,7 @@ serve(async (req) => {
 
         if (!phoneExistsRes.ok) {
           const errTxt = await phoneExistsRes.text().catch(() => '');
-          console.error(
-            `Erro Z-API phone-exists para ${normalizedPhone}: ${phoneExistsRes.status}${errTxt ? ` - ${errTxt}` : ''}`
-          );
+          console.error("CRM event");
         } else {
           const phoneExistsData = await phoneExistsRes.json();
           if (phoneExistsData?.exists && phoneExistsData?.lid) {
@@ -133,9 +131,9 @@ serve(async (req) => {
                 .eq('id', leadId);
 
               if (updateErr) {
-                console.error('Erro ao salvar whatsapp_chat_lids no lead:', updateErr);
+                console.error('Erro ao salvar whatsapp_chat_lids no lead:');
               } else {
-                console.log('chatLid persistido no lead (início de chat):', formatted);
+                console.log('chatLid persistido no lead (início de chat):');
               }
             }
 
@@ -147,24 +145,24 @@ serve(async (req) => {
               .or(`phone.eq.${formatted},raw_data->>chatLid.eq.${formatted}`);
 
             if (reconcileErr) {
-              console.error('Erro ao reconciliar mensagens órfãs (pre-send):', reconcileErr);
+              console.error('Erro ao reconciliar mensagens órfãs (pre-send):');
             }
           }
         }
         // Fallback: usa o LID já salvo no lead quando o phone-exists não resolver
         if (!resolvedChatLid && existingChatLids.length > 0) {
           resolvedChatLid = existingChatLids[0];
-          console.log('Usando chatLid já salvo no lead como fallback:', resolvedChatLid);
+          console.log('Usando chatLid já salvo no lead como fallback:');
         }
       } catch (e) {
-        console.error('Falha ao resolver/persistir chatLid antes de enviar:', e);
+        console.error('Falha ao resolver/persistir chatLid antes de enviar:');
       }
     }
 
     // Enviar mensagem via Z-API
     const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/${optionList ? 'send-option-list' : 'send-text'}`;
     
-    console.log('Enviando mensagem para:', normalizedPhone);
+    console.log('Enviando mensagem para:');
     
     const sendViaZapi = async (target: string) => {
       const resp = await fetch(zapiUrl, {
@@ -176,7 +174,7 @@ serve(async (req) => {
         body: JSON.stringify({ phone: target, message: outboundMessage, ...(optionList ? { optionList } : {}) }),
       });
       const data = await resp.json().catch(() => ({}));
-      console.log(`Resposta Z-API (${target}):`, data);
+      console.log("CRM event");
       // Sucesso REAL exige id de mensagem no corpo — a Z-API pode devolver
       // HTTP 200 com erro, e "200 sem id" já produziu mensagem fantasma
       // (registrada no CRM sem nunca chegar no cliente).
@@ -189,7 +187,7 @@ serve(async (req) => {
     // Fallback: chats que vivem sob LID (frequente com números internacionais)
     // podem não aceitar envio pelo número — tenta pelo chatLid resolvido.
     if (!sendResult.ok && resolvedChatLid) {
-      console.warn(`Envio pelo número falhou; tentando pelo chatLid ${resolvedChatLid}`);
+      console.warn("CRM event");
       sendResult = await sendViaZapi(resolvedChatLid);
       if (!sendResult.ok) {
         sendResult = await sendViaZapi(resolvedChatLid.replace('@lid', ''));
@@ -235,7 +233,7 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Erro ao enviar mensagem:', error);
+    console.error('Erro ao enviar mensagem:');
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
