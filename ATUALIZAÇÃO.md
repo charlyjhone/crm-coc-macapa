@@ -4,7 +4,7 @@
 
 ## Última atualização
 
-**Data:** 17/10/2026 — 17h05, horário de Macapá  
+**Data:** 17/10/2026 — 17h08, horário de Macapá  
 **Objetivo atual:** auditar o que já existe, validar o mínimo indispensável e preparar o CRM para uso real sem abrir uma reforma interminável.
 
 ## Ambiente confirmado
@@ -74,7 +74,7 @@ A tabela legada `leads` contém 176 contatos não arquivados: 29 com `aguardando
 1. **O CRM já tem base para acompanhar tarefas e prazos.** As telas e funções existem, mas há zero tarefas cadastradas; precisamos testar o fluxo completo pela interface.
 2. **A atribuição ainda precisa de validação operacional.** Existem campos de responsável nas oportunidades/tarefas, mas a distribuição e reatribuição entre atendentes e a visibilidade de cada responsável ainda não foram homologadas.
 3. **Há contatos em handoff que precisam ser revisados.** Os 29 casos em `aguardando_secretaria` não devem ser simplesmente encerrados em massa. A última mensagem WhatsApp por telefone é inbound em 11 casos, com 9 entradas há mais de 7 dias; confirmar o contexto e excluir contatos comerciais/encerrados antes de decidir o retorno.
-4. **Correção da fila “Pendentes de resposta” publicada em 17/10.** O hook `src/hooks/usePendingLeads.ts` agora considera mensagens WhatsApp com `lead_id` ou relacionadas por telefone/variantes e identificadores `@lid`, pagina o histórico além do limite de 1.000 linhas e não exclui contatos apenas por status ou classificação. O commit `34e54d7c0265a9b57c01462fa9e48f88891a9e80` foi implantado com sucesso no Render COC. A validação visual autenticada e o teste controlado com mensagens reais ainda são necessários; telefones compartilhados entre registros podem aparecer em mais de um contato e devem ser observados.
+4. **Correção da fila “Pendentes de resposta” publicada em 17/10.** O hook `src/hooks/usePendingLeads.ts` considera mensagens WhatsApp com `lead_id` ou relacionadas por telefone/variantes e identificadores `@lid`, pagina o histórico além do limite de 1.000 linhas e não exclui contatos apenas por status ou classificação. Também mantém na fila os registros `aguardando_secretaria`, mesmo quando a última mensagem é uma resposta automática da Ana; a tela exibe o motivo do encaminhamento até que a equipe atualize o andamento. A correção funcional está no commit `19dbea9b05a189649f9af17e2a270c064f8eedf3`, implantado com sucesso no Render COC. A validação visual autenticada e o teste controlado com mensagens reais ainda são necessários; telefones compartilhados entre registros podem aparecer em mais de um contato e devem ser observados.
 5. **Não declarar WhatsApp homologado só porque existem mensagens no banco.** Há histórico de mensagens recebidas/enviadas, mas `delivery_logs` está vazio. Precisamos confirmar a entrada do webhook, o envio no aparelho, o retorno de entrega e o registro do resultado.
 6. **Configurações da Ana verificadas no banco.** Estão presentes `escola_nome=COC Macapá Norte`, `escola_agente_nome=Ana`, `escola_agente_ativo=true`, `escola_folder_ativo=true` e `escola_info`. `escola_valores` e `media_kit_link` estão vazios. Portanto, a Ana não deve informar preços sem fonte oficial, e o caminho de envio do folder precisa ser confirmado no WhatsApp real mesmo com a opção ligada.
 7. **A triagem atual ainda é ampla.** O esquema da Ana classifica principalmente matrícula, financeiro, currículo, horário, localização e outros. Ainda não há uma fila setorial comprovadamente homologada para secretaria, coordenação, transferência, reclamações e demais solicitações de famílias atuais.
