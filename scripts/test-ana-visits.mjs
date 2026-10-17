@@ -292,6 +292,6 @@ test('Ana usa respostas humanas recentes como referência de estilo sem enviar a
   assert.match(system, /ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA/);
   assert.match(system, /visita à escola/);
   assert.match(system, /Será um prazer receber sua família/);
-  assert.doesNotMatch(system, /Olá, Maria/);
+  assert.doesNotMatch(system, /Maria/);
   assert.doesNotMatch(system, /Gostaria de conhecer a escola/);
 });
