@@ -283,7 +283,7 @@ test('Ana usa respostas humanas recentes como referência de estilo sem enviar a
   const now = Date.now();
   h.state.rows.whatsapp_messages.push(
     { id: 'sample-in', phone: '00000000001', direction: 'inbound', message: 'Gostaria de conhecer a escola', created_at: new Date(now - 60000).toISOString(), raw_data: {} },
-    { id: 'sample-out', phone: '00000000001', direction: 'outbound', message: '*Renato — Secretaria COC*\\nOlá, Maria! Será um prazer receber sua família para conhecer a escola. 😊', created_at: new Date(now - 30000).toISOString(), raw_data: { sender_type: 'human', source: 'manual' } },
+    { id: 'sample-out', phone: '00000000001', direction: 'outbound', message: '*Renato — Secretaria COC*\nOlá, Maria! Será um prazer receber sua família para conhecer a escola. 😊', created_at: new Date(now - 30000).toISOString(), raw_data: { sender_type: 'human', source: 'manual' } },
   );
   await h.send('Quero conhecer a escola.');
   const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
