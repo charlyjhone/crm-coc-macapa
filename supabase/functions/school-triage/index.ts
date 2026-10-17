@@ -146,11 +146,114 @@ function isPlaceholderName(name: string | null): boolean {
 }
 
 function isAnaOutbound(message: { message?: string | null; raw_data?: Record<string, unknown> | null }): boolean {
-  return message.raw_data?.sender_type === "ana" ||
-    message.raw_data?.source === "school-triage" ||
-    /^\*\[Atendente [^\]\r\n]+\]\*/.test(message.message || "");
+  // Metadados persistidos são a fonte confiável. Não classificar uma resposta
+  // humana como Ana apenas porque o texto contém um rótulo de atendente.
+  const senderType = String(message.raw_data?.sender_type || "").toLowerCase();
+  if (senderType) return senderType === "ana";
+  const source = String(message.raw_data?.source || "").toLowerCase();
+  if (source) return source === "school-triage";
+  return /^\*\[Atendente [^\]\r\n]+\]\*/i.test(message.message || "");
 }
 
+function normalizedStyleText(value: string): string {
+  return value.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function secretaryStyleTopic(inbound: string): string | null {
+  const t = normalizedStyleText(inbound);
+  if (/\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/.test(t)) return null;
+  if (/\b(visita|visitar|conhecer a escola|conhecer o colegio)\b/.test(t)) return "visita à escola";
+  if (/\b(valor|valores|mensalidade|preco|precos|desconto|condicao comercial)\b/.test(t)) return "valores e condições comerciais";
+  if (/\b(matricula|vaga|serie|ano letivo|turno|aluno|aluna)\b/.test(t)) return "interesse em matrícula";
+  if (/\b(horario|funcionamento|abre|fecha)\b/.test(t)) return "horários";
+  if (/\b(endereco|localizacao|chegar|fica onde)\b/.test(t)) return "localização";
+  if (/\b(curriculo|metodologia|ensino|atividade|material|folder)\b/.test(t)) return "informações escolares";
+  return "dúvida escolar geral";
+}
+
+function sanitizeSecretaryStyleReply(raw: string): string | null {
+  const normalizedRaw = normalizedStyleText(raw);
+  if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios|reais|custa|fica em|a partir de|hoje|amanha|ontem|novembro|dezembro|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|este ano|proximo ano|semana que vem|mes que vem)\b/.test(normalizedRaw)) return null;
+  if (/\bR\$\s*\d|\b\d{2,}\b|\b\d{4,5}[-.\s]?\d{4}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
+  let text = raw
+    .replace(/^\*[^*\r\n]{1,100}\*\s*/u, "")
+    .replace(/(\b(?:[Bb]om dia|[Bb]oa tarde|[Bb]oa noite|[Oo]lá|[Oo]i))\s*,?\s+[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){0,2}/gu, "$1")
+    .replace(/(\b(?:meu nome é|me chamo|sou o|sou a|aqui é|aqui quem fala é)\s+)[\p{L}'-]+(?:\s+[\p{L}'-]+){0,3}/giu, "$1[nome]")
+    .replace(/(\b(?:[Ss]eu filho|[Ss]ua filha|[Aa]luno|[Aa]luna|[Rr]esponsável)\s+)[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){0,2}/gu, "$1[nome]")
+    .replace(/\b(?:COC Macapá Norte|Secretaria COC)\b/gi, "a escola")
+    .replace(/\b(?:Educação Infantil|Ensino Fundamental|Ensino Médio)\b/gi, "etapa escolar")
+    .replace(/(\b(?:[Aa]|[Oo]|[Pp]ara|[Cc]om)\s+)[\p{Lu}][\p{L}'-]{2,}\b/gu, "$1[nome]")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length < 20 || text.length > 420) return null;
+  // Evita incluir nomes completos remanescentes como exemplos entre conversas.
+  if (/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\b/u.test(text)) return null;
+  if (/^\s*[\p{Lu}][\p{L}'-]{2,}\s*[,!:]/u.test(text) &&
+      !/^\s*(?:Bom|Boa|Ol[aá]|Oi|Claro|Perfeito|Entendi|Certo|Combinado|Obrigado|Obrigada|Sim|N[aã]o|Agradeço|Fico|Pode|Posso|Vamos|Nossa|Será|Se|Por|Que|Estamos|Sua|Seu|As|Os|A|O|Para|Enquanto|Entendo|Infelizmente)(?=\s|[,!.?:]|$)/u.test(text)) return null;
+  return text;
+}
+
+/**
+ * Recupera até quatro respostas humanas recentes da mesma escola como referência
+ * de tom e conteúdo escolar geral. A mensagem original da família não é enviada
+ * ao modelo como exemplo; ela serve somente para classificar o assunto. Respostas
+ * com dados pessoais/sensíveis são descartadas e nomes comuns são removidos.
+ */
+async function getSecretaryStyleExamples(supabase: any, excludePhone: string | null, currentText: string): Promise<string> {
+  const { data: rows, error } = await supabase
+    .from("whatsapp_messages")
+    .select("id, phone, direction, message, raw_data, created_at")
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error || !Array.isArray(rows)) return "";
+
+  const grouped = new Map<string, any[]>();
+  for (const row of rows) {
+    if (!row.phone || row.phone === excludePhone) continue;
+    const group = grouped.get(row.phone) || [];
+    group.push(row);
+    grouped.set(row.phone, group);
+  }
+
+  const examples: { topic: string; reply: string; at: number }[] = [];
+  const seenReplies = new Set<string>();
+  for (const [phone, conversation] of grouped) {
+    conversation.sort((a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    let lastInbound: any = null;
+    for (const message of conversation) {
+      if (message.direction === "inbound") {
+        lastInbound = message;
+        continue;
+      }
+      if (message.direction !== "outbound") continue;
+      const isHuman = String(message.raw_data?.sender_type || "").toLowerCase() === "human";
+      if (isHuman && lastInbound) {
+        const age = new Date(message.created_at).getTime() - new Date(lastInbound.created_at).getTime();
+        if (age >= 0 && age <= 12 * 60 * 60 * 1000) {
+          const topic = secretaryStyleTopic(String(lastInbound.message || ""));
+          const reply = sanitizeSecretaryStyleReply(String(message.message || ""));
+          if (topic && reply) {
+            const key = normalizedStyleText(reply);
+            if (!seenReplies.has(key)) {
+              seenReplies.add(key);
+              examples.push({ topic, reply, at: new Date(message.created_at).getTime() });
+            }
+          }
+        }
+      }
+      // Uma resposta enviada encerra o par. Não reutilizar a mesma fala da família.
+      lastInbound = null;
+    }
+  }
+
+  const requestedTopic = secretaryStyleTopic(currentText);
+  examples.sort((a, b) => Number(b.topic === requestedTopic) - Number(a.topic === requestedTopic) || b.at - a.at);
+  return examples.slice(0, 4).map((item, index) =>
+    (index + 1) + ". Tema: " + item.topic + "\n   Resposta humana anonimizada: " + item.reply
+  ).join("\n");
+}
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
@@ -676,11 +779,18 @@ serve(async (req) => {
       ? `Você ainda não sabe o nome desta pessoa. Pergunte o nome de forma natural enquanto responde a dúvida que ela já trouxe. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
       : `Você ainda não sabe o nome desta pessoa. Não invente um nome.`;
 
+    const secretaryStyleExamples = channel === "whatsapp"
+      ? await getSecretaryStyleExamples(supabase, phone, text)
+      : "";
     const systemPrompt = `Você é ${agentName}, atendente virtual de ${escolaNome}. Responda em português do Brasil pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}, com acolhimento e clareza. Escreva como uma atendente atenciosa conversaria: reconheça a dúvida, responda de forma útil e faça no máximo uma pergunta por vez. Prefira frases naturais e curtas, sem tom robótico, formulário ou respostas telegráficas. Um emoji discreto pode caber quando combinar com o contexto, sem repetir em toda mensagem. Não finja ser uma pessoa humana se perguntarem; apresente-se como atendente virtual. Evite repetir a mesma abertura ou despedida a cada resposta.
 
 ${deveSaudar ? "O sistema adicionará a saudação apropriada ao horário local no início desta resposta. Não escreva outra saudação em resposta." : "Esta é a continuação da conversa; não recomece com bom dia, boa tarde ou boa noite."}
 
 ${saudacaoInstrucao}
+
+ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA:
+${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como referência."}
+Use os exemplos para aprender o tom, a cordialidade, o tamanho das mensagens e também padrões de resposta para dúvidas escolares parecidas. Só reaproveite conteúdo geral que seja claramente aplicável; as informações oficiais cadastradas abaixo sempre prevalecem. Não copie dados pessoais. Não reutilize valores, datas, prazos ou promessas de exemplos antigos sem confirmação nas informações oficiais. Se houver dúvida, encaminhe à secretaria.
 
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
@@ -700,7 +810,7 @@ REGRAS:
 - Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
 - Se a família demonstrar interesse em uma NOVA matrícula e concordar em informar os dados para acompanhamento, marque cadastro_interesse=true. Isso inclui quando ela responde às perguntas que você fez para cadastrar o interesse. Marque false para aluno já matriculado, fornecedor, consulta genérica sem interesse ou dados de terceiros citados incidentalmente.
 - Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema enviará um resumo para a família conferir. Só cadastrará a família, aluno e oportunidade após confirmação explícita em resposta ao resumo. Se a família corrigir algum dado, atualize o resumo e aguarde nova confirmação. Nunca diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
-- Se a família pedir uma visita, marque visita.solicitada=true, colete dia/mês/ano e hora exatos no horário de Macapá. Só preencha data (AAAA-MM-DD) e horario (HH:mm) quando a família os informou explicitamente; não invente horário ou disponibilidade, não diga que a visita foi confirmada pela escola. Para visita, peça os dados de responsável, aluno e série necessários para o cadastro. Se faltar algo, pergunte naturalmente apenas o que falta. Enquanto estiver colhendo dados, não encaminhe à secretaria só por causa do pedido de visita.
+- Se a família pedir uma visita, marque visita.solicitada=true, colete dia/mês/ano e hora exatos no horário de Macapá. Só preencha data (AAAA-MM-DD) e horario (HH:mm) quando a família os informou explicitamente; não invente horário ou disponibilidade, não diga que a visita foi confirmada pela escola. Para visita, peça os dados de responsável, aluno e série necessários para o cadastro. Se faltar algo, pergunte naturalmente apenas o que falta. Enquanto estiver colhendo dados, não encaminhe à secretaria só por causa do pedido de visita. Se a família disser que prefere esclarecer dúvidas no dia da visita, acolha isso e continue oferecendo o cadastro de interesse com uma única pergunta por vez; não agende outra visita sem data e horário explícitos. Se disser claramente que é só isso ou que não quer informar dados agora, respeite o encerramento e não pressione.
 - Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. Mantenha também o pedido de visita e sua data/horário presentes no histórico. Confirmar o cadastro não confirma a visita; ela tem uma etapa separada. Enquanto estiver coletando/conferindo dados ou combinando a visita, use precisa_humano=false, salvo pedido explícito de pessoa, urgência ou dúvida que exija a secretaria.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
@@ -806,6 +916,26 @@ Responda SOMENTE com JSON válido:
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
+
+    // Se a família prefere esclarecer dúvidas no dia da visita, isso não é recusa
+    // ao cadastro. Respeitar o contexto, não criar uma segunda visita e continuar
+    // a coleta de um campo por vez, salvo se a secretaria já assumiu.
+    const defersDetailsUntilVisit = channel === "whatsapp" &&
+      /\b(?:no dia da visita|na visita|quando formos visitar|quando eu for visitar)\b/i.test(text) &&
+      /\b(?:verifico|confiro|pergunto|vejo|resolvo|esclareço|esclareco|tiro as dúvidas|tiro as duvidas|converso)\b/i.test(text);
+    if (defersDetailsUntilVisit &&
+        triagem.prioridade !== "urgente" &&
+        !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text)) {
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
+      triagem.visita = { solicitada: false, data: null, horario: null };
+      precisaHumano = false;
+      draft = enrollmentDraft(triagem.cadastro);
+      resposta = draft
+        ? confirmationText(draft)
+        : "Claro! No dia da visita a equipe poderá esclarecer tudo. Para deixar seu atendimento organizado, posso adiantar seu cadastro de interesse? " + missingEnrollmentQuestion(triagem.cadastro);
+    }
+
     // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
     let shouldRegister = false;
     let enrollmentConfirmed = false;
