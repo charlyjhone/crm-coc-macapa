@@ -154,13 +154,14 @@ test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async 
   assert.match(h.state.rows.leads[0].handoff_reason, /Pedido de visita registrado/);
 });
 
-test('resposta diferente de SIM não agenda e repetir SIM não duplica a visita', async () => {
+test('confirmação natural de visita é aceita e repetição não duplica', async () => {
   const h = harness();
   await h.send('Visita');
   await h.send('SIM');
   await h.send('pode');
   assert.equal(h.state.rows.school_visits.length, 0);
-  await h.send('SIM');
+  await h.send('Sim, isso mesmo.');
+  assert.equal(h.state.rows.school_visits.length, 1);
   await h.send('SIM');
   assert.equal(h.state.rows.school_visits.length, 1);
 });
@@ -253,6 +254,17 @@ test('SIM isolado, sem resumo anterior, não autoriza cadastro', async () => {
   const h = harness();
   await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+});
+
+test('intenção explícita de registrar interesse exige resumo antes de gravar', async () => {
+  const h = harness();
+  h.state.ai.cadastro_interesse = false;
+  await h.send('Quero deixar meu interesse de matrícula registrado.');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+  assert.match(h.state.sent.at(-1).message, /Para cadastrar o interesse, confirme estes dados/);
+  await h.send('SIM');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 1);
 });
 
 test('secretaria assume depois do resumo e impede cadastro pela Ana', async () => {
