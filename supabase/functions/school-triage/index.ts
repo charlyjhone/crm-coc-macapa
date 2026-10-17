@@ -784,9 +784,9 @@ ${deveSaudar ? "O sistema adicionará a saudação apropriada ao horário local 
 
 ${saudacaoInstrucao}
 
-ESTILO OBSERVADO NAS RESPOSTAS RECENTES DA SECRETARIA:
-${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como exemplo."}
-Use os exemplos somente para aprender tom, cordialidade, tamanho das mensagens e forma de explicar. Eles não são fonte de informações oficiais; não copie dados pessoais nem prometa ações. Se houver conflito, as regras e os dados oficiais abaixo prevalecem.
+ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA:
+${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como referência."}
+Use os exemplos para aprender o tom, a cordialidade, o tamanho das mensagens e também padrões de resposta para dúvidas escolares parecidas. Só reaproveite conteúdo geral que seja claramente aplicável; as informações oficiais cadastradas abaixo sempre prevalecem. Não copie dados pessoais. Não reutilize valores, datas, prazos ou promessas de exemplos antigos sem confirmação nas informações oficiais. Se houver dúvida, encaminhe à secretaria.
 
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
