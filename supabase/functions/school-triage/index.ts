@@ -146,9 +146,107 @@ function isPlaceholderName(name: string | null): boolean {
 }
 
 function isAnaOutbound(message: { message?: string | null; raw_data?: Record<string, unknown> | null }): boolean {
-  return message.raw_data?.sender_type === "ana" ||
-    message.raw_data?.source === "school-triage" ||
-    /^\*\[Atendente [^\]\r\n]+\]\*/.test(message.message || "");
+  // Metadados persistidos são a fonte confiável. Não classificar uma resposta
+  // humana como Ana apenas porque o texto contém um rótulo de atendente.
+  const senderType = String(message.raw_data?.sender_type || "").toLowerCase();
+  if (senderType) return senderType === "ana";
+  const source = String(message.raw_data?.source || "").toLowerCase();
+  if (source) return source === "school-triage";
+  return /^\*\[Atendente Ana\]\*/i.test(message.message || "");
+}
+
+function normalizedStyleText(value: string): string {
+  return value.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function secretaryStyleTopic(inbound: string): string | null {
+  const t = normalizedStyleText(inbound);
+  if (/\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/.test(t)) return null;
+  if (/\b(visita|visitar|conhecer a escola|conhecer o colegio)\b/.test(t)) return "visita à escola";
+  if (/\b(valor|valores|mensalidade|preco|preços|desconto|condicao comercial)\b/.test(t)) return "valores e condições comerciais";
+  if (/\b(matricula|vaga|serie|ano letivo|turno|aluno|aluna)\b/.test(t)) return "interesse em matrícula";
+  if (/\b(horario|funcionamento|abre|fecha)\b/.test(t)) return "horários";
+  if (/\b(endereco|localizacao|chegar|fica onde)\b/.test(t)) return "localização";
+  if (/\b(curriculo|metodologia|ensino|atividade|material|folder)\b/.test(t)) return "informações escolares";
+  return "dúvida escolar geral";
+}
+
+function sanitizeSecretaryStyleReply(raw: string): string | null {
+  if (!raw || /\b(cpf|rg|laudo|diagnostico|medicacao|alergia|saude|violencia|senha|boleto|debito|pagamento|comprovante|dados bancarios)\b/i.test(raw)) return null;
+  if (/\bR\$\s*\d|\b\d{10,}\b|[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(raw)) return null;
+  let text = raw
+    .replace(/^\*[^*\r\n]{1,100}\*\s*/u, "")
+    .replace(/(\b(?:bom dia|boa tarde|boa noite|olá|oi)\s*,?\s+)[\p{L}'-]+(?:\s+[\p{L}'-]+){0,2}/giu, "$1")
+    .replace(/(\b(?:meu nome é|me chamo|sou o|sou a|aqui é|aqui quem fala é)\s+)[\p{L}'-]+(?:\s+[\p{L}'-]+){0,3}/giu, "$1[nome]")
+    .replace(/(\b(?:seu filho|sua filha|aluno|aluna|responsável)\s+)[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){0,2}/gu, "$1[nome]")
+    .replace(/\b(?:COC Macapá Norte|Secretaria COC)\b/gi, "a escola")
+    .replace(/\b(?:Educação Infantil|Ensino Fundamental|Ensino Médio)\b/gi, "etapa escolar")
+    .replace(/(\b(?:a|o|para|com)\s+)[\p{Lu}][\p{L}'-]{2,}\b/gu, "$1[nome]")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length < 20 || text.length > 420) return null;
+  // Evita incluir nomes completos remanescentes como exemplos entre conversas.
+  if (/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\b/u.test(text)) return null;
+  return text;
+}
+
+/**
+ * Recupera até quatro respostas humanas recentes da mesma escola, usando-as
+ * apenas como exemplos de tom. A mensagem da família nunca é enviada ao modelo;
+ * ela serve somente para classificar o assunto de forma ampla. Respostas com
+ * dados pessoais/sensíveis são descartadas e os nomes mais comuns são removidos.
+ */
+async function getSecretaryStyleExamples(supabase: any, excludePhone: string | null): Promise<string> {
+  const { data: rows, error } = await supabase
+    .from("whatsapp_messages")
+    .select("id, phone, direction, message, raw_data, created_at")
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error || !Array.isArray(rows)) return "";
+
+  const ordered = [...rows].sort((a: any, b: any) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const usedInbound = new Set<string>();
+  const examples: { topic: string; reply: string }[] = [];
+  const seenReplies = new Set<string>();
+
+  for (const outgoing of ordered) {
+    if (outgoing.direction !== "outbound" ||
+        String(outgoing.raw_data?.sender_type || "").toLowerCase() !== "human" ||
+        !outgoing.phone || outgoing.phone === excludePhone) continue;
+
+    const outgoingAt = new Date(outgoing.created_at).getTime();
+    let inbound: any = null;
+    for (const candidate of ordered) {
+      if (candidate.direction !== "inbound" || candidate.phone !== outgoing.phone ||
+          !candidate.id || usedInbound.has(candidate.id)) continue;
+      const inboundAt = new Date(candidate.created_at).getTime();
+      if (inboundAt >= outgoingAt || outgoingAt - inboundAt > 12 * 60 * 60 * 1000) continue;
+      const interveningOutbound = ordered.some((other: any) =>
+        other.phone === outgoing.phone && other.direction === "outbound" &&
+        new Date(other.created_at).getTime() > inboundAt &&
+        new Date(other.created_at).getTime() < outgoingAt);
+      if (interveningOutbound) continue;
+      inbound = candidate;
+      break;
+    }
+    if (!inbound) continue;
+
+    const topic = secretaryStyleTopic(String(inbound.message || ""));
+    const reply = sanitizeSecretaryStyleReply(String(outgoing.message || ""));
+    if (!topic || !reply) continue;
+    const key = normalizedStyleText(reply);
+    if (seenReplies.has(key)) continue;
+    seenReplies.add(key);
+    usedInbound.add(inbound.id);
+    examples.push({ topic, reply });
+    if (examples.length >= 4) break;
+  }
+
+  return examples.map((item, index) =>
+    (index + 1) + ". Tema: " + item.topic + "\n   Resposta humana anonimizada: " + item.reply
+  ).join("\n");
 }
 
 function isConversationClosing(text: string, offeredHelp = false): boolean {
@@ -676,11 +774,18 @@ serve(async (req) => {
       ? `Você ainda não sabe o nome desta pessoa. Pergunte o nome de forma natural enquanto responde a dúvida que ela já trouxe. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
       : `Você ainda não sabe o nome desta pessoa. Não invente um nome.`;
 
+    const secretaryStyleExamples = channel === "whatsapp"
+      ? await getSecretaryStyleExamples(supabase, phone)
+      : "";
     const systemPrompt = `Você é ${agentName}, atendente virtual de ${escolaNome}. Responda em português do Brasil pelo canal ${channel === "whatsapp" ? "WhatsApp" : "e-mail"}, com acolhimento e clareza. Escreva como uma atendente atenciosa conversaria: reconheça a dúvida, responda de forma útil e faça no máximo uma pergunta por vez. Prefira frases naturais e curtas, sem tom robótico, formulário ou respostas telegráficas. Um emoji discreto pode caber quando combinar com o contexto, sem repetir em toda mensagem. Não finja ser uma pessoa humana se perguntarem; apresente-se como atendente virtual. Evite repetir a mesma abertura ou despedida a cada resposta.
 
 ${deveSaudar ? "O sistema adicionará a saudação apropriada ao horário local no início desta resposta. Não escreva outra saudação em resposta." : "Esta é a continuação da conversa; não recomece com bom dia, boa tarde ou boa noite."}
 
 ${saudacaoInstrucao}
+
+ESTILO OBSERVADO NAS RESPOSTAS RECENTES DA SECRETARIA:
+${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como exemplo."}
+Use os exemplos somente para aprender tom, cordialidade, tamanho das mensagens e forma de explicar. Eles não são fonte de informações oficiais; não copie dados pessoais nem prometa ações. Se houver conflito, as regras e os dados oficiais abaixo prevalecem.
 
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
@@ -806,6 +911,25 @@ Responda SOMENTE com JSON válido:
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
+
+    // Se a família prefere esclarecer dúvidas no dia da visita, isso não é recusa
+    // ao cadastro. Respeitar o contexto, não criar uma segunda visita e continuar
+    // a coleta de um campo por vez, salvo se a secretaria já assumiu.
+    const defersDetailsUntilVisit = channel === "whatsapp" &&
+      /\b(?:no dia da visita|na visita|quando formos visitar|quando eu for visitar)\b/i.test(text) &&
+      /\b(?:verifico|confiro|pergunto|vejo|resolvo|esclareço|esclareco|tiro as dúvidas|tiro as duvidas|converso)\b/i.test(text);
+    if (defersDetailsUntilVisit && !handoffPendente &&
+        !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text)) {
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
+      triagem.visita = { solicitada: false, data: null, horario: null };
+      precisaHumano = false;
+      draft = enrollmentDraft(triagem.cadastro);
+      resposta = draft
+        ? confirmationText(draft)
+        : "Claro! No dia da visita a equipe poderá esclarecer tudo. Para deixar seu atendimento organizado, posso adiantar seu cadastro de interesse? " + missingEnrollmentQuestion(triagem.cadastro);
+    }
+
     // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
     let shouldRegister = false;
     let enrollmentConfirmed = false;
