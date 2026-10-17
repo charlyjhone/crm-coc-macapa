@@ -188,6 +188,8 @@ function sanitizeSecretaryStyleReply(raw: string): string | null {
   if (text.length < 20 || text.length > 420) return null;
   // Evita incluir nomes completos remanescentes como exemplos entre conversas.
   if (/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+\b/u.test(text)) return null;
+  if (/^\s*[\p{Lu}][\p{L}'-]{2,}\s*[,!:]/u.test(text) &&
+      !/^\s*(?:Bom|Boa|Olá|Oi|Claro|Perfeito|Entendi|Certo|Combinado|Obrigado|Obrigada|Sim|Não|Agradeço|Fico|Pode|Posso|Vamos|Nossa|Será|Se|Por|Que|Estamos|Sua|Seu|As|Os|A|O|Para|Enquanto|Entendo|Infelizmente)\b/u.test(text)) return null;
   return text;
 }
 
