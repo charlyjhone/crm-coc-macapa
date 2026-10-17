@@ -51,3 +51,7 @@ Após a limpeza dos registros sintéticos, o conjunto escolar de teste tem 2 res
 
 Pedir ao Renato para abrir **Captação → Famílias e alunos**, clicar em **Editar cadastro** em um dos registros e confirmar se o formulário abre e exibe os dados. Pode fechar com **Cancelar**; não precisa salvar alterações em uma família real. Depois seguir para a validação controlada do fluxo WhatsApp/Z-API e da pesquisa de satisfação.
 
+
+- Ana v65 publicada no Supabase COC: usa até quatro respostas humanas recentes e anonimizadas como referência de estilo e conteúdo escolar geral, priorizando assunto semelhante; informações oficiais sempre prevalecem.
+- Corrigido o fluxo em que a família diz que prefere esclarecer dúvidas no dia da visita: Ana continua a coleta de interesse enquanto a secretaria ainda não respondeu, sem criar visita duplicada.
+- Testes de regressão da Ana: 15 aprovados, 0 falhas no GitHub Actions.
