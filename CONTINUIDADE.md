@@ -597,8 +597,9 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 
 ### Pendências de atendimento observadas
 - Há 29 contatos ativos com `triage_status='aguardando_secretaria'`.
-- Uma consulta agregada encontrou 6 desses casos com última entrada posterior à última saída ou sem saída registrada; 5 casos têm um dos timestamps de entrada/saída ausente. Esses grupos podem se sobrepor. É necessário abrir o histórico de cada caso, verificar se houve resposta humana fora do CRM e atribuir responsável. **Não encerrar, apagar ou enviar mensagem em lote.**
-- O número anterior de 51 contatos com última entrada posterior à última saída era uma triagem ampla entre diferentes status; não significa que todos estejam sem resposta.
+- Ao cruzar o histórico WhatsApp por telefone, 11 dos 29 tinham a última mensagem armazenada como `inbound`; 9 dessas entradas eram de mais de 7 dias. A lista inclui situações possivelmente concluídas, respostas curtas e pelo menos um contato comercial não relacionado a matrícula — revisar o histórico individual antes de tratar como pendência real.
+- A cache de timestamps do lead só apontou 6 casos com entrada posterior à saída ou sem saída registrada, e 5 casos têm um dos timestamps de entrada/saída ausente; isso confirma que a cache não deve ser a única fonte da fila.
+- O número anterior de 51 contatos com última entrada posterior à última saída era uma triagem ampla entre diferentes status; não significa que todos estejam sem resposta. **Não encerrar, apagar ou enviar mensagem em lote.**
 
 ### Plano urgente para liberação até segunda-feira
 1. Conferir visualmente **Pendentes de resposta** em sessão autenticada; comparar ao menos um contato com `lead_id` e um contato WhatsApp relacionado só por telefone.
