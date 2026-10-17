@@ -66,3 +66,13 @@ Avisos atuais do advisor após a correção: 26 casos de inicialização repetid
 - Renato deve executar o teste controlado de WhatsApp, pois envolve conversa real e validação no aparelho.
 - Renato deve confirmar que o botão Editar cadastro aparece e abre os dados em Captação → Famílias e alunos. Pode cancelar sem salvar, para preservar os registros reais.
 - Próximo teste controlado: fluxo Ana → confirmação → cadastro único; mensagem manual com assinatura do atendente; pesquisa de satisfação e callback de entrega Z-API.
+
+
+## Atualização posterior — Ana e aprendizado contextual (17/10/2026)
+
+- PR #51 incorporada à `main` no commit `29f820117bb52eb95c8dbf058b1891e504b3057f`.
+- `school-triage` publicada no Supabase COC como versão 65 ACTIVE, mantendo `verify_jwt=false` e a validação interna do segredo.
+- A Ana usa até quatro respostas humanas recentes de outras conversas como referência contextual, priorizando o mesmo assunto. O texto original das famílias não é incluído nesses exemplos; respostas com indicadores de dados sensíveis, valores numéricos e referências temporais são descartadas. Informações oficiais da escola continuam prevalecendo.
+- Ao ouvir que a família prefere esclarecer dúvidas no dia da visita, a Ana continua a coleta do interesse com uma pergunta por vez enquanto a secretaria ainda não respondeu. Não cria uma segunda visita sem data e horário explícitos.
+- Testes automatizados: 15 aprovados, 0 falhas no GitHub Actions.
+- Pendente: teste controlado pelo WhatsApp para confirmar a resposta real da Ana, a coleta de dados, o resumo e a criação única da família/oportunidade. Não considerar o fluxo de produção homologado apenas pelo teste automatizado.
