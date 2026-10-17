@@ -5,12 +5,121 @@ export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria
 export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
 export type Assunto = "matricula" | "curriculo" | "horario" | "localizacao" | "outros";
 
+export type WhatsAppMediaType = "audio" | "image" | "video" | "document" | "sticker" | "location" | "contact" | "file";
+
 export interface MensagemAtendimento {
   id: string;
   channel: "whatsapp" | "email";
   direction: string;
   message: string;
   at: string;
+  mediaType: WhatsAppMediaType | null;
+  mediaName: string | null;
+  mediaCaption: string | null;
+  mediaDurationSeconds: number | null;
+  mediaUrl: string | null;
+  isAudio: boolean;
+}
+
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : null;
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function safeHttpUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, message: string | null) {
+  const raw = asRecord(rawValue) || {};
+  const nested = [asRecord(raw.payload), asRecord(raw.data), asRecord(raw.messageData)].filter(Boolean) as JsonRecord[];
+  const records = [raw, ...nested];
+  const findObject = (...keys: string[]) => {
+    for (const record of records) {
+      for (const key of keys) {
+        const value = asRecord(record[key]);
+        if (value) return value;
+      }
+    }
+    return null;
+  };
+  const findValue = (...keys: string[]) => {
+    for (const record of records) {
+      for (const key of keys) {
+        if (record[key] !== undefined && record[key] !== null) return record[key];
+      }
+    }
+    return undefined;
+  };
+  const audio = findObject("audio", "ptt", "voice");
+  const image = findObject("image", "photo");
+  const video = findObject("video");
+  const document = findObject("document", "file", "documentMessage");
+  const sticker = findObject("sticker");
+  const location = findObject("location", "liveLocation");
+  const contact = findObject("contact", "vcard", "contacts");
+  const mediaUrl = (obj: JsonRecord | null, ...keys: string[]) =>
+    firstString(...keys.map((key) => obj?.[key]));
+  const audioUrl = mediaUrl(audio, "audioUrl", "url", "mediaUrl") || firstString(findValue("audioUrl", "pttUrl", "voiceUrl"));
+  const imageUrl = mediaUrl(image, "imageUrl", "url", "mediaUrl") || firstString(findValue("imageUrl", "photoUrl"));
+  const videoUrl = mediaUrl(video, "videoUrl", "url", "mediaUrl") || firstString(findValue("videoUrl"));
+  const documentUrl = mediaUrl(document, "documentUrl", "url", "mediaUrl", "fileUrl") || firstString(findValue("documentUrl", "fileUrl"));
+  const stickerUrl = mediaUrl(sticker, "stickerUrl", "url", "mediaUrl") || firstString(findValue("stickerUrl"));
+  const mimeType = firstString(
+    audio?.mimeType, image?.mimeType, image?.mimetype, video?.mimeType, video?.mimetype,
+    document?.mimeType, document?.mimetype, findValue("mimeType", "mimetype", "documentMimeType", "imageMimeType", "videoMimeType"),
+  );
+  const messageText = (message || "").trim();
+  const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito)/i.test(messageText);
+  let mediaType: WhatsAppMediaType | null = null;
+  if (isAudioFlag || audioUrl || /audio\//i.test(mimeType || "") || audioPlaceholder) mediaType = "audio";
+  else if (imageUrl || /image\//i.test(mimeType || "")) mediaType = "image";
+  else if (videoUrl || /video\//i.test(mimeType || "")) mediaType = "video";
+  else if (documentUrl || document) mediaType = "document";
+  else if (stickerUrl || sticker) mediaType = "sticker";
+  else if (location) mediaType = "location";
+  else if (contact) mediaType = "contact";
+  else if (mimeType || firstString(findValue("fileName", "filename", "title"))) mediaType = "file";
+
+  const durationValue = audio?.seconds ?? audio?.duration ?? findValue("seconds", "duration", "durationSeconds");
+  const duration = typeof durationValue === "number" && Number.isFinite(durationValue) && durationValue >= 0
+    ? durationValue
+    : typeof durationValue === "string" && /^\d+(?:\.\d+)?$/.test(durationValue)
+      ? Number(durationValue)
+      : null;
+  const name = firstString(
+    document?.fileName, document?.filename, document?.title,
+    findValue("fileName", "filename", "documentName", "title"),
+  );
+  const caption = firstString(
+    image?.caption, video?.caption, document?.caption, sticker?.caption,
+    findValue("caption", "description"),
+  );
+  const url = safeHttpUrl(audioUrl || imageUrl || videoUrl || documentUrl || stickerUrl);
+  return {
+    mediaType,
+    mediaName: name,
+    mediaCaption: caption,
+    mediaDurationSeconds: duration,
+    mediaUrl: url,
+    isAudio: mediaType === "audio",
+  };
 }
 
 export interface Atendimento {
@@ -104,7 +213,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
       if (!lead) return [];
       const whatsappByLead = supabase
         .from("whatsapp_messages")
-        .select("id, direction, message, timestamp, created_at")
+        .select("id, direction, message, timestamp, created_at, raw_data, is_audio")
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -114,7 +223,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
       const whatsappByPhone = phoneVariants.length
         ? supabase
             .from("whatsapp_messages")
-            .select("id, direction, message, timestamp, created_at")
+            .select("id, direction, message, timestamp, created_at, raw_data, is_audio")
             .in("phone", phoneVariants)
             .order("created_at", { ascending: false })
             .limit(100)
@@ -139,6 +248,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         direction: m.direction,
         message: m.message || "",
         at: m.timestamp || m.created_at,
+        ...describeWhatsAppMedia(m.raw_data, m.is_audio, m.message),
       }));
       const email: MensagemAtendimento[] = (emails.data || []).map((m) => ({
         id: m.id,
@@ -146,6 +256,12 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         direction: m.direction,
         message: m.message || m.subject || "",
         at: m.created_at,
+        mediaType: null,
+        mediaName: null,
+        mediaCaption: null,
+        mediaDurationSeconds: null,
+        mediaUrl: null,
+        isAudio: false,
       }));
       return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     },
