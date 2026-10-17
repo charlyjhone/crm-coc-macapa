@@ -1,51 +1,53 @@
 # ATUALIZAÇÃO
 
-> Arquivo oficial de continuidade do projeto **CRM COC Macapá**.
-> Sempre que houver uma mudança relevante, este arquivo deve ser atualizado com o estado mais recente do projeto.
+> Arquivo oficial de continuidade do projeto CRM COC Macapá. Atualizar este documento após cada etapa relevante.
 
 ## Última atualização
 
-**Data:** 25/09/2026
+**Data:** 17/10/2026  
+**Projeto em foco:** somente CRM COC Macapá Norte.
 
-### Estado atual
-- Projeto: CRM COC Macapá.
-- Repositório principal: `charlyjhone/crm-coc-macapa`.
-- A assistente de WhatsApp **Ana** está sendo integrada ao CRM.
-- A secretaria deverá operar prioritariamente pelo CRM, evitando depender do WhatsApp Web para o fluxo de atendimento.
-- A Ana deverá considerar o histórico completo da conversa, incluindo mensagens enviadas por atendentes humanos.
-- Após o encerramento de um atendimento, o usuário poderá acionar uma pesquisa por botão; a Ana então encaminhará a pesquisa.
-- O nome informado pelo contato deverá ser salvo/atualizado no cadastro correspondente do CRM.
-- Está planejado um painel de configuração da Ana para o perfil de **Direção**, incluindo:
-  - ativar/desativar a Ana;
-  - permitir desligamento rápido em caso de falha;
-  - configurar mensagens;
-  - cadastrar/alterar informações usadas nas respostas.
+## Ambiente confirmado
 
-### Regra de continuidade
-Ao finalizar uma etapa importante do desenvolvimento:
-1. Atualizar a data acima.
-2. Substituir esta seção pelo estado mais recente.
-3. Registrar mudanças concluídas.
-4. Registrar pendências.
-5. Registrar exatamente qual deve ser o próximo passo.
+- Repositório: `charlyjhone/crm-coc-macapa`.
+- Branch de produção: `main`.
+- Render workspace: `CRM COC`.
+- Serviço de produção: `crm-escola`.
+- URL: https://crm-escola-s8jg.onrender.com
+- Supabase COC: projeto `crm-escola`, ref `fenqnbzdjnyvgrmjczoi`, status `ACTIVE_HEALTHY`.
+- Última versão de frontend verificada como `live`: commit `93ef6ca8`, em 17/10/2026 às 14:13 UTC.
+- AIMEDU e o projeto separado CRM Escolas/Conceito não fazem parte desta execução.
 
-### Alterações concluídas
-- Definição do fluxo de pesquisa após encerramento do atendimento.
-- Definição de leitura do histórico humano + IA pela Ana.
-- Definição de salvamento do nome do contato no CRM.
-- Definição conceitual do painel administrativo da Ana.
+## Alterações concluídas
 
-### Pendências
-- Implementar/revisar o painel de configuração da Ana.
-- Validar permissões por perfil, especialmente Direção e Secretaria.
-- Validar o fluxo completo de atendimento, encerramento e pesquisa.
-- Revisar persistência das configurações no banco de dados.
-- Testar o botão de ativar/desativar a Ana e comportamento de emergência.
+- Ana: fluxo de coleta de dados, resumo e confirmação explícita antes do cadastro; envio do folder e agendamento de visita implementados.
+- Identificação do atendente nas mensagens manuais e correções recentes das funções WhatsApp.
+- Publicadas as Edge Functions `school-triage` v64, `send-whatsapp-message` v13 e `zapi-webhook` v19.
+- Restrições de escrita direta no banco: famílias, alunos, vínculos, oportunidades, visitas e tarefas usam RPCs validadas; logs e históricos sensíveis ficam somente para leitura pelo navegador.
+- Logs das funções sanitizados para não expor conteúdo de mensagens nem dados pessoais.
+- Tela **Captação → Famílias e alunos** agora inclui **Editar cadastro**.
+- A edição permite corrigir dados do responsável (nome, nome de preferência, telefone, e-mail, autorização de WhatsApp e observações) e dos alunos (nome, nome de preferência, nascimento, escola atual e observações).
+- RPC `update_school_family` aplicada no Supabase COC, com verificação de papel, validação do vínculo entre aluno e família, prevenção de telefone duplicado e registro pela trilha de auditoria.
+- Teste transacional da RPC aprovado com dados sintéticos; os registros de teste foram removidos.
+- PR #50 mesclado; build do Render concluído e deploy marcado como `live`.
 
-### Próximo passo
-Continuar a implementação do painel de configuração da Ana e revisar no código/banco o que já existe antes de adicionar novas alterações.
+## Estado dos dados
 
----
+Após a limpeza dos registros sintéticos, o conjunto escolar de teste tem 2 responsáveis, 2 alunos, 2 oportunidades, 0 visitas e 0 tarefas. Preservar os dados reais; não criar dados fictícios persistentes.
 
-## Histórico resumido
-Este arquivo deve representar sempre o **estado mais atual** do projeto. O histórico detalhado permanece no Git e nos commits.
+## Pendências prioritárias
+
+1. Renato confirmar na interface que o botão **Editar cadastro** aparece e abre o formulário; não é necessário enviar captura de tela.
+2. Validar uma edição completa com um registro sintético temporário ou um registro autorizado para teste, sem modificar dados reais por engano.
+3. Testar no WhatsApp real: coleta de dados pela Ana → resumo → confirmação → cadastro único; incluir um teste de correção antes da confirmação.
+4. Enviar mensagem manual pelo CRM e confirmar no aparelho que aparece o nome do atendente.
+5. Testar a pesquisa de satisfação após encerramento e confirmar o callback de entrega da Z-API. Não declarar o fluxo homologado até confirmar a entrega real.
+6. Implementar atribuição/reatribuição de oportunidades e tarefas entre atendentes.
+7. Revisar painel de configuração da Ana, permissões de Direção/Secretaria, proteção contra senhas comprometidas e política de MFA.
+8. Formalizar processo LGPD para origem/base legal, retirada de consentimento, retenção/exportação e exclusão, especialmente de dados de menores.
+9. Revisar índices e políticas RLS com métricas reais, sem remover índices apenas por aparecerem como não utilizados.
+
+## Próximo passo exato
+
+Pedir ao Renato para abrir **Captação → Famílias e alunos**, clicar em **Editar cadastro** em um dos registros e confirmar se o formulário abre e exibe os dados. Pode fechar com **Cancelar**; não precisa salvar alterações em uma família real. Depois seguir para a validação controlada do fluxo WhatsApp/Z-API e da pesquisa de satisfação.
+
