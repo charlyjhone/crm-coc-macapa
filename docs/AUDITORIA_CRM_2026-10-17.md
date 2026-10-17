@@ -8,10 +8,11 @@
 
 ## Correções aplicadas no banco
 
-Migration 20261017130455_crm_school_write_path_hardening aplicada no COC.
+Migration 20261017130455_crm_school_write_path_hardening aplicada no COC. A migration 20261017131106_crm_lead_column_permissions também foi aplicada para restringir a tabela de contatos.
 
 - Tabelas de famílias, alunos, vínculos, oportunidades, visitas e tarefas passaram a permitir leitura pela equipe autenticada, mas as gravações são feitas pelas RPCs validadas. Isso evita contornar regras do funil, agenda e tarefas via REST direto.
 - Histórico de atendimento, mensagens de WhatsApp/e-mail, anexos e logs de entrega passaram a ser somente leitura pelo cliente; as gravações ficam nas Edge Functions confiáveis com service_role.
+- A tabela leads permite leitura e atualização apenas de status, triage_status e resolved_at pelo navegador. Criação/exclusão e alteração de dados de contato ou metadados ficam no servidor. O trigger bloqueia conclusão/matrícula direta para preservar o fluxo oficial.
 - Corrigido o trigger de pontuação da visita: a exclusão em cascata de uma oportunidade não tenta recalcular uma oportunidade que já foi removida.
 - Revogado EXECUTE do cliente na função de trigger, que é executada pelo PostgreSQL e não precisa ser chamada por RPC.
 
@@ -25,6 +26,7 @@ Aprovado com rollback:
 - agendamento via schedule_school_visit continuou funcionando;
 - exclusão da oportunidade com visita em cascata concluiu sem erro;
 - os dados sintéticos foram revertidos, sem alteração persistente.
+- a tabela leads aceitou mudança comum de status/triagem, mas bloqueou a gravação direta de resolvido/matriculado; teste também confirmou que nome/telefone não podem ser alterados pelo cliente.
 
 Estado do conjunto escolar após a limpeza: 2 responsáveis, 2 alunos, 2 oportunidades, 0 visitas e 0 tarefas. Não foram encontrados alunos sem responsável, oportunidades sem responsável/aluno, visitas/tarefas órfãs, telefones duplicados entre responsáveis ou oportunidades ativas sem próxima ação.
 
