@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types include the school tables after migrations are applied and regenerated. */
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,23 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AlertCircle, GraduationCap, Mail, Phone, Search, UserRound, Users } from "lucide-react";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
-
-type Guardian = {
-  id: string;
-  full_name: string;
-  preferred_name: string | null;
-  email: string | null;
-  phone: string | null;
-  whatsapp_opt_in: boolean;
-  student_guardians?: Array<{
-    relationship: string | null;
-    is_primary: boolean;
-    students: { id: string; full_name: string; birth_date: string | null } | null;
-  }>;
-};
+import { EditFamilyDialog, type EditableFamily } from "@/components/school/EditFamilyDialog";
 
 const Families = () => {
-  const [guardians, setGuardians] = useState<Guardian[]>([]);
+  const [guardians, setGuardians] = useState<EditableFamily[]>([]);
   const [query, setQuery] = useState("");
   const [foundationPending, setFoundationPending] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -31,10 +18,13 @@ const Families = () => {
     const load = async () => {
       const { data, error } = await (supabase as any)
         .from("guardians")
-        .select("id,full_name,preferred_name,email,phone,whatsapp_opt_in,student_guardians(relationship,is_primary,students(id,full_name,birth_date))")
+        .select("id,full_name,preferred_name,email,phone,whatsapp_opt_in,notes,student_guardians(relationship,is_primary,students(id,full_name,preferred_name,birth_date,current_school,notes))")
         .order("full_name");
       if (error) setFoundationPending(true);
-      else setGuardians(data || []);
+      else {
+        setFoundationPending(false);
+        setGuardians(data || []);
+      }
     };
     load();
   }, [refreshKey]);
@@ -79,7 +69,7 @@ const Families = () => {
           <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <p className="text-sm">
-              Esta tela será ativada após a fundação escolar ser aplicada no Supabase de homologação.
+              Não foi possível carregar os cadastros. Verifique sua sessão e as permissões do CRM e tente novamente.
             </p>
           </div>
         )}
@@ -114,11 +104,11 @@ const Families = () => {
             <Card key={guardian.id}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex gap-3">
+                  <div className="flex min-w-0 gap-3">
                     <div className="rounded-full bg-muted p-2.5"><UserRound className="h-5 w-5" /></div>
-                    <div>
-                      <h2 className="font-semibold text-slate-900">{guardian.preferred_name || guardian.full_name}</h2>
-                      {guardian.preferred_name && <p className="text-xs text-muted-foreground">{guardian.full_name}</p>}
+                    <div className="min-w-0">
+                      <h2 className="break-words font-semibold text-slate-900">{guardian.preferred_name || guardian.full_name}</h2>
+                      {guardian.preferred_name && <p className="break-words text-xs text-muted-foreground">{guardian.full_name}</p>}
                     </div>
                   </div>
                   {guardian.whatsapp_opt_in && <Badge variant="secondary">WhatsApp autorizado</Badge>}
@@ -133,13 +123,17 @@ const Families = () => {
                   <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Alunos vinculados</p>
                   <div className="space-y-2">
                     {(guardian.student_guardians || []).map((link) => (
-                      <div key={link.students?.id} className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2">
-                        <span className="text-sm font-medium text-slate-900">{link.students?.full_name}</span>
-                        <span className="text-xs text-muted-foreground">{link.relationship || "Responsável"}{link.is_primary ? " · principal" : ""}</span>
+                      <div key={link.students?.id || link.relationship || guardian.id} className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2">
+                        <span className="break-words text-sm font-medium text-slate-900">{link.students?.full_name || "Aluno sem dados"}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{link.relationship || "Responsável"}{link.is_primary ? " · principal" : ""}</span>
                       </div>
                     ))}
                     {!guardian.student_guardians?.length && <p className="text-sm text-muted-foreground">Nenhum aluno vinculado.</p>}
                   </div>
+                </div>
+
+                <div className="mt-4 flex justify-end border-t pt-3">
+                  <EditFamilyDialog guardian={guardian} onSaved={() => setRefreshKey((value) => value + 1)} />
                 </div>
               </CardContent>
             </Card>
