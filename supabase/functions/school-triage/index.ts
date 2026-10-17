@@ -195,10 +195,10 @@ function sanitizeSecretaryStyleReply(raw: string): string | null {
 }
 
 /**
- * Recupera até quatro respostas humanas recentes da mesma escola, usando-as
- * apenas como exemplos de tom. A mensagem da família nunca é enviada ao modelo;
- * ela serve somente para classificar o assunto de forma ampla. Respostas com
- * dados pessoais/sensíveis são descartadas e os nomes mais comuns são removidos.
+ * Recupera até quatro respostas humanas recentes da mesma escola como referência
+ * de tom e conteúdo escolar geral. A mensagem original da família não é enviada
+ * ao modelo como exemplo; ela serve somente para classificar o assunto. Respostas
+ * com dados pessoais/sensíveis são descartadas e nomes comuns são removidos.
  */
 async function getSecretaryStyleExamples(supabase: any, excludePhone: string | null, currentText: string): Promise<string> {
   const { data: rows, error } = await supabase
