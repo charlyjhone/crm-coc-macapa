@@ -18,6 +18,8 @@ export interface MensagemAtendimento {
   mediaCaption: string | null;
   mediaDurationSeconds: number | null;
   mediaUrl: string | null;
+  mediaStoragePath: string | null;
+  mediaMimeType: string | null;
   isAudio: boolean;
 }
 
@@ -77,6 +79,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
   const mediaUrl = (obj: JsonRecord | null, ...keys: string[]) =>
     firstString(...keys.map((key) => obj?.[key]));
   const audioUrl = mediaUrl(audio, "audioUrl", "url", "mediaUrl") || firstString(findValue("audioUrl", "pttUrl", "voiceUrl"));
+  const audioStoragePath = mediaUrl(audio, "storagePath", "mediaStoragePath") || firstString(findValue("storagePath", "mediaStoragePath"));
   const imageUrl = mediaUrl(image, "imageUrl", "url", "mediaUrl") || firstString(findValue("imageUrl", "photoUrl"));
   const videoUrl = mediaUrl(video, "videoUrl", "url", "mediaUrl") || firstString(findValue("videoUrl"));
   const documentUrl = mediaUrl(document, "documentUrl", "url", "mediaUrl", "fileUrl") || firstString(findValue("documentUrl", "fileUrl"));
@@ -119,6 +122,8 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
     mediaCaption: caption,
     mediaDurationSeconds: duration,
     mediaUrl: url,
+    mediaStoragePath: audioStoragePath,
+    mediaMimeType: mimeType,
     isAudio: mediaType === "audio",
   };
 }
@@ -243,13 +248,22 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
       const uniqueWhatsApp = new Map(
         [...(byLead.data || []), ...(byPhone.data || [])].map((m) => [m.id, m]),
       );
-      const whatsapp: MensagemAtendimento[] = [...uniqueWhatsApp.values()].map((m) => ({
+      const whatsappBase: MensagemAtendimento[] = [...uniqueWhatsApp.values()].map((m) => ({
         id: m.id,
         channel: "whatsapp",
         direction: m.direction,
         message: m.message || "",
         at: m.timestamp || m.created_at,
         ...describeWhatsAppMedia(m.raw_data, m.is_audio, m.message),
+      }));
+      const whatsapp: MensagemAtendimento[] = await Promise.all(whatsappBase.map(async (message) => {
+        if (!message.mediaStoragePath || message.mediaUrl) return message;
+        const { data: signed, error: signedError } = await supabase.storage
+          .from("whatsapp-audio")
+          .createSignedUrl(message.mediaStoragePath, 3600);
+        return !signedError && signed?.signedUrl
+          ? { ...message, mediaUrl: signed.signedUrl }
+          : message;
       }));
       const email: MensagemAtendimento[] = (emails.data || []).map((m) => ({
         id: m.id,
@@ -262,6 +276,8 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         mediaCaption: null,
         mediaDurationSeconds: null,
         mediaUrl: null,
+        mediaStoragePath: null,
+        mediaMimeType: null,
         isAudio: false,
       }));
       return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
@@ -279,6 +295,55 @@ export function useEnviarWhatsApp() {
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "O WhatsApp não confirmou o envio.");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mensagens-atendimento"] });
+      qc.invalidateQueries({ queryKey: ["atendimentos"] });
+    },
+  });
+}
+
+
+export function useEnviarAudioWhatsApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, blob, durationSeconds }: {
+      lead: Atendimento;
+      blob: Blob;
+      durationSeconds: number;
+    }) => {
+      if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
+      if (!blob.size || blob.size > 10 * 1024 * 1024) {
+        throw new Error("O áudio está vazio ou ultrapassa o limite de 10 MB.");
+      }
+
+      const mimeType = (blob.type || "audio/webm").split(";")[0].trim().toLowerCase();
+      const extension = mimeType === "audio/ogg" ? "ogg"
+        : mimeType === "audio/mp4" ? "m4a"
+        : mimeType === "audio/mpeg" ? "mp3"
+        : mimeType === "audio/wav" ? "wav"
+        : mimeType === "audio/aac" ? "aac"
+        : "webm";
+      const fileName = `audio-secretaria-${Date.now()}.${extension}`;
+      const storagePath = `${authData.user.id}/${lead.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("whatsapp-audio")
+        .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+      if (uploadError) throw new Error(`Não foi possível preparar o áudio: ${uploadError.message}`);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("send-whatsapp-audio", {
+          body: { leadId: lead.id, storagePath, mimeType, fileName, durationSeconds },
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "O WhatsApp não confirmou o envio do áudio.");
+        return data as { success: boolean; logged?: boolean; warning?: string };
+      } catch (error) {
+        await supabase.storage.from("whatsapp-audio").remove([storagePath]).catch(() => undefined);
+        throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mensagens-atendimento"] });
