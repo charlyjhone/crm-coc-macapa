@@ -76,19 +76,42 @@ const SERIES = ["Maternal", "Jardim I", "Jardim II", "1º ano", "2º ano", "3º 
   "1ª série", "2ª série", "3ª série"];
 const ENROLLMENT_CAMPAIGN_YEAR = 2027;
 
+function normalizeGrade(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  const normalized = value.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[º°]/g, "")
+    .replace(/ª/g, "a")
+    .replace(/\s+/g, " ").trim();
+  if (normalized === "maternal") return "Maternal";
+  const jardim = normalized.match(/^jardim\s*(i{1,2}|[12])$/);
+  if (jardim) return jardim[1] === "ii" || jardim[1] === "2" ? "Jardim II" : "Jardim I";
+  const ano = normalized.match(/^([1-9])\s*(?:o\s*)?(?:ano)?$/);
+  if (ano) return `${ano[1]}º ano`;
+  const serie = normalized.match(/^([1-3])\s*a?\s*serie$/);
+  if (serie) return `${serie[1]}ª série`;
+  return null;
+}
+
 function enrollmentDraft(c: Triagem["cadastro"]) {
   const year = c?.ano ?? ENROLLMENT_CAMPAIGN_YEAR;
-  if (!c || !c.responsavel || !c.aluno || !c.serie ||
-      !Number.isInteger(year) || year < 2026 || year > 2100 ||
-      !SERIES.includes(c.serie)) return null;
+  const grade = normalizeGrade(c?.serie);
+  if (!c || !c.responsavel || !c.aluno || !grade ||
+      !Number.isInteger(year) || year < 2026 || year > 2100) return null;
   const responsible = c.responsavel.trim();
   const student = c.aluno.trim();
-  const shift = c.turno?.trim() || null;
+  const shiftRaw = c.turno?.trim() || null;
+  const shiftNormalized = shiftRaw?.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") || null;
+  const shift = shiftNormalized === "manha" ? "manhã"
+    : shiftNormalized === "tarde" ? "tarde"
+    : shiftNormalized === "integral" ? "integral"
+    : shiftRaw ? null : null;
   if (responsible.length < 3 || responsible.length > 160 || responsible.split(/\s+/).length < 2 ||
       student.length < 3 || student.length > 160 ||
       /[\r\n:]/.test(responsible + student) ||
-      (shift && !["manhã", "tarde", "integral"].includes(shift))) return null;
-  return { responsible, student, year, grade: c.serie, shift };
+      (shiftRaw && !shift)) return null;
+  return { responsible, student, year, grade, shift };
 }
 
 function confirmationText(c: NonNullable<ReturnType<typeof enrollmentDraft>>) {
@@ -108,7 +131,7 @@ function isExplicitConfirmation(text: string) {
 }
 
 function isVisitConfirmation(text: string) {
-  return /^sim[.!\s]*$/i.test(text.trim());
+  return /^(?:sim(?:,?\s*(?:isso mesmo|pode|confirmo|está certo|esta certo|tudo certo|correto|pode confirmar))?|isso mesmo|confirmo|pode sim|está correto|esta correto|tudo certo)[.!?\s]*$/i.test(text.trim());
 }
 
 function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
@@ -909,6 +932,23 @@ Responda SOMENTE com JSON válido:
     }
 
     let assunto: Assunto = ASSUNTOS.includes(triagem.assunto) ? triagem.assunto : "outros";
+    // Usa apenas mensagens da família para reconhecer intenção explícita; respostas
+    // anteriores da própria Ana não podem autorizar um cadastro.
+    const familyMessages = historico.split("\n")
+      .filter((line) => line.startsWith("Família:"))
+      .join("\n");
+    const explicitRegistrationIntent = /\b(?:quero|gostaria|desejo|pretendo)\b[\s\S]{0,80}\b(?:registrar|cadastrar|anotar|deixar)\b[\s\S]{0,80}\b(?:interesse|matr[ií]cula|cadastro)\b/i
+      .test(`${familyMessages}\n${text}`);
+    const visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|registrar|visita|visitar)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b/i
+      .test(`${familyMessages}\n${text}`);
+    if (explicitRegistrationIntent && channel === "whatsapp") {
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
+    }
+    if (visitIntentInConversation && channel === "whatsapp") {
+      triagem.visita = { ...triagem.visita, solicitada: true };
+    }
+
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
@@ -916,10 +956,13 @@ Responda SOMENTE com JSON válido:
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
+    if (explicitRegistrationIntent && channel === "whatsapp") {
+      draft = enrollmentDraft(triagem.cadastro);
+    }
 
     // Se a família prefere esclarecer dúvidas no dia da visita, isso não é recusa
-    // ao cadastro. Respeitar o contexto, não criar uma segunda visita e continuar
-    // a coleta de um campo por vez, salvo se a secretaria já assumiu.
+    // ao cadastro. Preservar a intenção e os horários já informados; uma visita só
+    // será registrada após existir oportunidade e a família confirmar a proposta.
     const defersDetailsUntilVisit = channel === "whatsapp" &&
       /\b(?:no dia da visita|na visita|quando formos visitar|quando eu for visitar)\b/i.test(text) &&
       /\b(?:verifico|confiro|pergunto|vejo|resolvo|esclareço|esclareco|tiro as dúvidas|tiro as duvidas|converso)\b/i.test(text);
@@ -928,7 +971,7 @@ Responda SOMENTE com JSON válido:
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text)) {
       assunto = "matricula";
       triagem.cadastro_interesse = true;
-      triagem.visita = { solicitada: false, data: null, horario: null };
+      triagem.visita = { ...triagem.visita, solicitada: true, data: triagem.visita?.data || null, horario: triagem.visita?.horario || null };
       precisaHumano = false;
       draft = enrollmentDraft(triagem.cadastro);
       resposta = draft
@@ -951,21 +994,31 @@ Responda SOMENTE com JSON válido:
       if (previousError) throw new Error("visit_confirmation_lookup_failed");
       const confirmedDraft = previous && isAnaOutbound(previous)
         ? confirmedDraftFromReply(previous.message || "") : null;
-      confirmedVisit = previous && isAnaOutbound(previous) && isVisitConfirmation(text)
-        ? pendingVisit(previous.message || "") : null;
-      if (confirmedVisit && leadId) {
+      const visitConfirmationAttempt = previous && isAnaOutbound(previous) && isVisitConfirmation(text);
+      if (visitConfirmationAttempt && leadId) {
         const { data: proposalLog, error: proposalError } = await supabase.from("activity_log")
           .select("metadata, created_at").eq("lead_id", leadId).eq("source", "school-triage")
           .not("metadata->>visit_proposal", "is", null)
           .order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (proposalError) throw new Error("visit_proposal_lookup_failed");
         const proposal = proposalLog?.metadata?.visit_proposal;
-        if (proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
+        const outboundAt = new Date(previous.created_at || 0).getTime();
+        const proposalAt = new Date(proposalLog?.created_at || 0).getTime();
+        const inboundAt = new Date(inboundCreatedAt || 0).getTime();
+        const currentProposal = proposal && typeof proposal.opportunity_id === "string" &&
+          proposalAt >= outboundAt && proposalAt - outboundAt <= 15000 &&
+          inboundAt > proposalAt;
+        confirmedVisit = currentProposal
+          ? visitDateTime(proposal.date, proposal.time)
+          : pendingVisit(previous.message || "");
+        if (confirmedVisit && proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
             typeof proposal.opportunity_id === "string") confirmedOpportunityId = proposal.opportunity_id;
         // A confirmação pertence ao aluno da proposta, nunca a um novo cadastro inferido pela IA.
-        shouldRegister = false;
-        draft = null;
-        assunto = "matricula";
+        if (confirmedVisit) {
+          shouldRegister = false;
+          draft = null;
+          assunto = "matricula";
+        }
       }
       if (!handoffPendente && confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
@@ -975,7 +1028,7 @@ Responda SOMENTE com JSON válido:
       }
     }
     if (assunto === "matricula" && !shouldRegister && !draft &&
-        /\b(?:vou registrar|vou cadastrar|j[aá] (?:registrei|cadastrei)|interesse (?:registrado|cadastrado)|anotei seu interesse)\b/i.test(resposta)) {
+        /\b(?:(?:j[aá]\s+)?(?:registrei|cadastrei|anotei|salvei|inclu[ií]|criei)\b[\s\S]{0,100}\b(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b|(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b[\s\S]{0,60}\b(?:registrado|cadastrado|anotado|salvo|inclu[ií]do|criado)\b)/i.test(resposta)) {
       if (precisaHumano) {
         resposta = "Entendi seu interesse. Ainda não concluí o cadastro; a secretaria vai conferir os dados com você e continuar o atendimento.";
       } else {
@@ -1080,7 +1133,9 @@ Responda SOMENTE com JSON válido:
       resposta = visitId
         ? `Anotei o pedido de visita para ${confirmedVisit.date.split("-").reverse().join("/")} às ${confirmedVisit.time}. A secretaria vai conferir a disponibilidade e confirmar o horário com você.`
         : "Não consegui registrar a visita agora. Encaminhei seu pedido à secretaria para conferir a data e combinar o horário com você.";
-    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation && !precisaHumano && channel === "whatsapp" && leadId) {
+    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation &&
+        !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
+        channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
       let ambiguousOpportunity = false;
       if (!opportunityId) {
@@ -1092,8 +1147,24 @@ Responda SOMENTE com JSON válido:
         ambiguousOpportunity = (existing?.length || 0) > 1;
       }
       if (opportunityId && proposedVisit) {
-        resposta = `Para registrar sua visita em ${proposedVisit.date} às ${proposedVisit.time} (horário de Macapá), responda SIM. A secretaria confirmará a disponibilidade.`;
-        visitProposal = { opportunity_id: opportunityId, date: proposedVisit.date, time: proposedVisit.time };
+        const { data: existingVisit, error: existingVisitError } = await supabase.from("school_visits")
+          .select("id, scheduled_at, status").eq("opportunity_id", opportunityId)
+          .in("status", ["agendada", "confirmada", "reagendada"])
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (existingVisitError) throw new Error("existing_visit_lookup_failed");
+        if (existingVisit) {
+          const sameTime = new Date(existingVisit.scheduled_at).getTime() === new Date(proposedVisit.local).getTime();
+          precisaHumano = true;
+          resposta = sameTime
+            ? `Seu pedido de visita para ${proposedVisit.date.split("-").reverse().join("/")} às ${proposedVisit.time} já está registrado. A secretaria vai confirmar a disponibilidade com você.`
+            : "Já existe um pedido de visita registrado para esta família. A secretaria vai conferir o horário antes de alterar, para evitar duplicidade.";
+        } else {
+          const enrollmentAck = registration
+            ? (registration.created ? "Seu interesse foi registrado para acompanhamento da secretaria.\\n\\n" : "Seu interesse já está registrado para acompanhamento.\\n\\n")
+            : "";
+          resposta = `${enrollmentAck}Para registrar sua visita em ${proposedVisit.date} às ${proposedVisit.time} (horário de Macapá), responda SIM. A secretaria confirmará a disponibilidade.`;
+          visitProposal = { opportunity_id: opportunityId, date: proposedVisit.date, time: proposedVisit.time };
+        }
       } else if (opportunityId) {
         resposta = triagem.visita.data && triagem.visita.horario
           ? "Preciso de uma data válida e de um horário com pelo menos uma hora de antecedência. Qual dia e horário você prefere para a visita?"
