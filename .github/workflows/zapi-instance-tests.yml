@@ -1,0 +1,31 @@
+name: Z-API instance isolation tests
+
+on:
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - "supabase/functions/zapi-webhook/**"
+      - "scripts/test-zapi-instance-validation.mjs"
+      - ".github/workflows/zapi-instance-tests.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "supabase/functions/zapi-webhook/**"
+      - "scripts/test-zapi-instance-validation.mjs"
+      - ".github/workflows/zapi-instance-tests.yml"
+
+jobs:
+  zapi-instance-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test webhook instance isolation
+        run: node --test scripts/test-zapi-instance-validation.mjs
