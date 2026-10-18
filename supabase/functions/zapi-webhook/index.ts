@@ -39,9 +39,20 @@ serve(async (req) => {
     await setActivityContext(supabase, { source: 'webhook:zapi', actor: 'system' });
 
     const payload = await req.json();
-    const expectedInstanceId = Deno.env.get('ZAPI_INSTANCE_ID');
-    if (expectedInstanceId && payload.instanceId && payload.instanceId !== expectedInstanceId) {
+    const expectedInstanceId = Deno.env.get('ZAPI_INSTANCE_ID')?.trim();
+    const receivedInstanceId = typeof payload.instanceId === 'string' ? payload.instanceId.trim() : '';
+
+    // When an instance ID is configured, require it in every callback and match it exactly.
+    // The callback secret remains the primary per-project authentication because some
+    // provider event types may omit instanceId. Do not log either identifier or secret.
+    if (expectedInstanceId && !receivedInstanceId) {
+      return new Response(JSON.stringify({ error: 'missing_instance' }), { status: 403, headers: corsHeaders });
+    }
+    if (expectedInstanceId && receivedInstanceId !== expectedInstanceId) {
       return new Response(JSON.stringify({ error: 'wrong_instance' }), { status: 403, headers: corsHeaders });
+    }
+    if (!expectedInstanceId) {
+      console.warn('ZAPI_INSTANCE_ID não configurado; validação adicional de instância indisponível');
     }
     // Do not log message contents, attachments or callback credentials.
 
