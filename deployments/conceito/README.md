@@ -46,7 +46,7 @@ A função `school-triage` ainda contém campanha de matrícula 2027 e horário 
 4. Configurar Site URL e redirects Auth para `https://crm-conceito.onrender.com` e validar login.
 5. Cadastrar informações oficiais do Conceito: endereço, etapas/turnos, horários, diferenciais, calendário e política de valores; definir o nome final da atendente.
 6. Enviar o PDF final do folder (até 18 MiB) ao bucket privado e só depois ativar o envio.
-7. Configurar secrets próprios `OPENAI_API_KEY`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, além dos segredos exclusivos esperados pelas RPCs/Vault. Nunca reutilizar credenciais do COC.
+7. Configurar os secrets exclusivos de IA e das RPCs/Vault do Conceito, incluindo `OPENAI_API_KEY` quando necessário; nunca reutilizar credenciais do COC.
 8. Configurar secrets próprios `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, `zapi_webhook_secret` e `REQUIRE_ZAPI_INSTANCE_ID=true` antes de configurar callbacks; nunca reutilizar credenciais do COC.
 9. Configurar os callbacks de entrada e de mensagens enviadas pelo próprio aparelho na instância Z-API do Conceito, mantendo o callback de entrega separado; testar mensagens de entrada/saída, cadastro de interesse, visita, atendimento humano, pesquisa e envio do folder com número controlado; só então ativar a atendente.
 10. O webhook recusa `instanceId` ausente ou divergente quando a validação é obrigatória/configurada e responde `503` se `REQUIRE_ZAPI_INSTANCE_ID=true` sem `ZAPI_INSTANCE_ID`.
