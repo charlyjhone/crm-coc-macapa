@@ -63,7 +63,7 @@ test('recusa callback de outra instância', async () => {
 });
 
 test('falha fechada se a instância é obrigatória mas não foi configurada', async () => {
-  const call = harness({ expectedInstanceId: undefined, requireInstanceId: true });
+  const call = harness({ expectedInstanceId: null, requireInstanceId: true });
   const result = await call({ instanceId: 'anything', notification: 'CHAT_LABEL_ASSOCIATION' });
   assert.equal(result.status, 503);
   assert.equal(result.body.error, 'instance_not_configured');
