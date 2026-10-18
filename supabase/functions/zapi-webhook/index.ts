@@ -40,18 +40,21 @@ serve(async (req) => {
 
     const payload = await req.json();
     const expectedInstanceId = Deno.env.get('ZAPI_INSTANCE_ID')?.trim();
+    const requireInstanceId = Deno.env.get('REQUIRE_ZAPI_INSTANCE_ID') === 'true';
     const receivedInstanceId = typeof payload.instanceId === 'string' ? payload.instanceId.trim() : '';
 
-    // When an instance ID is configured, require it in every callback and match it exactly.
-    // The callback secret remains the primary per-project authentication because some
-    // provider event types may omit instanceId. Do not log either identifier or secret.
-    if (expectedInstanceId && !receivedInstanceId) {
+    // A school can require instance-level validation before accepting any message.
+    // Keep the callback secret as the primary authentication and never log credentials.
+    if (requireInstanceId && !expectedInstanceId) {
+      return new Response(JSON.stringify({ error: 'instance_not_configured' }), { status: 503, headers: corsHeaders });
+    }
+    if ((requireInstanceId || expectedInstanceId) && !receivedInstanceId) {
       return new Response(JSON.stringify({ error: 'missing_instance' }), { status: 403, headers: corsHeaders });
     }
     if (expectedInstanceId && receivedInstanceId !== expectedInstanceId) {
       return new Response(JSON.stringify({ error: 'wrong_instance' }), { status: 403, headers: corsHeaders });
     }
-    if (!expectedInstanceId) {
+    if (!expectedInstanceId && !requireInstanceId) {
       console.warn('ZAPI_INSTANCE_ID não configurado; validação adicional de instância indisponível');
     }
     // Do not log message contents, attachments or callback credentials.
