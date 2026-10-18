@@ -7,7 +7,7 @@ import ts from 'typescript';
 const source = readFileSync(new URL('../supabase/functions/zapi-webhook/index.ts', import.meta.url), 'utf8')
   .replace(/^import .*;\n/gm, '');
 const compiled = ts.transpileModule(source, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText;
 
 function harness({ expectedInstanceId = 'coc-instance', requireInstanceId = true, validCallbackSecret = true } = {}) {
