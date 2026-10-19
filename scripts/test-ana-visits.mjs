@@ -409,3 +409,13 @@ test('lead legado marcado como matriculado mantém o status e não recebe pesqui
   assert.equal(h.state.sent.some(message => message.surveyStep === 'origin'), false);
   assert.equal(h.state.rows.crm_survey_claims.length, 0);
 });
+
+
+test('marcador de documento/imagem não analisada força encaminhamento humano', async () => {
+  const h = harness();
+  h.state.ai.precisa_humano = false;
+  await h.send('[MÍDIA_PARA_SECRETARIA: documento pessoal recebido; não transcrever dados pessoais]');
+  assert.match(h.state.sent.at(-1).message, /Recebi o arquivo\. Vou encaminhar para a secretaria/i);
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
+  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
+});
