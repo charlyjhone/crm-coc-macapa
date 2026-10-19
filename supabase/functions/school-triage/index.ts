@@ -890,6 +890,18 @@ serve(async (req) => {
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
         return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
       }
+      // Se a pesquisa já foi enviada no encerramento anterior, não iniciar outro ciclo
+      // quando a família apenas agradece à pesquisa/mensagem de encerramento.
+      if (agradecimentoEncerramento && lead?.triage_status === "resolvido" && leadId) {
+        const { data: pesquisaExistente } = await supabase
+          .from("crm_survey_claims")
+          .select("id")
+          .eq("lead_id", leadId)
+          .eq("state", "sent")
+          .limit(1)
+          .maybeSingle();
+        if (pesquisaExistente) return json({ skipped: "survey_already_sent", lead_id: leadId });
+      }
     }
 
     if (isConversationClosing(text, anaAcabouDeOferecerAjuda) || (agradecimentoEncerramento && !anaAcabouDeConfirmar)) {
