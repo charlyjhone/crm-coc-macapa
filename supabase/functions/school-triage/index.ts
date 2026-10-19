@@ -486,6 +486,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
   if (isOrigin) {
     const { data: lead, error: leadError } = await supabaseSurveyLookup(url, key, leadId);
     if (leadError || !lead?.resolved_at) return false;
+    if (lead.status === "matriculado" || lead.matriculado_at) return false;
 
     if (await hasMatriculatedOpportunity(url, key, leadId, phone)) return false;
 
@@ -577,7 +578,7 @@ function surveyAdminClient(url: string, key: string) {
 
 async function supabaseSurveyLookup(url: string, key: string, leadId: string) {
   return await surveyAdminClient(url, key).from("leads")
-    .select("resolved_at").eq("id", leadId).maybeSingle();
+    .select("resolved_at, status, matriculado_at").eq("id", leadId).maybeSingle();
 }
 
 async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKey: string, agentName: string) {
@@ -829,7 +830,7 @@ serve(async (req) => {
               m.raw_data?.survey_step && new Date(m.created_at).getTime() > new Date(ultimaSaidaHumana.created_at).getTime());
             if (alreadySent) return json({ skipped: "survey_already_sent", lead_id: leadId });
             const { error: closeError } = await supabase.from("leads").update({
-              status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
+              status: lead?.status === "matriculado" ? "matriculado" : "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
               handoff_at: null, handoff_reason: null,
             }).eq("id", leadId);
             if (closeError) throw new Error("human_closing_status_failed");
@@ -902,7 +903,7 @@ serve(async (req) => {
       await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "conversation_closed" })
         .eq("lead_id", leadId!).eq("status", "pending");
       const { error: closeError } = await supabase.from("leads").update({
-        status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
+        status: lead?.status === "matriculado" ? "matriculado" : "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
         handoff_at: null, handoff_reason: null,
       }).eq("id", leadId!);
       if (closeError) throw new Error("closing_status_update_failed");
