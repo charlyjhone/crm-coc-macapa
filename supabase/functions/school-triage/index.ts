@@ -437,7 +437,7 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
 }
 function isPoliteThanks(text: string): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
+    .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").replace(/[🙏😊👍]/g, "").trim().replace(/\s+/g, " ");
   return /^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado) )?(?:muito )?(?:obrigad[oa](?: mesmo)?|valeu)$/.test(normalized);
 }
 
