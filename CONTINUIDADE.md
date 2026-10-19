@@ -650,5 +650,5 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - A visita é confirmada no WhatsApp somente depois do registro no banco. A família recebe data e hora; a equipe continua responsável por marcar a visita como realizada após o atendimento presencial.
 - Removida a configuração editável antiga `escola_antecedencia_visita_min`; a aba de configurações apresenta as regras fixas de agendamento. O valor antigo foi removido de `system_settings`.
 - Migrations: `20261019173000_ana_auto_visit_booking.sql` e `20261019180000_remove_legacy_visit_notice_setting.sql`.
-- Publicado no Supabase COC (`fenqnbzdjnyvgrmjczoi`): `school-triage` v99 ACTIVE, `verify_jwt=false` preservado e validação interna de segredo mantida. A migration foi aplicada e a RPC de disponibilidade foi consultada com sucesso.
+- Publicado no Supabase COC (`fenqnbzdjnyvgrmjczoi`): `school-triage` v100 ACTIVE, `verify_jwt=false` preservado e validação interna de segredo mantida. A migration foi aplicada e a RPC de disponibilidade foi consultada com sucesso.
 - Código e testes em `feat/ana-auto-agendamento-visitas`; antes de encerrar, revisar o CI do PR e validar com um número de teste real. Não considerar o envio pelo provedor como prova de entrega no aparelho.
