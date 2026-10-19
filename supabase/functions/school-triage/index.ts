@@ -704,7 +704,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo", "escola_valores_data_divulgacao"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo", "escola_valores_data_divulgacao", "escola_horario_secretaria", "escola_antecedencia_visita_min", "escola_pesquisa_ativa"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -723,6 +723,10 @@ serve(async (req) => {
     const escolaInfo = settings.escola_info || DEFAULT_INFO;
     const escolaValores = settings.escola_valores || "";
     const dataDivulgacaoValores = (settings.escola_valores_data_divulgacao || "").trim();
+    const horarioSecretaria = (settings.escola_horario_secretaria || "7h30 às 18h").trim();
+    const antecedenciaConfigurada = Number.parseInt(settings.escola_antecedencia_visita_min || "60", 10);
+    const antecedenciaVisitaMin = Number.isInteger(antecedenciaConfigurada) && antecedenciaConfigurada >= 0 && antecedenciaConfigurada <= 10080
+      ? antecedenciaConfigurada : 60;
 
     // ---- Resolver ou criar o contato ----
     if (!leadId && phone) {
@@ -1256,8 +1260,8 @@ Responda SOMENTE com JSON válido:
           proposalAt >= outboundAt && proposalAt - outboundAt <= 15000 &&
           inboundAt > proposalAt;
         confirmedVisit = currentProposal
-          ? visitDateTime(proposal.date, proposal.time)
-          : pendingVisit(previous.message || "");
+          ? visitDateTime(proposal.date, proposal.time, antecedenciaVisitaMin)
+          : pendingVisit(previous.message || "", antecedenciaVisitaMin);
         if (confirmedVisit && proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
             typeof proposal.opportunity_id === "string") confirmedOpportunityId = proposal.opportunity_id;
         // A confirmação pertence ao aluno da proposta, nunca a um novo cadastro inferido pela IA.
@@ -1291,7 +1295,7 @@ Responda SOMENTE com JSON válido:
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = !confirmedVisit && triagem.visita.solicitada
-      ? visitDateTime(triagem.visita.data, triagem.visita.horario) : null;
+      ? visitDateTime(triagem.visita.data, triagem.visita.horario, antecedenciaVisitaMin) : null;
     if (confirmedVisit) {
       // A secretaria valida disponibilidade; a confirmação da família apenas autoriza o registro.
       precisaHumano = true;
