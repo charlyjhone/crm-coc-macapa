@@ -1280,18 +1280,18 @@ Responda SOMENTE com JSON válido:
         assunto = "matricula";
       }
     }
-    if (assunto === "matricula" && !shouldRegister && !draft &&
+    if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano) {
+      const cadastro = triagem.cadastro;
+      const missing = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2
+        ? "Qual é o nome completo do responsável?"
+        : !cadastro.aluno ? "Qual é o nome do aluno?"
+        : "Qual é a série pretendida?";
+      resposta = visitRequested
+        ? `Para agendar a visita, preciso completar os dados da família. ${missing}`
+        : `Posso ajudar a cadastrar seu interesse. ${missing}`;
+    } else if (assunto === "matricula" && !shouldRegister && !draft &&
         /\b(?:(?:j[aá]\s+)?(?:registrei|cadastrei|anotei|salvei|inclu[ií]|criei)\b[\s\S]{0,100}\b(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b|(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b[\s\S]{0,60}\b(?:registrado|cadastrado|anotado|salvo|inclu[ií]do|criado)\b)/i.test(resposta)) {
-      if (precisaHumano) {
-        resposta = "Entendi seu interesse. Ainda não concluí o cadastro; a secretaria vai conferir os dados com você e continuar o atendimento.";
-      } else {
-        const cadastro = triagem.cadastro;
-        const missing = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2
-          ? "Qual é o nome completo do responsável?"
-          : !cadastro.aluno ? "Qual é o nome do aluno?"
-          : "Qual é a série pretendida?";
-        resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
-      }
+      resposta = "Entendi seu interesse. Ainda não concluí o cadastro; a secretaria vai conferir os dados com você e continuar o atendimento.";
     }
     if (visitRequested && draft && !precisaHumano) {
       // Solicitar visita autoriza o cadastro de interesse e elimina a confirmação duplicada do resumo.
