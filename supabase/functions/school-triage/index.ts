@@ -479,6 +479,10 @@ function surveySelection(text: string, choices: { id: string; title: string }[])
 async function sendSurveyList(url: string, key: string, phone: string, leadId: string,
   agentName: string, step: "origin" | "rating") {
   const isOrigin = step === "origin";
+  const admin = surveyAdminClient(url, key);
+  const { data: surveySetting, error: surveySettingError } = await admin.from("system_settings")
+    .select("value").eq("key", "escola_pesquisa_ativa").maybeSingle();
+  if (surveySettingError || surveySetting?.value === "false") return false;
   let claimCycleAt: string | null = null;
 
   // A origem é a primeira etapa da pesquisa e precisa ser reivindicada uma única
