@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
 import { isInternalPhone } from "../_shared/internal-contacts.ts";
 import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
-import { analyzeWhatsAppImage, mediaFallbackMessage } from "../_shared/whatsapp-media.ts";
+import { mediaFallbackMessage } from "../_shared/whatsapp-media.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -166,30 +166,25 @@ serve(async (req) => {
       }
     }
 
-    // Images are summarized before the inbound message is stored so Ana can
-    // answer a normal image question. Personal documents are never transcribed.
+    // Privacidade: nenhuma imagem, PDF ou documento é enviado a serviços de IA.
+    // O conteúdo original permanece anexado ao evento e será conferido pela secretaria.
     const imageUrl = payload.image?.imageUrl || payload.image?.url || payload.imageUrl;
-    if (direction === 'inbound' && imageUrl) {
-      const caption = typeof message === 'string' ? message : '';
-      const analysis = await analyzeWhatsAppImage(
-        String(imageUrl), caption, Deno.env.get('OPENAI_API_KEY')
-      );
-      message = [caption.trim(), analysis.message].filter(Boolean).join('\n');
-    }
-
-    // PDFs and other documents remain attached in the original WhatsApp payload.
-    // Store an explicit handoff marker so the CRM routes them to the secretary.
     const documentUrl = payload.document?.documentUrl || payload.document?.url || payload.documentUrl ||
       payload.file?.fileUrl || payload.file?.url || payload.fileUrl;
     const stickerUrl = payload.sticker?.stickerUrl || payload.sticker?.url || payload.stickerUrl;
     const videoUrl = payload.video?.videoUrl || payload.video?.url || payload.videoUrl;
-    if (direction === 'inbound' && documentUrl) {
-      const fileName = payload.document?.fileName || payload.document?.title || payload.fileName || '';
+    const genericMediaUrl = payload.mediaUrl;
+    if (direction === 'inbound' && imageUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('image')].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && documentUrl) {
+      const fileName = payload.document?.fileName || payload.document?.title || payload.fileName || payload.file?.fileName || '';
       message = [String(message || '').trim(), mediaFallbackMessage('document', String(fileName))].filter(Boolean).join('\n');
     } else if (direction === 'inbound' && stickerUrl) {
       message = [String(message || '').trim(), mediaFallbackMessage('sticker')].filter(Boolean).join('\n');
     } else if (direction === 'inbound' && videoUrl) {
       message = [String(message || '').trim(), mediaFallbackMessage('video')].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && genericMediaUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('unknown')].filter(Boolean).join('\n');
     }
 
     // ===== STEP 2: Handle phone normalization (only if NOT a LID event) =====
