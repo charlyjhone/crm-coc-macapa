@@ -1433,6 +1433,16 @@ Responda SOMENTE com JSON válido:
       }
     }
     if ((confirmedVisit || proposedVisit) && deveSaudar) resposta = withGreeting(resposta, nomeReal);
+    // Aplicar o encaminhamento de mídia depois de toda a lógica de visita/cadastro,
+    // para que respostas genéricas não substituam a transferência para a secretaria.
+    if (mediaNeedsHuman) {
+      precisaHumano = true;
+      if (triagem.prioridade !== "urgente") {
+        resposta = "Recebi o arquivo. Vou encaminhar para a secretaria conferir e dar continuidade.";
+        if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      }
+    }
+
     if (resposta) {
       try {
         if (channel === "whatsapp" && phone) {
