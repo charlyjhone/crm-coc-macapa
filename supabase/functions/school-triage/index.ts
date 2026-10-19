@@ -1280,7 +1280,7 @@ Responda SOMENTE com JSON válido:
         assunto = "matricula";
       }
     }
-    if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano) {
+    if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano && !defersDetailsUntilVisit) {
       const cadastro = triagem.cadastro;
       const missing = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2
         ? "Qual é o nome completo do responsável?"
