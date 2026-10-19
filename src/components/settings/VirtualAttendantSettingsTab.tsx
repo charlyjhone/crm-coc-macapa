@@ -63,7 +63,7 @@ export default function VirtualAttendantSettingsTab() {
   const save = async () => {
     const name = agentName.trim();
     const notice = Number(visitNoticeMinutes);
-    if (!name || name.length > 40 || /[\\r\\n*<>]/.test(name) || name.includes("[") || name.includes("]")) {
+    if (!name || name.length > 40 || /[\r\n*<>]/.test(name) || name.includes("[") || name.includes("]")) {
       toast.error("Nome da atendente inválido");
       return;
     }
