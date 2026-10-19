@@ -1,203 +1,64 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Save, Loader2, Copy, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Check, Copy, Plug } from "lucide-react";
 import { toast } from "sonner";
 
-interface SettingsMap {
-  [key: string]: string;
-}
-
-const SETTINGS_KEYS = [
-  "escola_nome",
-  "escola_valores_data_divulgacao",
-  "webhook_zapi_url",
-];
-
 const GeneralSettingsTab = () => {
-  const [settings, setSettings] = useState<SettingsMap>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("system_settings")
-        .select("key, value")
-        .in("key", SETTINGS_KEYS);
-
-      if (error) throw error;
-
-      const map: SettingsMap = {};
-      data?.forEach((row: any) => {
-        map[row.key] = row.value;
-      });
-      setSettings(map);
-    } catch (err) {
-      console.error("Error fetching settings:", err);
-      toast.error("Erro ao carregar configurações");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateSetting = (key: string, value: string) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const saveSettings = async () => {
-    setSaving(true);
-    try {
-      const now = new Date().toISOString();
-      const upserts = Object.entries(settings).map(([key, value]) => ({
-        key,
-        value,
-        updated_at: now,
-      }));
-
-      const { error } = await supabase
-        .from("system_settings")
-        .upsert(upserts, { onConflict: "key" });
-
-      if (error) throw error;
-
-      toast.success("Configurações salvas com sucesso!");
-    } catch (err) {
-      console.error("Error saving settings:", err);
-      toast.error("Erro ao salvar configurações");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const copyToClipboard = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    toast.success("Copiado!");
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
+  const [copied, setCopied] = useState(false);
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-    const zapiWebhookUrl = `${supabaseUrl}/functions/v1/zapi-webhook`;
+  const zapiWebhookUrl = supabaseUrl ? `${supabaseUrl}/functions/v1/zapi-webhook` : "";
 
-  if (loading) {
-    return (
-      <p className="text-muted-foreground text-center py-12">
-        Carregando configurações...
-      </p>
-    );
-  }
+  const copyToClipboard = async () => {
+    if (!zapiWebhookUrl) {
+      toast.error("URL do Supabase não configurada neste frontend");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(zapiWebhookUrl);
+      setCopied(true);
+      toast.success("Webhook copiado");
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Não foi possível copiar o webhook");
+    }
+  };
 
   return (
     <div className="space-y-8">
-      {/* Escola */}
       <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">{settings.escola_nome || "Escola"}</h3>
-          <p className="text-xs text-muted-foreground">
-            Configurações gerais da integração do CRM escolar.
-          </p>
+        <div className="flex items-center gap-2">
+          <Plug className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Integração com WhatsApp (Z-API)</h2>
         </div>
+        <p className="text-sm text-muted-foreground">
+          O número usado pela Ana é o mesmo número conectado à instância WhatsApp do CRM. Não cadastre um telefone diferente nesta tela.
+        </p>
         <div className="space-y-2">
-          <Label htmlFor="escola_nome">Nome da escola</Label>
-          <Input
-            id="escola_nome"
-            value={settings.escola_nome || ""}
-            onChange={(e) => updateSetting("escola_nome", e.target.value)}
-            placeholder="Nome da escola"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="escola_valores_data_divulgacao">Data de divulgação dos valores de 2027</Label>
-          <Input
-            id="escola_valores_data_divulgacao"
-            value={settings.escola_valores_data_divulgacao || ""}
-            onChange={(e) => updateSetting("escola_valores_data_divulgacao", e.target.value)}
-            placeholder="Ex.: 15 de novembro de 2026"
-          />
-          <p className="text-xs text-muted-foreground">
-            Informe somente após confirmação oficial. Se ficar vazio, a Ana não prometerá uma data e encaminhará a dúvida à secretaria.
-          </p>
+          <Label htmlFor="zapi-webhook">URL do webhook</Label>
+          <div className="flex gap-2">
+            <Input id="zapi-webhook" readOnly value={zapiWebhookUrl} className="bg-muted font-mono text-xs" />
+            <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => void copyToClipboard()} aria-label="Copiar URL do webhook">
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Configure esta URL no painel Z-API para receber mensagens do WhatsApp.</p>
         </div>
       </section>
 
       <Separator />
 
-      {/* Webhooks */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">Webhooks</h3>
-          <p className="text-xs text-muted-foreground">
-            URLs que devem ser configuradas nos serviços externos para enviar notificações ao sistema.
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold">Credenciais do provedor</h2>
+        <div className="rounded-md border bg-muted/50 p-4">
+          <p className="text-sm font-medium">Z-API (Instance ID, Token e Client Token)</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            As credenciais ficam protegidas nos secrets do backend e não são exibidas nem editadas nesta tela.
           </p>
         </div>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Webhook do ZAPI (WhatsApp)</Label>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={zapiWebhookUrl}
-                className="font-mono text-xs bg-muted"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => copyToClipboard(zapiWebhookUrl, "zapi")}
-              >
-                {copiedKey === "zapi" ? (
-                  <Check className="h-4 w-4 text-primary" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Configure este URL no ZAPI → Configurações → Webhook para receber mensagens do WhatsApp.
-            </p>
-          </div>
-        </div>
       </section>
-
-      <Separator />
-
-      {/* API Keys Notice */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">Chaves de API (Backend)</h3>
-          <p className="text-xs text-muted-foreground">
-            As seguintes chaves de API são configuradas diretamente no backend e não podem ser alteradas por aqui.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <div className="rounded-md border border-border bg-muted/50 p-4 space-y-1">
-            <p className="text-sm font-medium">ZAPI (Instance ID, Token, Client Token)</p>
-            <p className="text-xs text-muted-foreground">
-              Usada para integração com WhatsApp. Configure via painel do backend (Secrets).
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex justify-end pt-4">
-        <Button onClick={saveSettings} disabled={saving}>
-          {saving ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          Salvar Configurações
-        </Button>
-      </div>
     </div>
   );
 };
