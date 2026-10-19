@@ -639,3 +639,16 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - `SchoolSettingsTab` mantém os dados oficiais da escola; `GeneralSettingsTab` mantém a integração WhatsApp, evitando controles duplicados.
 - PR #54 foi integrada à `main` para encaminhar mídias à secretaria sem análise automática por IA; ainda falta publicar e validar as funções no projeto Supabase.
 - Próximos passos: validar build/testes após a combinação das alterações, aplicar a migration no Supabase do COC, publicar o frontend no Render e testar no WhatsApp com contato controlado.
+
+
+## 48. Nova agenda automática de visitas da Ana (19/10/2026)
+
+- **Substitui o fluxo antigo:** a Ana não pede mais um segundo “SIM” para confirmar uma proposta de visita e não encaminha a disponibilidade à secretaria para confirmação posterior.
+- Quando a família solicita uma visita, a Ana coleta apenas os dados que faltam, cadastra automaticamente responsável/aluno/oportunidade assim que estiverem completos e consulta a agenda antes de oferecer horários.
+- Regras fixas da agenda: segunda a sexta, 08h–18h, horário de Macapá (America/Belem), slots de 30 minutos e antecedência mínima de 60 minutos. O horário geral da secretaria continua sendo uma informação separada.
+- A função RPC `get_ana_available_visit_slots(date)` retorna apenas horários livres. `register_ana_school_visit` revalida e reserva dentro de transação com lock global, impedindo duas famílias de ocupar o mesmo intervalo.
+- A visita é confirmada no WhatsApp somente depois do registro no banco. A família recebe data e hora; a equipe continua responsável por marcar a visita como realizada após o atendimento presencial.
+- Removida a configuração editável antiga `escola_antecedencia_visita_min`; a aba de configurações apresenta as regras fixas de agendamento. O valor antigo foi removido de `system_settings`.
+- Migrations: `20261019173000_ana_auto_visit_booking.sql` e `20261019180000_remove_legacy_visit_notice_setting.sql`.
+- Publicado no Supabase COC (`fenqnbzdjnyvgrmjczoi`): `school-triage` v98 ACTIVE, `verify_jwt=false` preservado e validação interna de segredo mantida. A migration foi aplicada e a RPC de disponibilidade foi consultada com sucesso.
+- Código e testes em `feat/ana-auto-agendamento-visitas`; antes de encerrar, revisar o CI do PR e validar com um número de teste real. Não considerar o envio pelo provedor como prova de entrega no aparelho.
