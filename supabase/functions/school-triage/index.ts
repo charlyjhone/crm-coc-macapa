@@ -894,7 +894,7 @@ serve(async (req) => {
     }
 
     if (isConversationClosing(text, anaAcabouDeOferecerAjuda) || (agradecimentoEncerramento && !anaAcabouDeConfirmar)) {
-      if (lead?.triage_status === "resolvido") return json({ skipped: "already_closed", lead_id: leadId });
+      if (lead?.triage_status === "resolvido" && !agradecimentoEncerramento) return json({ skipped: "already_closed", lead_id: leadId });
       const firstName = !isPlaceholderName(lead?.name)
         ? `, ${lead!.name.trim().split(/\s+/)[0]}` : "";
       const closingReply = agradecimentoEncerramento
