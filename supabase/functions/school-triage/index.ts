@@ -888,7 +888,22 @@ serve(async (req) => {
       const agradecimentoCurto = isPoliteThanks(text) ||
         /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
-        return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
+        // Não reabrir matrícula/visita após um agradecimento, mas também não deixar a família sem resposta.
+        // Este é apenas um agradecimento curto; não reinicia cadastro nem dispara nova pesquisa.
+        const acknowledgementReply = "Por nada! Fico feliz em ajudar. Se precisar de mais alguma coisa, estamos à disposição.";
+        if (channel === "whatsapp" && phone) {
+          const acknowledgementMessage = `*[Atendente ${agentName}]*\\n${acknowledgementReply}`;
+          const acknowledgementResponse = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+            body: JSON.stringify({ phone, message: acknowledgementMessage, leadId, senderType: "ana" }),
+          });
+          if (!acknowledgementResponse.ok) {
+            console.error("Falha ao enviar agradecimento após confirmação:");
+            return json({ error: "acknowledgement_send_failed", lead_id: leadId }, 502);
+          }
+        }
+        return json({ sent: channel === "whatsapp" && !!phone, reason: "acknowledgement_after_confirmation", lead_id: leadId });
       }
       // Se a pesquisa já foi enviada no encerramento anterior, não iniciar outro ciclo
       // quando a família apenas agradece à pesquisa/mensagem de encerramento.
