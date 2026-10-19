@@ -377,6 +377,15 @@ test('família com oportunidade matriculada não recebe pesquisa de captação',
   assert.equal(h.state.rows.crm_survey_claims.length, 0);
 });
 
+test('pesquisa de satisfação pode ser desativada nas configurações', async () => {
+  const h = harness();
+  h.state.rows.system_settings.push({ key: 'escola_pesquisa_ativa', value: 'false' });
+  await h.send('Somente isso mesmo.');
+  assert.equal(h.state.rows.leads[0].triage_status, 'resolvido');
+  assert.equal(h.state.sent.some(message => message.surveyStep === 'origin'), false);
+  assert.equal(h.state.rows.crm_survey_claims.length, 0);
+});
+
 test('pesquisa de origem é reivindicada uma única vez por ciclo de encerramento', async () => {
   const h = harness();
   await h.send('Somente isso mesmo.');
