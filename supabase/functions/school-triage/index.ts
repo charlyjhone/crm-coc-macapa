@@ -892,7 +892,7 @@ serve(async (req) => {
         // Este é apenas um agradecimento curto; não reinicia cadastro nem dispara nova pesquisa.
         const acknowledgementReply = "Por nada! Fico feliz em ajudar. Se precisar de mais alguma coisa, estamos à disposição.";
         if (channel === "whatsapp" && phone) {
-          const acknowledgementMessage = `*[Atendente ${agentName}]*\\n${acknowledgementReply}`;
+          const acknowledgementMessage = `*[Atendente ${agentName}]*\n${acknowledgementReply}`;
           const acknowledgementResponse = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
