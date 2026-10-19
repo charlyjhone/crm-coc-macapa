@@ -398,3 +398,14 @@ test('pesquisa também é bloqueada quando o responsável tem oportunidade matri
   assert.equal(h.state.sent.some(message => message.surveyStep === 'origin'), false);
   assert.equal(h.state.rows.crm_survey_claims.length, 0);
 });
+
+
+test('lead legado marcado como matriculado mantém o status e não recebe pesquisa', async () => {
+  const h = harness();
+  h.state.rows.leads[0].status = 'matriculado';
+  h.state.rows.leads[0].matriculado_at = new Date().toISOString();
+  await h.send('Somente isso mesmo.');
+  assert.equal(h.state.rows.leads[0].status, 'matriculado');
+  assert.equal(h.state.sent.some(message => message.surveyStep === 'origin'), false);
+  assert.equal(h.state.rows.crm_survey_claims.length, 0);
+});
