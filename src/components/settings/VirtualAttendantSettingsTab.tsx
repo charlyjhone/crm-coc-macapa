@@ -15,7 +15,6 @@ const SETTINGS_KEYS = [
   "escola_agente_nome",
   "escola_valores_data_divulgacao",
   "escola_horario_secretaria",
-  "escola_antecedencia_visita_min",
   "escola_pesquisa_ativa",
   "escola_folder_ativo",
 ] as const;
@@ -28,7 +27,6 @@ export default function VirtualAttendantSettingsTab() {
   const [agentName, setAgentName] = useState("Ana");
   const [valuesDate, setValuesDate] = useState(DEFAULT_VALUES_DATE);
   const [officeHours, setOfficeHours] = useState(DEFAULT_HOURS);
-  const [visitNoticeMinutes, setVisitNoticeMinutes] = useState("60");
   const [surveyActive, setSurveyActive] = useState(true);
   const [folderActive, setFolderActive] = useState(false);
   const [folderExists, setFolderExists] = useState(false);
@@ -44,7 +42,6 @@ export default function VirtualAttendantSettingsTab() {
         setAgentName(values.escola_agente_nome || "Ana");
         setValuesDate(values.escola_valores_data_divulgacao || DEFAULT_VALUES_DATE);
         setOfficeHours(values.escola_horario_secretaria || DEFAULT_HOURS);
-        setVisitNoticeMinutes(values.escola_antecedencia_visita_min || "60");
         setSurveyActive((values.escola_pesquisa_ativa || "true") === "true");
         setFolderActive(values.escola_folder_ativo === "true");
         const { data: files, error: fileError } = await supabase.storage.from("school-materials").list("", { search: "folder-digital.pdf" });
@@ -62,13 +59,8 @@ export default function VirtualAttendantSettingsTab() {
 
   const save = async () => {
     const name = agentName.trim();
-    const notice = Number(visitNoticeMinutes);
     if (!name || name.length > 40 || /[\r\n*<>]/.test(name) || name.includes("[") || name.includes("]")) {
       toast.error("Nome da atendente inválido");
-      return;
-    }
-    if (!Number.isInteger(notice) || notice < 0 || notice > 10080) {
-      toast.error("A antecedência deve ser um número entre 0 e 10.080 minutos");
       return;
     }
     if (folderActive && !folderExists) {
@@ -81,7 +73,6 @@ export default function VirtualAttendantSettingsTab() {
       { key: "escola_agente_nome", value: name },
       { key: "escola_valores_data_divulgacao", value: valuesDate.trim() },
       { key: "escola_horario_secretaria", value: officeHours.trim() },
-      { key: "escola_antecedencia_visita_min", value: String(notice) },
       { key: "escola_pesquisa_ativa", value: surveyActive ? "true" : "false" },
       { key: "escola_folder_ativo", value: folderActive ? "true" : "false" },
     ];
@@ -142,7 +133,7 @@ export default function VirtualAttendantSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5" />Horários e visitas</CardTitle>
-          <CardDescription>Estes dados orientam as respostas da Ana. A confirmação de uma visita continua dependendo da secretaria.</CardDescription>
+          <CardDescription>O horário da secretaria é uma informação geral. A agenda de visitas consulta os horários livres e reserva automaticamente após a escolha da família.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -150,9 +141,15 @@ export default function VirtualAttendantSettingsTab() {
             <Input id="ana-office-hours" value={officeHours} onChange={(e) => setOfficeHours(e.target.value)} placeholder="7h30 às 18h" />
             <p className="text-xs text-muted-foreground">Valor inicial baseado no horário que já está configurado: 7h30 às 18h. Confira os dias de atendimento nas informações oficiais da escola.</p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ana-visit-notice">Antecedência mínima para pedido de visita (minutos)</Label>
-            <Input id="ana-visit-notice" type="number" min={0} max={10080} value={visitNoticeMinutes} onChange={(e) => setVisitNoticeMinutes(e.target.value)} />
+          <div className="rounded-lg border p-3 space-y-2 text-sm">
+            <p className="font-medium">Nova regra de agendamento automático</p>
+            <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+              <li>Segunda a sexta-feira, das 8h às 18h (horário de Macapá).</li>
+              <li>Duração de cada visita: 30 minutos.</li>
+              <li>Antecedência mínima: 60 minutos.</li>
+              <li>A Ana consulta a agenda antes de oferecer horários e revalida a disponibilidade antes de reservar.</li>
+              <li>Depois de salvar, a visita aparece no CRM como agendada; a equipe registra quando ela for realizada.</li>
+            </ul>
           </div>
           <div className="rounded-lg border p-3 text-sm text-muted-foreground">
             O telefone de contato não é duplicado aqui: a Ana deve usar o mesmo número da integração WhatsApp já configurada no CRM.
