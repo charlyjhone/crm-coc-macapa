@@ -1211,7 +1211,7 @@ Responda SOMENTE com JSON válido:
       .join("\n");
     const explicitRegistrationIntent = /\b(?:quero|gostaria|desejo|pretendo)\b[\s\S]{0,80}\b(?:registrar|cadastrar|anotar|deixar)\b[\s\S]{0,80}\b(?:interesse|matr[ií]cula|cadastro)\b/i
       .test(`${familyMessages}\n${text}`);
-    const visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|registrar|visita|visitar)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b/i
+    const visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|registrar|visita|visitar|conhecer)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b/i
       .test(`${familyMessages}\n${text}`);
     if (explicitRegistrationIntent && channel === "whatsapp") {
       assunto = "matricula";
