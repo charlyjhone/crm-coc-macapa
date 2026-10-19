@@ -1392,7 +1392,7 @@ Responda SOMENTE com JSON válido:
       }
     }
     let visitId: string | null = null;
-    if (triagem.visita.solicitada && !precisaHumano &&
+    if (triagem.visita.solicitada && !precisaHumano && !defersDetailsUntilVisit &&
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
         channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
