@@ -298,19 +298,19 @@ function mergeExplicitVisitFacts(triagem: Triagem, historico: string, currentTex
   if (time) triagem.visita.horario = time;
 }
 
-function visitDateTime(date: string | null, time: string | null) {
+function visitDateTime(date: string | null, time: string | null, minimumNoticeMinutes = 60) {
   if (!date || !time || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const local = `${date}T${time}:00-03:00`; // Escola em Macapá (UTC-3).
   const instant = new Date(local);
   if (Number.isNaN(instant.getTime()) ||
       new Date(instant.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10) !== date ||
-      instant.getTime() < Date.now() + 60 * 60 * 1000) return null;
+      instant.getTime() < Date.now() + Math.max(0, minimumNoticeMinutes) * 60 * 1000) return null;
   return { local, date, time };
 }
 
-function pendingVisit(message: string) {
+function pendingVisit(message: string, minimumNoticeMinutes = 60) {
   const match = message.match(/Para registrar sua visita em (\d{4}-\d{2}-\d{2}) às (\d{2}:\d{2}) \(horário de Macapá\), responda SIM\. A secretaria confirmará a disponibilidade\./);
-  return match ? visitDateTime(match[1], match[2]) : null;
+  return match ? visitDateTime(match[1], match[2], minimumNoticeMinutes) : null;
 }
 
 function json(body: unknown, status = 200) {
@@ -1055,8 +1055,7 @@ ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA:
 ${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como referência."}
 Use os exemplos para aprender o tom, a cordialidade, o tamanho das mensagens e também padrões de resposta para dúvidas escolares parecidas. Só reaproveite conteúdo geral que seja claramente aplicável; as informações oficiais cadastradas abaixo sempre prevalecem. Não copie dados pessoais. Não reutilize valores, datas, prazos ou promessas de exemplos antigos sem confirmação nas informações oficiais. Se houver dúvida, encaminhe à secretaria.
 
-INFORMAÇÕES OFICIAIS DA ESCOLA:
-${escolaInfo}
+HORÁRIO DA SECRETARIA (configuração operacional): ${horarioSecretaria}. Antecedência mínima para pedidos de visita: ${antecedenciaVisitaMin} minuto(s). Use isso ao orientar a família; nunca confirme a disponibilidade da visita.\n\nINFORMAÇÕES OFICIAIS DA ESCOLA:\n${escolaInfo}
 
 ${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : `VALORES: ainda não cadastrados. Para perguntas gerais sobre os valores de 2027, ${dataDivulgacaoValores ? "informe que serão divulgados a partir de " + dataDivulgacaoValores : "não invente uma data de divulgação; informe que a data ainda não foi cadastrada e encaminhe à secretaria para confirmar"}. Convide para conhecer a escola e pergunte se deseja registrar interesse para contato. Não informe preços nem prometa agendamento automático. Para pedidos de preço exato ou valores de outros anos, marque precisa_humano = true e encaminhe à secretaria.`}
 
