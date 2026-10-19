@@ -434,7 +434,7 @@ test('marcador de documento/imagem não analisada força encaminhamento humano',
 });
 
 
-test('horário da secretaria e antecedência de visita vêm das configurações', async () => {
+test('horário da secretaria é configurável, mas regras de visita são fixas', async () => {
   const h = harness();
   h.state.rows.system_settings.push(
     { key: 'escola_horario_secretaria', value: '7h30 às 18h' },
@@ -443,7 +443,8 @@ test('horário da secretaria e antecedência de visita vêm das configurações'
   await h.send('Qual é o horário da secretaria?');
   const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
   assert.match(system, /HORÁRIO DA SECRETARIA .*7h30 às 18h/);
-  assert.match(system, /Antecedência mínima para pedidos de visita: 90 minuto\(s\)/);
+  assert.match(system, /AGENDA DE VISITAS .*antecedência mínima de 60 minutos/i);
+  assert.doesNotMatch(system, /Antecedência mínima para pedidos de visita: 90/);
 });
 
 test('pesquisa de satisfação pode ser desativada nas configurações', async () => {
