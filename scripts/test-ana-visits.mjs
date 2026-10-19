@@ -24,7 +24,7 @@ function harness() {
   let serial = 0;
   let handler;
   const state = {
-    ai: defaultTriage(), aiCalls: 0, aiPayload: null, rpcCalls: [], sent: [], sendFails: false,
+    ai: defaultTriage(), aiCalls: 0, aiPayload: null, rpcCalls: [], sent: [], sendFails: false, slotTimes: ['15:00', '15:30', '16:00', '16:30'],
     onAi: null, queryError: null,
     rows: {
       system_settings: [{ key: 'escola_agente_ativo', value: 'true' }],
@@ -94,6 +94,25 @@ function harness() {
         if (!opportunity) opportunity = append('enrollment_opportunities', { legacy_lead_id: args.p_lead_id, student_name: args.p_student_name, stage: 'novo_interessado' });
         return { data: { opportunity_id: opportunity.id, created }, error: null };
       }
+      if (name === 'get_ana_available_visit_slots') {
+        const date = args.p_date;
+        const parsed = new Date(date + 'T12:00:00-03:00');
+        const weekday = parsed.getUTCDay();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) ||
+            parsed.toISOString().slice(0, 10) !== date || weekday === 0 || weekday === 6) {
+          return { data: [], error: null };
+        }
+        const booked = state.rows.school_visits.filter(v => ['agendada', 'confirmada', 'reagendada'].includes(v.status));
+        const slots = (state.slotTimes || ['15:00', '15:30', '16:00', '16:30']).filter(time => {
+          const start = new Date(date + 'T' + time + ':00-03:00');
+          if (start.getTime() < Date.now() + 60 * 60000) return false;
+          return !booked.some(v => {
+            const other = new Date(v.scheduled_at).getTime();
+            return other < start.getTime() + 30 * 60000 && other + 30 * 60000 > start.getTime();
+          });
+        }).map(slot_time => ({ slot_time, slot_at: new Date(date + 'T' + slot_time + ':00-03:00').toISOString() }));
+        return { data: slots, error: null };
+      }
       if (name === 'register_ana_school_visit') {
         const opportunity = state.rows.enrollment_opportunities.find(row => row.id === args.p_opportunity_id && row.legacy_lead_id === args.p_lead_id);
         if (!opportunity) return { data: null, error: { message: 'Opportunity not found' } };
@@ -138,70 +157,54 @@ function harness() {
   return { state, send, humanReply };
 }
 
-test('cadastro, proposta, SIM, agenda e funil usam a mesma oportunidade', async () => {
+test('cadastro e visita são registrados automaticamente após consulta do horário livre', async () => {
   const h = harness();
   assert.equal((await h.send('Quero visitar a escola com meu filho.')).status, 200);
-  assert.equal(h.state.rows.enrollment_opportunities.length, 0);
-  assert.match(h.state.sent.at(-1).message, /Responsável: Responsável de Teste/);
-  assert.match(h.state.sent.at(-1).message, /Posso cadastrar esse interesse/);
-  h.state.ai.cadastro.aluno = 'Nome inferido incorretamente';
-  await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
   assert.equal(h.state.rows.enrollment_opportunities[0].student_name, 'Aluno de Teste');
-  assert.equal(h.state.rows.school_visits.length, 0);
-  assert.match(h.state.sent.at(-1).message, /responda SIM/);
-  assert.equal(h.state.rows.ana_followups.length, 0);
-  // Mesmo que a IA troque o nome do aluno, a confirmação usa o ID da proposta.
-  h.state.ai.cadastro.aluno = 'Outro Aluno';
-  assert.equal((await h.send('SIM')).status, 200);
-  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
   assert.equal(h.state.rows.school_visits.length, 1);
   assert.equal(h.state.rows.school_visits[0].status, 'agendada');
   assert.equal(h.state.rows.enrollment_opportunities[0].stage, 'visita_agendada');
-  assert.match(h.state.sent.at(-1).message, /secretaria vai conferir/);
-  assert.match(h.state.rows.leads[0].handoff_reason, /Pedido de visita registrado/);
+  assert.match(h.state.sent.at(-1).message, /está agendada para/);
+  assert.match(h.state.sent.at(-1).message, /Vai ser um prazer apresentar nossa escola/);
+  assert.equal(h.state.rpcCalls.some(call => call.name === 'get_ana_available_visit_slots'), true);
+  assert.equal(h.state.rows.ana_followups.length, 0);
 });
 
-test('resposta não confirmatória não agenda; confirmação natural agenda sem duplicar', async () => {
+test('horário ocupado é removido das opções e a família consegue escolher outro slot', async () => {
   const h = harness();
-  await h.send('Visita');
-  await h.send('SIM');
-  await h.send('pode');
-  assert.equal(h.state.rows.school_visits.length, 0);
-  assert.match(h.state.sent.at(-1).message, /Para cadastrar o interesse, confirme estes dados/);
-  await h.send('SIM');
-  assert.equal(h.state.rows.school_visits.length, 0);
-  assert.match(h.state.sent.at(-1).message, /responda SIM/);
-  await h.send('Sim, isso mesmo.');
+  h.state.rows.enrollment_opportunities.push({ id: 'other-opp', legacy_lead_id: 'other-lead', stage: 'novo_interessado' });
+  h.state.rows.school_visits.push({ id: 'busy-visit', opportunity_id: 'other-opp', scheduled_at: new Date(visitDate + 'T15:00:00-03:00').toISOString(), status: 'agendada' });
+  await h.send('Quero visitar a escola.');
   assert.equal(h.state.rows.school_visits.length, 1);
-  await h.send('SIM');
-  assert.equal(h.state.rows.school_visits.length, 1);
+  assert.match(h.state.sent.at(-1).message, /15:30/);
+  h.state.ai.visita.horario = '15:30';
+  await h.send('15h30');
+  assert.equal(h.state.rows.school_visits.length, 2);
+  assert.equal(new Date(h.state.rows.school_visits.at(-1).scheduled_at).toISOString(), new Date(visitDate + 'T15:30:00-03:00').toISOString());
 });
 
 test('dados incompletos perguntam somente o dado faltante', async () => {
-  const h = harness(); h.state.ai.cadastro.aluno = null;
+  const h = harness(); h.state.ai.visita.solicitada = false; h.state.ai.cadastro.aluno = null;
   await h.send('Meu nome é Responsável de Teste.');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
   assert.match(h.state.sent.at(-1).message, /nome do aluno/);
 });
 
-test('data inexistente, passada ou hora inválida não produz proposta', async () => {
+test('data inválida ou sem horários livres não cria visita nem promete agendamento', async () => {
   for (const [date, time] of [['2027-02-30', '15:00'], ['2020-01-01', '15:00'], [visitDate, '25:00']]) {
     const h = harness(); h.state.ai.visita.data = date; h.state.ai.visita.horario = time;
     await h.send('Quero uma visita.');
-    await h.send('SIM');
-    assert.doesNotMatch(h.state.sent.at(-1).message, /responda SIM/);
-    assert.match(h.state.sent.at(-1).message, /data válida/);
     assert.equal(h.state.rows.school_visits.length, 0);
+    assert.doesNotMatch(h.state.sent.at(-1).message, /está agendada para/);
   }
 });
 
-test('data e hora faltantes continuam a coleta após cadastrar a família', async () => {
+test('sem data definida, Ana cadastra o interesse e pergunta qual dia a família prefere', async () => {
   const h = harness(); h.state.ai.visita.data = null; h.state.ai.visita.horario = null;
   await h.send('Quero conhecer a escola.');
-  await h.send('SIM');
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
-  assert.match(h.state.sent.at(-1).message, /Qual dia e horário/);
+  assert.match(h.state.sent.at(-1).message, /Qual dia seria melhor/);
   assert.equal(h.state.rows.ana_followups.length, 0);
 });
 
@@ -223,17 +226,10 @@ test('solicitação explícita de humano não é substituída por proposta autom
   assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
 });
 
-test('proposta sem vínculo salvo nunca escolhe outro aluno no SIM', async () => {
-  const h = harness(); await h.send('Visita'); await h.send('SIM'); h.state.rows.activity_log.length = 0;
-  await h.send('SIM');
-  assert.equal(h.state.rows.school_visits.length, 0);
-  assert.match(h.state.sent.at(-1).message, /Não consegui registrar/);
-});
-
-test('falha de envio não registra proposta como entregue', async () => {
+test('falha de envio não registra proposta antiga nem confirma agendamento por mensagem', async () => {
   const h = harness(); h.state.sendFails = true;
   await h.send('Visita');
-  assert.equal(h.state.rows.activity_log.at(-1).metadata.visit_proposal, null);
+  assert.equal(Object.hasOwn(h.state.rows.activity_log.at(-1).metadata, 'visit_proposal'), false);
   assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
 });
 
@@ -268,8 +264,9 @@ test('SIM isolado, sem resumo anterior, não autoriza cadastro', async () => {
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
 });
 
-test('intenção explícita de registrar interesse exige resumo antes de gravar', async () => {
+test('intenção explícita de registrar interesse sem pedido de visita exige resumo antes de gravar', async () => {
   const h = harness();
+  h.state.ai.visita.solicitada = false;
   h.state.ai.cadastro_interesse = false;
   await h.send('Quero deixar meu interesse de matrícula registrado.');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
@@ -278,7 +275,7 @@ test('intenção explícita de registrar interesse exige resumo antes de gravar'
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
   assert.equal(h.state.rows.school_visits.length, 0);
   await h.send('Sim, isso mesmo.');
-  assert.equal(h.state.rows.school_visits.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 0);
 });
 
 test('secretaria assume depois do resumo e impede cadastro pela Ana', async () => {
@@ -356,7 +353,7 @@ test('agradecimento após resposta informativa recebe “por nada” e encerra m
   assert.equal(h.state.sent.filter(message => message.surveyStep === 'origin').length, 1);
 });
 
-test('agradecimento após confirmação de cadastro não dispara outra resposta nem repete o resumo', async () => {
+test('agradecimento após confirmação recebe resposta curta sem repetir o resumo', async () => {
   const h = harness();
   h.state.ai.visita.solicitada = false;
   await h.send('Quero cadastrar meu filho.');
@@ -365,8 +362,9 @@ test('agradecimento após confirmação de cadastro não dispara outra resposta 
   const sentBeforeThanks = h.state.sent.length;
   const aiCallsBeforeThanks = h.state.aiCalls;
   const result = await h.send('Obrigado!');
-  assert.equal(result.body.skipped, 'acknowledgement_after_confirmation');
-  assert.equal(h.state.sent.length, sentBeforeThanks);
+  assert.equal(result.body.reason, 'acknowledgement_after_confirmation');
+  assert.equal(h.state.sent.length, sentBeforeThanks + 1);
+  assert.match(h.state.sent.at(-1).message, /Por nada! Fico feliz em ajudar/);
   assert.equal(h.state.aiCalls, aiCallsBeforeThanks);
 });
 
@@ -437,7 +435,7 @@ test('marcador de documento/imagem não analisada força encaminhamento humano',
 });
 
 
-test('horário da secretaria e antecedência de visita vêm das configurações', async () => {
+test('horário da secretaria é configurável, mas regras de visita são fixas', async () => {
   const h = harness();
   h.state.rows.system_settings.push(
     { key: 'escola_horario_secretaria', value: '7h30 às 18h' },
@@ -446,7 +444,8 @@ test('horário da secretaria e antecedência de visita vêm das configurações'
   await h.send('Qual é o horário da secretaria?');
   const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
   assert.match(system, /HORÁRIO DA SECRETARIA .*7h30 às 18h/);
-  assert.match(system, /Antecedência mínima para pedidos de visita: 90 minuto\(s\)/);
+  assert.match(system, /AGENDA DE VISITAS .*antecedência mínima de 60 minutos/i);
+  assert.doesNotMatch(system, /Antecedência mínima para pedidos de visita: 90/);
 });
 
 test('pesquisa de satisfação pode ser desativada nas configurações', async () => {
