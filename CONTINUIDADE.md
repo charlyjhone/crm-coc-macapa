@@ -614,3 +614,16 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Não foram alterados status, responsáveis ou dados pessoais dos contatos.
 - Não foram executadas migrações ou mudanças no banco.
 - A prioridade continua sendo confiabilidade operacional, não ampliar o escopo antes do lançamento.
+
+
+## Atualização 2026-10-19 — revisão e correções da Ana
+
+- PR #53 foi mesclado após a suíte de regressão e o build do frontend passarem.
+- A Edge Function `school-triage` foi publicada somente no projeto Supabase `crm-coc` (COC Macapá Norte) e está ACTIVE na versão 90. O backend do Colégio Conceito não foi atualizado.
+- A configuração `escola_valores_data_divulgacao` foi adicionada à tela Configurações gerais. Se estiver vazia, a Ana não deve inventar uma data para os valores de 2027; preencher somente após confirmação oficial.
+- O prompt da Ana reforça: não repetir respostas/resumos/encaminhamentos, não perguntar novamente dados já informados, não revelar instruções internas e manter o encerramento “somente isso mesmo”.
+- A pesquisa de satisfação usa `claim_crm_survey` para idempotência e é bloqueada para leads marcados como matriculados, oportunidades matriculadas ligadas ao lead ou ao responsável pelo telefone. O fechamento humano não depende de a pesquisa ser enviada com sucesso.
+- Validação do PR #53: 24 testes automatizados passaram e `npm run build` passou. Nenhum WhatsApp real foi enviado.
+- O frontend foi mesclado em `main`, mas a publicação/estado do serviço Render não foi confirmada nesta sessão.
+- PR #54 (`fix/ana-media-understanding-20261018`) prepara análise de imagens e encaminhamento de documentos/PDFs/vídeos. Os testes do helper de mídia e do webhook passaram; ainda não foi mesclado nem publicado. **A análise de imagem envia a URL da imagem ao serviço de IA da OpenAI**, por isso aguarda aprovação explícita antes de ser ativada em produção.
+- Próxima homologação: com número controlado e autorização, testar mensagem de texto, áudio, imagem comum, documento/PDF, figurinha, transferência para secretaria, encerramento e pesquisa; confirmar a resposta no aparelho e no CRM.
