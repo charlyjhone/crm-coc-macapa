@@ -229,7 +229,7 @@ test('solicitação explícita de humano não é substituída por proposta autom
 test('falha de envio não registra proposta antiga nem confirma agendamento por mensagem', async () => {
   const h = harness(); h.state.sendFails = true;
   await h.send('Visita');
-  assert.equal(h.state.rows.activity_log.at(-1).metadata.visit_proposal, null);
+  assert.equal(Object.hasOwn(h.state.rows.activity_log.at(-1).metadata, 'visit_proposal'), false);
   assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
 });
 
