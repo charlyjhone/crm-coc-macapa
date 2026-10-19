@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     console.log(`📎 Processando anexo WhatsApp para lead ${leadId}: ${fileName || 'sem nome'}`);
-    console.log(`   URL: ${fileUrl}`);
+    // Não registrar URLs de anexos: podem conter tokens de acesso temporários.
     console.log(`   MIME: ${mimeType || 'desconhecido'}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -47,6 +47,7 @@ serve(async (req) => {
 
     // ===== STEP 2: Determine file name and extension =====
     const detectedMime = mimeType || fileResponse.headers.get('content-type') || 'application/octet-stream';
+    const isPdf = detectedMime === 'application/pdf' || Boolean(fileName && fileName.toLowerCase().endsWith('.pdf'));
     const ext = getExtensionFromMime(detectedMime, fileName);
     const sanitizedName = sanitizeFileName(fileName || `whatsapp-attachment-${Date.now()}.${ext}`);
     const storagePath = `${leadId}/${Date.now()}-${sanitizedName}`;
