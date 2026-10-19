@@ -1309,8 +1309,11 @@ Responda SOMENTE com JSON válido:
     if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
     if (mediaNeedsHuman) {
       precisaHumano = true;
-      resposta = "Recebi o arquivo. Vou encaminhar para a secretaria conferir e dar continuidade.";
-      if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      // Não substituir instruções de segurança já emitidas em uma urgência.
+      if (triagem.prioridade !== "urgente") {
+        resposta = "Recebi o arquivo. Vou encaminhar para a secretaria conferir e dar continuidade.";
+        if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      }
     }
 
     if (previewOnly) {
