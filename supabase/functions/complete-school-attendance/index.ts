@@ -66,6 +66,10 @@ Deno.serve(async (req) => {
   if (previousError) return reply({ success: true, survey: "lookup_failed" });
   if (previous?.length) return reply({ success: true, survey: "already_sent" });
   if (!lead.resolved_at) return reply({ success: true, survey: "not_applicable" });
+  const { data: surveySetting, error: surveySettingError } = await admin.from("system_settings")
+    .select("value").eq("key", "escola_pesquisa_ativa").maybeSingle();
+  if (surveySettingError) return reply({ success: true, survey: "settings_unavailable" });
+  if (surveySetting?.value === "false") return reply({ success: true, survey: "disabled" });
   const { data: claimed, error: claimError } = await admin.rpc("claim_crm_survey", { p_lead_id: lead.id, p_cycle_at: lead.resolved_at });
   if (claimError) return reply({ success: true, survey: "claim_failed" });
   if (!claimed) return reply({ success: true, survey: "already_processing" });
