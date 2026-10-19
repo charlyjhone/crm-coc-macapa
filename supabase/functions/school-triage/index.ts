@@ -1112,8 +1112,8 @@ REGRAS:
 - Se pedirem o folder, catálogo ou mais informações para conhecer a escola, responda brevemente à dúvida e pergunte qual etapa interessa. ${settings.escola_folder_ativo === "true" ? "O sistema tentará anexar o folder em PDF separadamente; não diga que ele já foi enviado antes da confirmação." : "O folder digital ainda não está habilitado; ofereça atendimento da secretaria se precisarem do arquivo."}
 - Se a família demonstrar interesse em uma NOVA matrícula e concordar em informar os dados para acompanhamento, marque cadastro_interesse=true. Isso inclui quando ela responde às perguntas que você fez para cadastrar o interesse. Marque false para aluno já matriculado, fornecedor, consulta genérica sem interesse ou dados de terceiros citados incidentalmente.
 - Para cadastrar esse interesse, pergunte naturalmente nome completo do responsável, nome do aluno e série pretendida. O turno é opcional. O ano padrão da campanha é ${ENROLLMENT_CAMPAIGN_YEAR}; se a família indicar outro ano, registre o ano explícito. Preencha cadastro apenas com dados ditos pela família no histórico, sem inventar nomes ou série. Se faltar algum campo, pergunte apenas o que falta. Quando esses dados estiverem completos, o sistema enviará um resumo para a família conferir. Só cadastrará a família, aluno e oportunidade após confirmação explícita em resposta ao resumo. Se a família corrigir algum dado, atualize o resumo e aguarde nova confirmação. Nunca diga que cadastrou antes do sistema informar o resultado. Isso é interesse para acompanhamento, não matrícula confirmada. Se houver negociação, vaga específica ou pedido de pessoa, encaminhe à secretaria, mas preserve cadastro_interesse quando a família também forneceu os dados completos.
-- Se a família pedir uma visita, marque visita.solicitada=true, colete dia/mês/ano e hora exatos no horário de Macapá. Só preencha data (AAAA-MM-DD) e horario (HH:mm) quando a família os informou explicitamente; não invente horário ou disponibilidade, não diga que a visita foi confirmada pela escola. Para visita, peça os dados de responsável, aluno e série necessários para o cadastro. Se faltar algo, pergunte naturalmente apenas o que falta. Enquanto estiver colhendo dados, não encaminhe à secretaria só por causa do pedido de visita. Se a família disser que prefere esclarecer dúvidas no dia da visita, acolha isso e continue oferecendo o cadastro de interesse com uma única pergunta por vez; não agende outra visita sem data e horário explícitos. Se disser claramente que é só isso ou que não quer informar dados agora, respeite o encerramento e não pressione.
-- Se a mensagem atual for "sim" em resposta a um resumo de cadastro enviado anteriormente, classifique como matrícula e mantenha o contexto. Mantenha também o pedido de visita e sua data/horário presentes no histórico. Confirmar o cadastro não confirma a visita; ela tem uma etapa separada. Enquanto estiver coletando/conferindo dados ou combinando a visita, use precisa_humano=false, salvo pedido explícito de pessoa, urgência ou dúvida que exija a secretaria.
+- Se a família pedir uma visita, marque visita.solicitada=true. Colete somente os dados que faltarem do responsável, aluno e série; aproveite o histórico e não peça confirmação separada do cadastro quando a família já está solicitando a visita. Registre automaticamente o interesse da família assim que os dados necessários estiverem completos. Se a família informar uma data sem horário, consulte get_ana_available_visit_slots para essa data e ofereça apenas horários livres. Se não informar data, pergunte qual dia prefere. Se informar data e horário, consulte a disponibilidade antes de confirmar; só registre a visita depois que a reserva no banco for concluída. As visitas duram 30 minutos, de segunda a sexta, entre 8h e 18h, horário de Macapá, com antecedência mínima de 60 minutos. Nunca diga que a visita está agendada antes de o sistema salvar. Se o horário tiver sido ocupado por outra família, consulte novamente e ofereça opções livres. Após agendar, informe data e horário e diga que será um prazer apresentar nossa escola. O funcionário registrará posteriormente a realização da visita. Enquanto coleta os dados ou oferece horários, não encaminhe à secretaria apenas por causa do pedido de visita; encaminhe quando a família pedir uma pessoa, houver urgência, falha técnica ou dúvida que exija atendimento humano.
+- Se a mensagem atual for "sim" em resposta a um resumo de cadastro de interesse que não envolva visita, mantenha o contexto e confirme o cadastro normalmente. A escolha de um horário livre autoriza o agendamento da visita; não solicite uma segunda confirmação por SIM.
 - Se precisa_humano = true, a "resposta" deve avisar de forma gentil que a secretaria vai continuar o atendimento em breve.
 - Ao encaminhar pela primeira vez, finalize com "Enquanto isso, posso ajudar em algo mais?".
 - Se já houver atendimento da secretaria pendente, continue respondendo normalmente dúvidas autônomas presentes nas informações oficiais, como endereço, horário, localização, currículo e etapas de ensino. Não cancele o handoff existente.
@@ -1285,32 +1285,6 @@ Responda SOMENTE com JSON válido:
       if (previousError) throw new Error("visit_confirmation_lookup_failed");
       const confirmedDraft = previous && isAnaOutbound(previous)
         ? confirmedDraftFromReply(previous.message || "") : null;
-      const visitConfirmationAttempt = previous && isAnaOutbound(previous) && isVisitConfirmation(text);
-      if (visitConfirmationAttempt && leadId) {
-        const { data: proposalLog, error: proposalError } = await supabase.from("activity_log")
-          .select("metadata, created_at").eq("lead_id", leadId).eq("source", "school-triage")
-          .not("metadata->>visit_proposal", "is", null)
-          .order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (proposalError) throw new Error("visit_proposal_lookup_failed");
-        const proposal = proposalLog?.metadata?.visit_proposal;
-        const outboundAt = new Date(previous.created_at || 0).getTime();
-        const proposalAt = new Date(proposalLog?.created_at || 0).getTime();
-        const inboundAt = new Date(inboundCreatedAt || 0).getTime();
-        const currentProposal = proposal && typeof proposal.opportunity_id === "string" &&
-          proposalAt >= outboundAt && proposalAt - outboundAt <= 15000 &&
-          inboundAt > proposalAt;
-        confirmedVisit = currentProposal
-          ? visitDateTime(proposal.date, proposal.time, antecedenciaVisitaMin)
-          : pendingVisit(previous.message || "", antecedenciaVisitaMin);
-        if (confirmedVisit && proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
-            typeof proposal.opportunity_id === "string") confirmedOpportunityId = proposal.opportunity_id;
-        // A confirmação pertence ao aluno da proposta, nunca a um novo cadastro inferido pela IA.
-        if (confirmedVisit) {
-          shouldRegister = false;
-          draft = null;
-          assunto = "matricula";
-        }
-      }
       if (confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
@@ -1331,15 +1305,15 @@ Responda SOMENTE com JSON válido:
         resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
       }
     }
-    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano;
+    if (triagem.visita.solicitada && draft && !precisaHumano) {
+      // Solicitar visita autoriza o cadastro de interesse e elimina a confirmação duplicada do resumo.
+      shouldRegister = true;
+    }
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !triagem.visita.solicitada;
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
-    const proposedVisit = !confirmedVisit && triagem.visita.solicitada
+    const proposedVisit = triagem.visita.solicitada
       ? visitDateTime(triagem.visita.data, triagem.visita.horario, antecedenciaVisitaMin) : null;
-    if (confirmedVisit) {
-      // A secretaria valida disponibilidade; a confirmação da família apenas autoriza o registro.
-      precisaHumano = true;
-    }
     const secretariaContinuaMatricula = assunto === "matricula" && precisaHumano;
     if (secretariaContinuaMatricula) {
       resposta = removeRepeatedHelpOffer(resposta);
@@ -1352,7 +1326,6 @@ Responda SOMENTE com JSON válido:
     if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
     if (mediaNeedsHuman) {
       precisaHumano = true;
-      // Não substituir instruções de segurança já emitidas em uma urgência.
       if (triagem.prioridade !== "urgente") {
         resposta = "Recebi o arquivo. Vou encaminhar para a secretaria conferir e dar continuidade.";
         if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
@@ -1419,20 +1392,7 @@ Responda SOMENTE com JSON válido:
       }
     }
     let visitId: string | null = null;
-    if (confirmedVisit && leadId && channel === "whatsapp") {
-      if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_visit", lead_id: leadId });
-      if (confirmedOpportunityId) {
-        const { data, error } = await supabase.rpc("register_ana_school_visit", {
-          p_lead_id: leadId, p_opportunity_id: confirmedOpportunityId,
-          p_scheduled_at: confirmedVisit.local,
-        });
-        if (error) console.error("Falha ao registrar visita pela Ana:");
-        else visitId = data;
-      }
-      resposta = visitId
-        ? `Anotei o pedido de visita para ${confirmedVisit.date.split("-").reverse().join("/")} às ${confirmedVisit.time}. A secretaria vai conferir a disponibilidade e confirmar o horário com você.`
-        : "Não consegui registrar a visita agora. Encaminhei seu pedido à secretaria para conferir a data e combinar o horário com você.";
-    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation && !defersDetailsUntilVisit &&
+    if (triagem.visita.solicitada && !precisaHumano &&
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
         channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
@@ -1445,37 +1405,63 @@ Responda SOMENTE com JSON válido:
         if (existing?.length === 1) opportunityId = existing[0].id;
         ambiguousOpportunity = (existing?.length || 0) > 1;
       }
-      if (opportunityId && proposedVisit) {
-        const { data: existingVisit, error: existingVisitError } = await supabase.from("school_visits")
-          .select("id, scheduled_at, status").eq("opportunity_id", opportunityId)
-          .in("status", ["agendada", "confirmada", "reagendada"])
-          .order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (existingVisitError) throw new Error("existing_visit_lookup_failed");
-        if (existingVisit) {
-          const sameTime = new Date(existingVisit.scheduled_at).getTime() === new Date(proposedVisit.local).getTime();
-          precisaHumano = true;
-          resposta = sameTime
-            ? `Seu pedido de visita para ${proposedVisit.date.split("-").reverse().join("/")} às ${proposedVisit.time} já está registrado. A secretaria vai confirmar a disponibilidade com você.`
-            : "Já existe um pedido de visita registrado para esta família. A secretaria vai conferir o horário antes de alterar, para evitar duplicidade.";
-        } else {
-          const enrollmentAck = registration
-            ? (registration.created ? "Seu interesse foi registrado para acompanhamento da secretaria.\\n\\n" : "Seu interesse já está registrado para acompanhamento.\\n\\n")
-            : "";
-          resposta = `${enrollmentAck}Para registrar sua visita em ${proposedVisit.date} às ${proposedVisit.time} (horário de Macapá), responda SIM. A secretaria confirmará a disponibilidade.`;
-          visitProposal = { opportunity_id: opportunityId, date: proposedVisit.date, time: proposedVisit.time };
-        }
-      } else if (opportunityId) {
-        resposta = triagem.visita.data && triagem.visita.horario
-          ? `Preciso de uma data válida e de um horário com antecedência mínima de ${antecedenciaVisitaMin} minuto(s). Qual dia e horário você prefere para a visita?`
-          : "Qual dia e horário você prefere para a visita? Informe a data completa e o horário de Macapá; a secretaria vai conferir a disponibilidade.";
-      } else if (ambiguousOpportunity) {
+
+      if (ambiguousOpportunity) {
         precisaHumano = true;
-        resposta = "Há mais de um interesse cadastrado para sua família. A secretaria vai conferir para qual aluno registrar a visita e combinar o horário com você.";
+        resposta = "Identifiquei mais de um aluno vinculado ao interesse da família. A secretaria vai ajudar a selecionar o cadastro correto para a visita.";
+      } else if (!opportunityId) {
+        resposta = `Para cadastrar a visita, preciso completar os dados da família. ${missingEnrollmentQuestion(triagem.cadastro)}`;
+      } else if (!triagem.visita.data) {
+        resposta = "Qual dia seria melhor para sua família visitar o COC? Vou consultar os horários livres para esse dia.";
       } else {
-        resposta = `Para anotar sua visita, preciso completar os dados da família. ${missingEnrollmentQuestion(triagem.cadastro)}`;
+        const requestedDate = triagem.visita.data;
+        const { data: availableSlots, error: slotsError } = await supabase.rpc("get_ana_available_visit_slots", { p_date: requestedDate });
+        if (slotsError) throw new Error("visit_availability_lookup_failed");
+        const slots = Array.isArray(availableSlots) ? availableSlots : [];
+        const dayLabel = requestedDate.split("-").reverse().join("/");
+        if (triagem.visita.horario) {
+          const selected = proposedVisit;
+          const selectedTime = triagem.visita.horario;
+          const isAvailable = !!selected && slots.some((slot: any) =>
+            slot.slot_time === selectedTime ||
+            new Date(slot.slot_at).toISOString() === new Date(selected.local).toISOString()
+          );
+          if (!selected) {
+            const options = slots.slice(0, 4).map((slot: any) => slot.slot_time).filter(Boolean);
+            resposta = options.length
+              ? `Esse horário não é válido ou não respeita a antecedência mínima de ${antecedenciaVisitaMin} minutos. Para ${dayLabel}, tenho: ${options.join(", ")}. Qual prefere?`
+              : `Não há horários livres para ${dayLabel}. Qual outro dia seria melhor para sua família?`;
+          } else if (!isAvailable) {
+            const options = slots.slice(0, 4).map((slot: any) => slot.slot_time).filter(Boolean);
+            resposta = options.length
+              ? `Esse horário não está mais livre para ${dayLabel}. Tenho estes horários disponíveis: ${options.join(", ")}. Qual funciona melhor para você?`
+              : `Não há mais horários livres para ${dayLabel}. Qual outro dia seria melhor para sua família?`;
+          } else {
+            if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_visit", lead_id: leadId });
+            const { data: bookedId, error: bookingError } = await supabase.rpc("register_ana_school_visit", {
+              p_lead_id: leadId, p_opportunity_id: opportunityId, p_scheduled_at: selected.local,
+            });
+            if (bookingError || !bookedId) {
+              const { data: freshSlots, error: freshError } = await supabase.rpc("get_ana_available_visit_slots", { p_date: requestedDate });
+              if (freshError) throw new Error("visit_availability_lookup_failed_after_conflict");
+              const options = (Array.isArray(freshSlots) ? freshSlots : []).slice(0, 4).map((slot: any) => slot.slot_time).filter(Boolean);
+              resposta = options.length
+                ? `Esse horário acabou de ser reservado. Para ${dayLabel}, ainda tenho: ${options.join(", ")}. Qual prefere?`
+                : `Esse horário acabou de ser reservado e não restam horários livres para ${dayLabel}. Qual outro dia seria melhor?`;
+            } else {
+              visitId = bookedId;
+              resposta = `Pronto! Sua visita ao COC Macapá Norte está agendada para ${dayLabel}, às ${selectedTime}, no horário de Macapá. Vai ser um prazer apresentar nossa escola!`;
+            }
+          }
+        } else {
+          const options = slots.slice(0, 4).map((slot: any) => slot.slot_time).filter(Boolean);
+          resposta = options.length
+            ? `Para ${dayLabel}, estes são os horários disponíveis: ${options.join(", ")}. Qual fica melhor para sua família?`
+            : `Não encontrei horários livres para ${dayLabel}. Qual outro dia seria melhor para sua família?`;
+        }
       }
     }
-    if ((confirmedVisit || proposedVisit) && deveSaudar) resposta = withGreeting(resposta, nomeReal);
+    if (triagem.visita.solicitada && deveSaudar) resposta = withGreeting(resposta, nomeReal);
     // Aplicar o encaminhamento de mídia depois de toda a lógica de visita/cadastro,
     // para que respostas genéricas não substituam a transferência para a secretaria.
     if (mediaNeedsHuman) {
