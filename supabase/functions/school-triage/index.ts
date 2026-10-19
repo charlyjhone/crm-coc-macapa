@@ -214,10 +214,6 @@ function isExplicitConfirmation(text: string) {
   return /^(?:sim|sim,? pode cadastrar|sim,? (?:está |esta )?tudo (?:certo|correto)|tudo certo|os dados estão corretos|pode|pode sim|confirmo|confirmado|correto|isso mesmo|está correto|ta correto|pode cadastrar)[.!\s]*$/i.test(text.trim());
 }
 
-function isVisitConfirmation(text: string) {
-  return /^(?:sim(?:,?\s*(?:isso mesmo|pode|confirmo|está certo|esta certo|tudo certo|correto|pode confirmar))?|isso mesmo|confirmo|pode sim|está correto|esta correto|tudo certo)[.!?\s]*$/i.test(text.trim());
-}
-
 function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
   if (!c?.responsavel || c.responsavel.trim().split(/\s+/).length < 2) return "Qual é o nome completo do responsável?";
   if (!c.aluno?.trim()) return "Qual é o nome do aluno?";
@@ -306,11 +302,6 @@ function visitDateTime(date: string | null, time: string | null, minimumNoticeMi
       new Date(instant.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10) !== date ||
       instant.getTime() < Date.now() + Math.max(0, minimumNoticeMinutes) * 60 * 1000) return null;
   return { local, date, time };
-}
-
-function pendingVisit(message: string, minimumNoticeMinutes = 60) {
-  const match = message.match(/Para registrar sua visita em (\d{4}-\d{2}-\d{2}) às (\d{2}:\d{2}) \(horário de Macapá\), responda SIM\. A secretaria confirmará a disponibilidade\./);
-  return match ? visitDateTime(match[1], match[2], minimumNoticeMinutes) : null;
 }
 
 function json(body: unknown, status = 200) {
@@ -1273,9 +1264,6 @@ Responda SOMENTE com JSON válido:
     // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
     let shouldRegister = false;
     let enrollmentConfirmed = false;
-    let confirmedVisit: ReturnType<typeof visitDateTime> = null;
-    let confirmedOpportunityId: string | null = null;
-    let visitProposal: { opportunity_id: string; date: string; time: string } | null = null;
     if (phone && channel === "whatsapp") {
       let previousQuery = supabase.from("whatsapp_messages")
         .select("message, raw_data, created_at").eq("phone", phone).eq("direction", "outbound");
@@ -1309,7 +1297,7 @@ Responda SOMENTE com JSON válido:
       // Solicitar visita autoriza o cadastro de interesse e elimina a confirmação duplicada do resumo.
       shouldRegister = true;
     }
-    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !visitRequested;
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !precisaHumano && !visitRequested;
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = visitRequested
@@ -1342,7 +1330,7 @@ Responda SOMENTE com JSON válido:
         cadastro_pronto: !!draft,
         cadastro_automatico: shouldRegister,
         visita_proposta: !!proposedVisit,
-        visita_confirmada_pela_familia: !!confirmedVisit,
+        visita_com_horario_valido: !!proposedVisit,
       });
     }
 
@@ -1526,11 +1514,9 @@ Responda SOMENTE com JSON válido:
     } else if (precisaHumano) {
       update.triage_status = "aguardando_secretaria";
       update.resolved_at = null;
-      if (!handoffPendente || confirmedVisit) {
-        update.handoff_at = handoffPendente ? lead?.handoff_at || now : now;
-        update.handoff_reason = confirmedVisit
-          ? visitId ? "Pedido de visita registrado; secretaria deve confirmar disponibilidade" : "Pedido de visita exige revisão da secretaria"
-          : proposedVisit ? "Visita proposta à família; aguardando confirmação e disponibilidade" : shouldRegister
+      if (!handoffPendente) {
+        update.handoff_at = now;
+        update.handoff_reason = shouldRegister
           ? registration?.created ? "Interesse cadastrado pela Ana para acompanhamento" : !registration ? "Cadastro automático precisa de revisão" : triagem.motivo_humano || "Interesse já cadastrado"
           : triagem.motivo_humano || "Pergunta fora das informações padrão";
       }
@@ -1582,9 +1568,9 @@ Responda SOMENTE com JSON válido:
         : `Agente respondeu sozinho (${assunto})`,
       source: "school-triage",
       actor: "agente",
-      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, prioridade: triagem.prioridade, resumo: triagem.resumo, opportunity_id: confirmedOpportunityId || registration?.opportunity_id, visit_id: visitId, visit_proposal: enviado ? visitProposal : null },
+      metadata: { assunto, canal: channel, enviado, folder_enviado: folderSent, interesse: triagem.interesse, prioridade: triagem.prioridade, resumo: triagem.resumo, opportunity_id: registration?.opportunity_id, visit_id: visitId },
     });
-    if (activityError && visitProposal) throw new Error("visit_proposal_log_failed");
+    if (activityError) console.error("Falha ao registrar atividade de triagem:");
 
     return json({ success: true, lead_id: leadId, assunto, precisa_humano: precisaHumano, enviado, triage_status: update.triage_status });
   } catch (error: any) {
