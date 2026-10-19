@@ -2,10 +2,12 @@ name: Z-API instance isolation tests
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**"]
     paths:
       - "supabase/functions/zapi-webhook/**"
+      - "supabase/functions/_shared/whatsapp-media.ts"
       - "scripts/test-zapi-instance-validation.mjs"
+      - "scripts/test-whatsapp-media.mjs"
       - ".github/workflows/zapi-instance-tests.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -29,3 +31,5 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Test webhook instance isolation
         run: node --test scripts/test-zapi-instance-validation.mjs
+      - name: Test WhatsApp media handling
+        run: node --test scripts/test-whatsapp-media.mjs

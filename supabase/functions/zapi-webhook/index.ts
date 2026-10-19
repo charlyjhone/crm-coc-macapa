@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { setActivityContext } from "../_shared/activity-context.ts";
 import { isInternalPhone } from "../_shared/internal-contacts.ts";
 import { normalizeWhatsAppPhone } from "../_shared/whatsapp-phone.ts";
+import { mediaFallbackMessage } from "../_shared/whatsapp-media.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -163,6 +164,27 @@ serve(async (req) => {
         console.error('Erro ao processar áudio:');
         message = '[Mensagem de áudio - erro ao processar]';
       }
+    }
+
+    // Privacidade: nenhuma imagem, PDF ou documento é enviado a serviços de IA.
+    // O conteúdo original permanece anexado ao evento e será conferido pela secretaria.
+    const imageUrl = payload.image?.imageUrl || payload.image?.url || payload.imageUrl;
+    const documentUrl = payload.document?.documentUrl || payload.document?.url || payload.documentUrl ||
+      payload.file?.fileUrl || payload.file?.url || payload.fileUrl;
+    const stickerUrl = payload.sticker?.stickerUrl || payload.sticker?.url || payload.stickerUrl;
+    const videoUrl = payload.video?.videoUrl || payload.video?.url || payload.videoUrl;
+    const genericMediaUrl = payload.mediaUrl;
+    if (direction === 'inbound' && imageUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('image')].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && documentUrl) {
+      const fileName = payload.document?.fileName || payload.document?.title || payload.fileName || payload.file?.fileName || '';
+      message = [String(message || '').trim(), mediaFallbackMessage('document', String(fileName))].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && stickerUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('sticker')].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && videoUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('video')].filter(Boolean).join('\n');
+    } else if (direction === 'inbound' && genericMediaUrl) {
+      message = [String(message || '').trim(), mediaFallbackMessage('unknown')].filter(Boolean).join('\n');
     }
 
     // ===== STEP 2: Handle phone normalization (only if NOT a LID event) =====
@@ -924,16 +946,19 @@ serve(async (req) => {
 
     // ===== STEP 12: Process file attachments (documents, images, etc.) =====
     if (leadId) {
-      // Z-API sends file URLs in various fields depending on type
-      const documentUrl = payload.document?.documentUrl || payload.documentUrl || null;
-      const documentFileName = payload.document?.fileName || payload.fileName || null;
-      const documentMime = payload.document?.mimeType || payload.documentMimeType || null;
+      // Preserve original files in private CRM storage; content is never sent to AI.
+      const documentUrl = payload.document?.documentUrl || payload.document?.url || payload.documentUrl ||
+        payload.file?.fileUrl || payload.file?.url || payload.fileUrl || null;
+      const documentFileName = payload.document?.fileName || payload.document?.title ||
+        payload.file?.fileName || payload.fileName || null;
+      const documentMime = payload.document?.mimeType || payload.file?.mimeType ||
+        payload.documentMimeType || payload.fileMimeType || null;
       
-      const imageUrl = payload.image?.imageUrl || payload.imageUrl || null;
-      const imageMime = payload.image?.mimetype || payload.imageMimeType || 'image/jpeg';
+      const imageUrl = payload.image?.imageUrl || payload.image?.url || payload.imageUrl || null;
+      const imageMime = payload.image?.mimetype || payload.image?.mimeType || payload.imageMimeType || 'image/jpeg';
       
-      const videoUrl = payload.video?.videoUrl || payload.videoUrl || null;
-      const videoMime = payload.video?.mimetype || payload.videoMimeType || 'video/mp4';
+      const videoUrl = payload.video?.videoUrl || payload.video?.url || payload.videoUrl || null;
+      const videoMime = payload.video?.mimetype || payload.video?.mimeType || payload.videoMimeType || 'video/mp4';
 
       // Áudios NÃO são salvos como anexo — já são transcritos para texto.
 
