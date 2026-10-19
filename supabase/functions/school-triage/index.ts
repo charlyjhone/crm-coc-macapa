@@ -1234,6 +1234,7 @@ Responda SOMENTE com JSON válido:
       assunto = "matricula";
       triagem.cadastro_interesse = true;
     }
+    const visitRequested = channel === "whatsapp" && visitIntentInConversation && !!triagem.visita?.solicitada;
 
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
@@ -1305,14 +1306,14 @@ Responda SOMENTE com JSON válido:
         resposta = `Posso ajudar a cadastrar seu interesse. ${missing}`;
       }
     }
-    if (triagem.visita.solicitada && draft && !precisaHumano) {
+    if (visitRequested && draft && !precisaHumano) {
       // Solicitar visita autoriza o cadastro de interesse e elimina a confirmação duplicada do resumo.
       shouldRegister = true;
     }
-    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !triagem.visita.solicitada;
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !confirmedVisit && !precisaHumano && !visitRequested;
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
-    const proposedVisit = triagem.visita.solicitada
+    const proposedVisit = visitRequested
       ? visitDateTime(triagem.visita.data, triagem.visita.horario, antecedenciaVisitaMin) : null;
     const secretariaContinuaMatricula = assunto === "matricula" && precisaHumano;
     if (secretariaContinuaMatricula) {
@@ -1392,7 +1393,7 @@ Responda SOMENTE com JSON válido:
       }
     }
     let visitId: string | null = null;
-    if (triagem.visita.solicitada && !precisaHumano && !defersDetailsUntilVisit &&
+    if (visitRequested && !precisaHumano && !defersDetailsUntilVisit &&
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
         channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
@@ -1461,7 +1462,7 @@ Responda SOMENTE com JSON válido:
         }
       }
     }
-    if (triagem.visita.solicitada && deveSaudar) resposta = withGreeting(resposta, nomeReal);
+    if (visitRequested && deveSaudar) resposta = withGreeting(resposta, nomeReal);
     // Aplicar o encaminhamento de mídia depois de toda a lógica de visita/cadastro,
     // para que respostas genéricas não substituam a transferência para a secretaria.
     if (mediaNeedsHuman) {
