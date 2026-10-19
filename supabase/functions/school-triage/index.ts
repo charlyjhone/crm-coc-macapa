@@ -487,14 +487,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
     const { data: lead, error: leadError } = await supabaseSurveyLookup(url, key, leadId);
     if (leadError || !lead?.resolved_at) return false;
 
-    const { data: enrolled, error: enrolledError } = await surveyAdminClient(url, key)
-      .from("enrollment_opportunities")
-      .select("id")
-      .eq("legacy_lead_id", leadId)
-      .eq("stage", "matriculado")
-      .limit(1)
-      .maybeSingle();
-    if (enrolledError || enrolled) return false;
+    if (await hasMatriculatedOpportunity(url, key, leadId, phone)) return false;
 
     claimCycleAt = lead.resolved_at;
     const { data: claimed, error: claimError } = await surveyAdminClient(url, key).rpc(
@@ -551,6 +544,33 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
 
 // Small helpers use the already-configured service credential; they keep survey
 // eligibility and claiming separate from the user-facing message send operation.
+async function hasMatriculatedOpportunity(url: string, key: string, leadId: string, phone: string): Promise<boolean> {
+  const admin = surveyAdminClient(url, key);
+  const { data: direct, error: directError } = await admin.from("enrollment_opportunities")
+    .select("id").eq("legacy_lead_id", leadId).eq("stage", "matriculado").limit(1).maybeSingle();
+  // Falha de consulta: não enviar pesquisa por precaução.
+  if (directError || direct) return true;
+
+  const digits = phone.replace(/\\D/g, "");
+  const variants = new Set([phone, digits]);
+  if (digits.startsWith("55")) {
+    variants.add(digits.slice(2));
+    variants.add("+" + digits);
+  } else if (digits) {
+    variants.add("55" + digits);
+    variants.add("+55" + digits);
+  }
+  const { data: guardians, error: guardianError } = await admin.from("guardians")
+    .select("id").in("phone", [...variants]).limit(20);
+  if (guardianError) return true;
+  const guardianIds = (guardians || []).map((guardian: { id: string }) => guardian.id).filter(Boolean);
+  if (!guardianIds.length) return false;
+
+  const { data: related, error: relatedError } = await admin.from("enrollment_opportunities")
+    .select("id").in("primary_guardian_id", guardianIds).eq("stage", "matriculado").limit(1).maybeSingle();
+  return !!relatedError || !!related;
+}
+
 function surveyAdminClient(url: string, key: string) {
   return createClient(url, key, { auth: { persistSession: false } });
 }
