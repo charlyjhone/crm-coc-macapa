@@ -479,33 +479,85 @@ function surveySelection(text: string, choices: { id: string; title: string }[])
 async function sendSurveyList(url: string, key: string, phone: string, leadId: string,
   agentName: string, step: "origin" | "rating") {
   const isOrigin = step === "origin";
+  let claimCycleAt: string | null = null;
+
+  // A origem é a primeira etapa da pesquisa e precisa ser reivindicada uma única
+  // vez por ciclo de encerramento. A tabela/RPC já existe e só aceita service_role.
+  if (isOrigin) {
+    const { data: lead, error: leadError } = await supabaseSurveyLookup(url, key, leadId);
+    if (leadError || !lead?.resolved_at) return false;
+
+    const { data: enrolled, error: enrolledError } = await surveyAdminClient(url, key)
+      .from("enrollment_opportunities")
+      .select("id")
+      .eq("legacy_lead_id", leadId)
+      .eq("stage", "matriculado")
+      .limit(1)
+      .maybeSingle();
+    if (enrolledError || enrolled) return false;
+
+    claimCycleAt = lead.resolved_at;
+    const { data: claimed, error: claimError } = await surveyAdminClient(url, key).rpc(
+      "claim_crm_survey",
+      { p_lead_id: leadId, p_cycle_at: claimCycleAt },
+    );
+    if (claimError || claimed !== true) return false;
+  }
+
   const endpoint = `${url}/functions/v1/send-whatsapp-message`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
-  const message = `*[Atendente ${agentName}]*\n${isOrigin
+  const message = `*[Atendente ${agentName}]*\\n${isOrigin
     ? "Antes de ir, como você conheceu a escola? Sua resposta nos ajuda a melhorar nossa comunicação. É só escolher uma opção abaixo. 😊"
     : "E como você avalia este atendimento? Escolha uma nota de 1 a 5, sendo 5 excelente."}`;
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
-      message,
-      optionList: { title: isOrigin ? "Como conheceu a escola?" : "Avaliação do atendimento",
-        buttonLabel: "Escolher opção", options: isOrigin
-          ? SURVEY_ORIGINS.map((item) => ({ ...item, description: "" }))
-          : [1, 2, 3, 4, 5].map((n) => ({ id: String(n), title: String(n), description: "" })) },
-    }),
-  });
-  if (res.ok) return true;
-  console.error("CRM event");
-  // Algumas versões do WhatsApp não exibem listas. Mantém a pesquisa na conversa.
-  const fallback = await fetch(endpoint, { method: "POST", headers,
-    body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
-      message: `${message}\n${isOrigin
-        ? SURVEY_ORIGINS.map((item) => item.title).join(" · ")
-        : "Responda com 1, 2, 3, 4 ou 5."}` }),
-  });
-  if (!fallback.ok) console.error("CRM event");
-  return fallback.ok;
+  let sent = false;
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
+        message,
+        optionList: { title: isOrigin ? "Como conheceu a escola?" : "Avaliação do atendimento",
+          buttonLabel: "Escolher opção", options: isOrigin
+            ? SURVEY_ORIGINS.map((item) => ({ ...item, description: "" }))
+            : [1, 2, 3, 4, 5].map((n) => ({ id: String(n), title: String(n), description: "" })) },
+      }),
+    });
+    if (res.ok) {
+      sent = true;
+    } else {
+      // Algumas versões do WhatsApp não exibem listas. Mantém a pesquisa na conversa.
+      const fallback = await fetch(endpoint, { method: "POST", headers,
+        body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
+          message: `${message}\\n${isOrigin
+            ? SURVEY_ORIGINS.map((item) => item.title).join(" · ")
+            : "Responda com 1, 2, 3, 4 ou 5."}` }),
+      });
+      sent = fallback.ok;
+    }
+  } catch {
+    sent = false;
+  }
+
+  if (isOrigin && claimCycleAt) {
+    const admin = surveyAdminClient(url, key);
+    const { error: updateError } = await admin.from("crm_survey_claims").update({
+      state: sent ? "sent" : "failed", updated_at: new Date().toISOString(),
+    }).eq("lead_id", leadId).eq("cycle_at", claimCycleAt).eq("state", "processing");
+    if (updateError) console.error("CRM event");
+  }
+  if (!sent) console.error("CRM event");
+  return sent;
+}
+
+// Small helpers use the already-configured service credential; they keep survey
+// eligibility and claiming separate from the user-facing message send operation.
+function surveyAdminClient(url: string, key: string) {
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+async function supabaseSurveyLookup(url: string, key: string, leadId: string) {
+  return await surveyAdminClient(url, key).from("leads")
+    .select("resolved_at").eq("id", leadId).maybeSingle();
 }
 
 async function processDueFollowups(supabase: any, supabaseUrl: string, serviceKey: string, agentName: string) {
@@ -631,7 +683,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo", "escola_valores_data_divulgacao"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -649,6 +701,7 @@ serve(async (req) => {
     const escolaNome = settings.escola_nome || "a escola";
     const escolaInfo = settings.escola_info || DEFAULT_INFO;
     const escolaValores = settings.escola_valores || "";
+    const dataDivulgacaoValores = (settings.escola_valores_data_divulgacao || "").trim();
 
     // ---- Resolver ou criar o contato ----
     if (!leadId && phone) {
@@ -755,21 +808,19 @@ serve(async (req) => {
             const alreadySent = (saidasRecentes || []).some((m: any) =>
               m.raw_data?.survey_step && new Date(m.created_at).getTime() > new Date(ultimaSaidaHumana.created_at).getTime());
             if (alreadySent) return json({ skipped: "survey_already_sent", lead_id: leadId });
+            const { error: closeError } = await supabase.from("leads").update({
+              status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
+              handoff_at: null, handoff_reason: null,
+            }).eq("id", leadId);
+            if (closeError) throw new Error("human_closing_status_failed");
+            await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "conversation_closed" })
+              .eq("lead_id", leadId).eq("status", "pending");
             const sent = await sendSurveyList(supabaseUrl, serviceKey, phone, leadId, agentName, "origin");
-            if (sent) {
-              const { error: closeError } = await supabase.from("leads").update({
-                status: "resolvido", triage_status: "resolvido", resolved_at: new Date().toISOString(),
-                handoff_at: null, handoff_reason: null,
-              }).eq("id", leadId);
-              if (closeError) throw new Error("human_closing_status_failed");
-              await supabase.from("ana_followups").update({ status: "cancelled", cancel_reason: "conversation_closed" })
-                .eq("lead_id", leadId).eq("status", "pending");
-              await supabase.from("activity_log").insert({ lead_id: leadId, activity_type: "agent_triage",
-                description: "Família encerrou atendimento humano; pesquisa enviada no WhatsApp",
-                source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: true, atendimento: "humano" },
-              });
-            }
-            return json({ success: sent, lead_id: leadId, pesquisa_enviada: sent, atendimento: "humano" });
+            await supabase.from("activity_log").insert({ lead_id: leadId, activity_type: "agent_triage",
+              description: sent ? "Família encerrou atendimento humano; pesquisa enviada no WhatsApp" : "Família encerrou atendimento humano; pesquisa não enviada",
+              source: "school-triage", actor: "agente", metadata: { canal: channel, pesquisa_enviada: sent, atendimento: "humano" },
+            });
+            return json({ success: true, lead_id: leadId, pesquisa_enviada: sent, atendimento: "humano" });
           }
         }
         return json({ skipped: "human_conversation_active", lead_id: leadId });
@@ -797,6 +848,12 @@ serve(async (req) => {
         .maybeSingle();
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
+      const anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
+        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você/i.test(ultimaSaida.message || "");
+      const agradecimentoCurto = /^(?:muito\\s+)?(?:obrigad[oa](?:\\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\\s🙏😊👍]*$/i.test(text.trim());
+      if (anaAcabouDeConfirmar && agradecimentoCurto) {
+        return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
+      }
     }
 
     if (isConversationClosing(text, anaAcabouDeOferecerAjuda)) {
@@ -976,13 +1033,13 @@ Use os exemplos para aprender o tom, a cordialidade, o tamanho das mensagens e t
 INFORMAÇÕES OFICIAIS DA ESCOLA:
 ${escolaInfo}
 
-${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : "VALORES: ainda não cadastrados. Para perguntas gerais sobre os valores de 2027, informe que estarão disponíveis a partir de novembro, convide para conhecer a escola nesse período e pergunte se deseja registrar interesse para contato. Não informe preços nem prometa agendamento automático. Para pedidos de preço exato ou valores de outros anos, marque precisa_humano = true e encaminhe à secretaria."}
+${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : "VALORES: ainda não cadastrados. Para perguntas gerais sobre os valores de 2027, ${dataDivulgacaoValores ? "informe que serão divulgados a partir de " + dataDivulgacaoValores : "não invente uma data de divulgação; informe que a data ainda não foi cadastrada e encaminhe à secretaria para confirmar"}. Convide para conhecer a escola e pergunte se deseja registrar interesse para contato. Não informe preços nem prometa agendamento automático. Para pedidos de preço exato ou valores de outros anos, marque precisa_humano = true e encaminhe à secretaria."}
 
 REGRAS:
 - PRIORIDADE PARA MATRÍCULA: não ofereça contato da coordenação para tratar de matrícula, vagas ou documentação. A secretaria resolve a continuidade. Quando explicar as etapas, turnos e matrícula do 8º ano no COC Macapá Norte, use esta resposta como referência, podendo finalizar com "Enquanto isso, posso ajudar em algo mais?": "O COC Macapá Norte atende da Educação Infantil ao Ensino Médio, com turmas do Maternal ao 7º ano nos turnos manhã e tarde, e do 8º ano à 3ª série do Ensino Médio somente no turno da manhã. A matrícula para o 8º ano depende da disponibilidade de vaga e é feita presencialmente na secretaria, com a documentação necessária." Para esse caso, precisa_humano=true. Não ofereça contato da coordenação nem pergunte se a família deseja falar com a coordenação nesse contexto. A oferta de ajuda continua permitida, respeitando as regras para não repeti-la.
 - Assuntos "curriculo", "horario" e "localizacao": responda com a informação oficial e encerre com cordialidade. precisa_humano = false.
 - Assunto "matricula": você pode explicar o processo e informar os valores acima. Se a família pedir falar com uma pessoa, negociar, pedir desconto, tratar de caso específico da criança, documentos, vaga em turma específica, ou fizer qualquer pergunta que não esteja nas informações oficiais → precisa_humano = true.
-- Quando perguntarem pelos valores de 2027 ainda não cadastrados, use como referência: "Os valores para 2027 estarão disponíveis a partir de novembro. 😊 Se você quiser, será um prazer receber sua família para uma visita! Assim, vocês poderão conhecer nossa estrutura, as ferramentas que utilizamos e as novidades que estamos preparando para o próximo ano. Posso anotar seu interesse para entrarmos em contato quando os valores forem divulgados?" Para a informação geral, precisa_humano = false. Se a família aceitar o contato posterior ou pedir agendamento, colete os dados necessários; a secretaria acompanha a disponibilidade da visita.\n- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são da SECRETARIA, com exceção da previsão geral de divulgação de 2027 acima. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
+- Quando perguntarem pelos valores de 2027 ainda não cadastrados, use como referência: "${dataDivulgacaoValores ? "Os valores para 2027 serão divulgados a partir de " + dataDivulgacaoValores + "." : "A data de divulgação dos valores de 2027 ainda não foi confirmada oficialmente."} Se você quiser, será um prazer receber sua família para uma visita! Assim, vocês poderão conhecer nossa estrutura, as ferramentas que utilizamos e as novidades que estamos preparando para o próximo ano. Posso anotar seu interesse para entrarmos em contato quando os valores forem divulgados?" Para a informação geral, precisa_humano = false. Se a família aceitar o contato posterior ou pedir agendamento, colete os dados necessários; a secretaria acompanha a disponibilidade da visita.\n- REGRA DE SETOR: dúvidas de interessados sobre valores de matrícula ou mensalidade, descontos para uma nova matrícula e condições comerciais são da SECRETARIA, com exceção da previsão geral de divulgação de 2027 acima. Nunca encaminhe interessados ou responsáveis em fase de matrícula ao Financeiro.
 - O FINANCEIRO atende somente famílias que já são clientes/alunos matriculados, e apenas em assuntos posteriores à matrícula, como mensalidade vencida, segunda via, pagamento não identificado ou negociação de débito existente. Só forneça o contato do Financeiro nesses casos.
 - Quando a pessoa confirmar que já é cliente e trouxer um desses assuntos posteriores à matrícula, classifique como "financeiro", informe a orientação oficial e use precisa_humano = false se a dúvida estiver totalmente respondida.
 - Se não estiver claro se a pessoa já é cliente, pergunte antes de indicar o Financeiro: "O aluno já está matriculado conosco?".
