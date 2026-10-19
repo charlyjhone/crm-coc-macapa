@@ -13,6 +13,7 @@ interface SettingsMap {
 
 const SETTINGS_KEYS = [
   "escola_nome",
+  "escola_valores_data_divulgacao",
   "webhook_zapi_url",
 ];
 
@@ -113,6 +114,18 @@ const GeneralSettingsTab = () => {
             onChange={(e) => updateSetting("escola_nome", e.target.value)}
             placeholder="Nome da escola"
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="escola_valores_data_divulgacao">Data de divulgação dos valores de 2027</Label>
+          <Input
+            id="escola_valores_data_divulgacao"
+            value={settings.escola_valores_data_divulgacao || ""}
+            onChange={(e) => updateSetting("escola_valores_data_divulgacao", e.target.value)}
+            placeholder="Ex.: 15 de novembro de 2026"
+          />
+          <p className="text-xs text-muted-foreground">
+            Informe somente após confirmação oficial. Se ficar vazio, a Ana não prometerá uma data e encaminhará a dúvida à secretaria.
+          </p>
         </div>
       </section>
 
