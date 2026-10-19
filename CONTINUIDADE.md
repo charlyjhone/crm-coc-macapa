@@ -627,3 +627,16 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - O frontend foi mesclado em `main`, mas a publicação/estado do serviço Render não foi confirmada nesta sessão.
 - PR #54 (`fix/ana-media-understanding-20261018`) prepara análise de imagens e encaminhamento de documentos/PDFs/vídeos. Os testes do helper de mídia e do webhook passaram; ainda não foi mesclado nem publicado. **A análise de imagem envia a URL da imagem ao serviço de IA da OpenAI**, por isso aguarda aprovação explícita antes de ser ativada em produção.
 - Próxima homologação: com número controlado e autorização, testar mensagem de texto, áudio, imagem comum, documento/PDF, figurinha, transferência para secretaria, encerramento e pesquisa; confirmar a resposta no aparelho e no CRM.
+
+## 20. Configurações dedicadas da Ana (19/10/2026)
+
+- Foi criada a aba **Atendente Virtual** em Configurações, separada das abas Escola e Integrações.
+- A aba permite editar o nome e estado da Ana, a data de divulgação dos valores de 2027, o horário da secretaria, a antecedência mínima para visitas, a pesquisa de satisfação e o envio do folder digital.
+- Valores confirmados pelo responsável: divulgação em **1º de novembro de 2026**; telefone é o mesmo número da integração WhatsApp; horário informado: **7h30 às 18h**.
+- O telefone não é duplicado em system_settings; a interface explica que deve usar o número conectado à instância WhatsApp.
+- Novas chaves em system_settings: escola_horario_secretaria, escola_antecedencia_visita_min, escola_pesquisa_ativa. A função school-triage inclui o horário no contexto oficial e valida a antecedência configurada (fallback 60 min); complete-school-attendance respeita o interruptor da pesquisa (fallback ativo quando a chave não existe).
+- Migration supabase/migrations/20261019130000_ana_virtual_attendant_settings.sql define a data confirmada e insere defaults operacionais sem sobrescrever valores existentes para horário, antecedência e pesquisa.
+- SchoolSettingsTab agora mantém apenas dados oficiais da escola; GeneralSettingsTab mantém a integração WhatsApp. Isso evita controles duplicados.
+- **Não publicar diretamente em produção:** alterações estão na branch feat/ana-settings-tab-20261019 e devem passar por PR, CI e revisão.
+- **Privacidade de anexos:** a interface descreve a política solicitada, mas a proteção completa depende da integração e publicação da PR #54; não declarar a análise automática desativada em produção até confirmar que a PR foi incorporada e implantada.
+- Pendências: CI/build/lint; revisar migration; integrar PR #54 após validação; aplicar migration no projeto Supabase do COC; publicar frontend no Render (Auto-Deploy já foi relatado como desligado) e testar WhatsApp em contato controlado.
