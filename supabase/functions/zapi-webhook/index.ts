@@ -174,7 +174,7 @@ serve(async (req) => {
       const analysis = await analyzeWhatsAppImage(
         String(imageUrl), caption, Deno.env.get('OPENAI_API_KEY')
       );
-      message = [caption.trim(), analysis.message].filter(Boolean).join('\\n');
+      message = [caption.trim(), analysis.message].filter(Boolean).join('\n');
     }
 
     // PDFs and other documents remain attached in the original WhatsApp payload.
@@ -185,11 +185,11 @@ serve(async (req) => {
     const videoUrl = payload.video?.videoUrl || payload.video?.url || payload.videoUrl;
     if (direction === 'inbound' && documentUrl) {
       const fileName = payload.document?.fileName || payload.document?.title || payload.fileName || '';
-      message = [String(message || '').trim(), mediaFallbackMessage('document', String(fileName))].filter(Boolean).join('\\n');
+      message = [String(message || '').trim(), mediaFallbackMessage('document', String(fileName))].filter(Boolean).join('\n');
     } else if (direction === 'inbound' && stickerUrl) {
-      message = [String(message || '').trim(), mediaFallbackMessage('sticker')].filter(Boolean).join('\\n');
+      message = [String(message || '').trim(), mediaFallbackMessage('sticker')].filter(Boolean).join('\n');
     } else if (direction === 'inbound' && videoUrl) {
-      message = [String(message || '').trim(), mediaFallbackMessage('video')].filter(Boolean).join('\\n');
+      message = [String(message || '').trim(), mediaFallbackMessage('video')].filter(Boolean).join('\n');
     }
 
     // ===== STEP 2: Handle phone normalization (only if NOT a LID event) =====
