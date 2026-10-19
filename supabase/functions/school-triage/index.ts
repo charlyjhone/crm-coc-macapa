@@ -849,7 +849,7 @@ serve(async (req) => {
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
       const anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você/i.test(ultimaSaida.message || "");
+        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = /^(?:muito\\s+)?(?:obrigad[oa](?:\\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
         return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
