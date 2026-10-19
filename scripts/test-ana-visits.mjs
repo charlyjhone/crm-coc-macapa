@@ -362,7 +362,7 @@ test('agradecimento após confirmação de cadastro não dispara outra resposta 
   const sentBeforeThanks = h.state.sent.length;
   const aiCallsBeforeThanks = h.state.aiCalls;
   const result = await h.send('Obrigado!');
-  assert.equal(result.body.skipped, 'acknowledgement_after_confirmation');
+  assert.equal(result.body.reason, 'acknowledgement_after_confirmation');
   assert.equal(h.state.sent.length, sentBeforeThanks);
   assert.equal(h.state.aiCalls, aiCallsBeforeThanks);
 });
