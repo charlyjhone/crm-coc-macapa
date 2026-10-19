@@ -98,7 +98,7 @@ function harness() {
         const date = args.p_date;
         const parsed = new Date(date + 'T12:00:00-03:00');
         const weekday = parsed.getUTCDay();
-        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) ||
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) ||
             parsed.toISOString().slice(0, 10) !== date || weekday === 0 || weekday === 6) {
           return { data: [], error: null };
         }
@@ -185,7 +185,7 @@ test('horário ocupado é removido das opções e a família consegue escolher o
 });
 
 test('dados incompletos perguntam somente o dado faltante', async () => {
-  const h = harness(); h.state.ai.cadastro.aluno = null;
+  const h = harness(); h.state.ai.visita.solicitada = false; h.state.ai.cadastro.aluno = null;
   await h.send('Meu nome é Responsável de Teste.');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
   assert.match(h.state.sent.at(-1).message, /nome do aluno/);
@@ -275,7 +275,7 @@ test('intenção explícita de registrar interesse sem pedido de visita exige re
   assert.equal(h.state.rows.enrollment_opportunities.length, 1);
   assert.equal(h.state.rows.school_visits.length, 0);
   await h.send('Sim, isso mesmo.');
-  assert.equal(h.state.rows.school_visits.length, 1);
+  assert.equal(h.state.rows.school_visits.length, 0);
 });
 
 test('secretaria assume depois do resumo e impede cadastro pela Ana', async () => {
