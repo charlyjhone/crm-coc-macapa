@@ -435,13 +435,19 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
     (index + 1) + ". Tema: " + item.topic + "\n   Resposta humana anonimizada: " + item.reply
   ).join("\n");
 }
+function isPoliteThanks(text: string): boolean {
+  const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\\s+/g, " ");
+  return /^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado) )?(?:muito )?(?:obrigad[oa](?: mesmo)?|valeu)$/.test(normalized);
+}
+
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
+    .replace(/[\\u0300-\\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\\s+/g, " ");
   if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi) so isso|(?:somente|apenas|so) (?:isso|so isso)(?: mesmo)?|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
   // Despedidas explícitas podem vir acompanhadas de agradecimento e promessa de retorno.
   // Não exigir que a última mensagem da Ana contenha uma oferta de ajuda.
-  if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado)[ ,]+)?(?:muito )?obrigad[oa](?: mesmo)?\s+(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
+  if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado)[ ,]+)?(?:muito )?obrigad[oa](?: mesmo)?\\s+(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
   if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado) )?(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
   return offeredHelp && /^(?:nao|nao obrigado|obrigad[oa](?: mesmo)?|muito obrigad[oa]|valeu|ok|okay|ta bom|beleza|perfeito|resolvido|👍|🙏)$/.test(normalized);
 }
@@ -859,7 +865,8 @@ serve(async (req) => {
     // Um handoff pendente não bloqueia dúvidas autônomas. A Ana continua
     // respondendo FAQs enquanto a secretaria trata o assunto encaminhado.
     let handoffPendente = lead?.triage_status === "aguardando_secretaria";
-    const candidateClosing = isConversationClosing(text, true);
+    const agradecimentoEncerramento = isPoliteThanks(text);
+    const candidateClosing = isConversationClosing(text, true) || agradecimentoEncerramento;
 
     // Se a última pergunta da Ana foi se poderia ajudar em algo mais, uma resposta
     // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
@@ -876,19 +883,30 @@ serve(async (req) => {
         .maybeSingle();
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
-      const anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
-      const agradecimentoCurto = /^(?:muito\s+)?(?:obrigad[oa](?:\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\s🙏😊👍]*$/i.test(text.trim());
-      if (anaAcabouDeConfirmar && agradecimentoCurto) {
-        return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
+      const aguardaConfirmacaoExplicita = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
+        /Para cadastrar o interesse, confirme estes dados|Entendi:.*(?:Está certo|Está correto)\\?/i.test(ultimaSaida.message || "");
+      const agradecimentoCurto = isPoliteThanks(text) ||
+        /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\\s🙏😊👍]*$/i.test(text.trim());
+      if (aguardaConfirmacaoExplicita && agradecimentoCurto) {
+        const reminder = "Por nada! Para eu continuar, só preciso que confirme os dados acima ou me diga o que deseja corrigir.";
+        if (previewOnly) return json({ preview: true, resposta: reminder, aguardando_confirmacao: true });
+        const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ phone, message: `*[Atendente ${agentName}]*\\n${reminder}`, leadId, senderType: "ana" }),
+        });
+        if (!sent.ok) throw new Error("confirmation_reminder_send_failed");
+        return json({ success: true, skipped: "thanks_while_confirmation_pending", lead_id: leadId });
       }
     }
 
-    if (isConversationClosing(text, anaAcabouDeOferecerAjuda)) {
+    if (isConversationClosing(text, anaAcabouDeOferecerAjuda) || (agradecimentoEncerramento && !aguardaConfirmacaoExplicita)) {
       if (lead?.triage_status === "resolvido") return json({ skipped: "already_closed", lead_id: leadId });
       const firstName = !isPlaceholderName(lead?.name)
         ? `, ${lead!.name.trim().split(/\s+/)[0]}` : "";
-      const closingReply = `Combinado${firstName}! Agradeço pela conversa. Quando quiser retomar, estarei por aqui. 😊`;
+      const closingReply = agradecimentoEncerramento
+        ? "Por nada! Fico feliz em ajudar. Se precisar de mais alguma coisa, estamos à disposição."
+        : `Combinado${firstName}! Agradeço pela conversa. Quando quiser retomar, estarei por aqui. 😊`;
       if (previewOnly) return json({ preview: true, resposta: closingReply, encerramento: true, pesquisa_whatsapp: channel === "whatsapp" });
       if (channel === "whatsapp" && phone) {
         const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
