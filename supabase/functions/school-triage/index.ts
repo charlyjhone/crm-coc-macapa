@@ -884,7 +884,7 @@ serve(async (req) => {
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
       anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
+        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|Seu pedido de visita.{0,100}(?:já está registrado|foi registrado|está registrado)|A secretaria vai (?:conferir|confirmar) a disponibilidade|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = isPoliteThanks(text) ||
         /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
