@@ -419,3 +419,25 @@ test('marcador de documento/imagem não analisada força encaminhamento humano',
   assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
   assert.equal(h.state.rows.enrollment_opportunities.length, 0);
 });
+
+
+test('horário da secretaria e antecedência de visita vêm das configurações', async () => {
+  const h = harness();
+  h.state.rows.system_settings.push(
+    { key: 'escola_horario_secretaria', value: '7h30 às 18h' },
+    { key: 'escola_antecedencia_visita_min', value: '90' },
+  );
+  await h.send('Qual é o horário da secretaria?');
+  const system = h.state.aiPayload.messages.find(message => message.role === 'system').content;
+  assert.match(system, /HORÁRIO DA SECRETARIA .*7h30 às 18h/);
+  assert.match(system, /Antecedência mínima para pedidos de visita: 90 minuto\(s\)/);
+});
+
+test('pesquisa de satisfação pode ser desativada nas configurações', async () => {
+  const h = harness();
+  h.state.rows.system_settings.push({ key: 'escola_pesquisa_ativa', value: 'false' });
+  await h.send('Somente isso mesmo.');
+  assert.equal(h.state.rows.leads[0].triage_status, 'resolvido');
+  assert.equal(h.state.sent.some(message => message.surveyStep === 'origin'), false);
+  assert.equal(h.state.rows.crm_survey_claims.length, 0);
+});

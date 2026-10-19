@@ -627,3 +627,15 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - O frontend foi mesclado em `main`, mas a publicação/estado do serviço Render não foi confirmada nesta sessão.
 - PR #54 (`fix/ana-media-understanding-20261018`) prepara análise de imagens e encaminhamento de documentos/PDFs/vídeos. Os testes do helper de mídia e do webhook passaram; ainda não foi mesclado nem publicado. **A análise de imagem envia a URL da imagem ao serviço de IA da OpenAI**, por isso aguarda aprovação explícita antes de ser ativada em produção.
 - Próxima homologação: com número controlado e autorização, testar mensagem de texto, áudio, imagem comum, documento/PDF, figurinha, transferência para secretaria, encerramento e pesquisa; confirmar a resposta no aparelho e no CRM.
+
+## 20. Configurações dedicadas da Ana (19/10/2026)
+
+- Criada a aba **Atendente Virtual** em Configurações, separada das abas Escola e Integrações.
+- A aba permite editar o nome e estado da Ana, a data de divulgação dos valores de 2027, o horário da secretaria, a antecedência mínima para visitas, a pesquisa de satisfação e o envio do folder digital.
+- Valores confirmados: divulgação em **1º de novembro de 2026**; telefone é o mesmo número da integração WhatsApp; horário informado: **7h30 às 18h**.
+- O telefone não é duplicado em `system_settings`; a interface usa o número conectado à instância WhatsApp.
+- Novas chaves em `system_settings`: `escola_horario_secretaria`, `escola_antecedencia_visita_min`, `escola_pesquisa_ativa`. A função `school-triage` usa horário e antecedência configuráveis; `complete-school-attendance` respeita o interruptor da pesquisa.
+- Migration `supabase/migrations/20261019130000_ana_virtual_attendant_settings.sql` define a data confirmada e insere defaults operacionais sem sobrescrever os valores existentes de horário, antecedência e pesquisa.
+- `SchoolSettingsTab` mantém os dados oficiais da escola; `GeneralSettingsTab` mantém a integração WhatsApp, evitando controles duplicados.
+- PR #54 foi integrada à `main` para encaminhar mídias à secretaria sem análise automática por IA; ainda falta publicar e validar as funções no projeto Supabase.
+- Próximos passos: validar build/testes após a combinação das alterações, aplicar a migration no Supabase do COC, publicar o frontend no Render e testar no WhatsApp com contato controlado.
