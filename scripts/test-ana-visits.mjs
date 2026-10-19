@@ -340,6 +340,22 @@ test('sem data configurada, Ana não inventa mês para divulgar os valores', asy
   assert.doesNotMatch(system, /a partir de novembro\./i);
 });
 
+test('agradecimento após resposta informativa recebe “por nada” e encerra mesmo se a triagem já marcou resolvido', async () => {
+  const h = harness();
+  h.state.ai.assunto = 'horario';
+  h.state.ai.cadastro_interesse = false;
+  h.state.ai.visita.solicitada = false;
+  h.state.ai.resposta = 'A secretaria atende das 7h30 às 18h.';
+  await h.send('Qual o horário da secretaria?');
+  // Simula o estado observado em produção: a FAQ já marcou a conversa como resolvida.
+  h.state.rows.leads[0].triage_status = 'resolvido';
+  h.state.rows.leads[0].resolved_at = new Date().toISOString();
+  const result = await h.send('Perfeito, obrigado!');
+  assert.equal(result.body.triage_status, 'resolvido');
+  assert.match(h.state.sent.at(-2).message, /Por nada! Fico feliz em ajudar/);
+  assert.equal(h.state.sent.filter(message => message.surveyStep === 'origin').length, 1);
+});
+
 test('agradecimento após confirmação de cadastro não dispara outra resposta nem repete o resumo', async () => {
   const h = harness();
   h.state.ai.visita.solicitada = false;
