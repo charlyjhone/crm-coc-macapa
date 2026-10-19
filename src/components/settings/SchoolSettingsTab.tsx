@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Loader2, Save } from "lucide-react";
 const SETTINGS_KEYS = ["escola_nome", "escola_info", "escola_valores"] as const;
 
 export default function SchoolSettingsTab() {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nome, setNome] = useState("");
@@ -50,7 +52,8 @@ export default function SchoolSettingsTab() {
       toast.error("Erro ao salvar as informações da escola", { description: error.message });
       return;
     }
-    toast.success("Informações da escola salvas");
+    await queryClient.invalidateQueries({ queryKey: ["school-identity"] });
+  toast.success("Informações da escola salvas");
   };
 
   if (loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando informações da escola...</div>;
