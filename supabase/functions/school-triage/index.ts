@@ -438,7 +438,7 @@ async function getSecretaryStyleExamples(supabase: any, excludePhone: string | n
 function isConversationClosing(text: string, offeredHelp = false): boolean {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[.!?,;]+/g, " ").trim().replace(/\s+/g, " ");
-  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi|somente|apenas) so isso|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
+  if (/^(?:(?:no momento|por enquanto|agora) (?:e )?so isso|(?:era|e|foi) so isso|(?:somente|apenas|so) (?:isso|so isso)(?: mesmo)?|so isso|obrigad[oa] (?:era|e|foi) so isso|nao preciso de mais nada|outro dia (?:eu )?entro em contato(?: para .*)?|(?:depois|mais tarde) (?:eu )?entro em contato(?: para .*)?|(?:deixo|deixamos) para outro dia|nao quero mais nada(?: por enquanto)?|podemos encerrar|encerramos por aqui)$/.test(normalized)) return true;
   // Despedidas explícitas podem vir acompanhadas de agradecimento e promessa de retorno.
   // Não exigir que a última mensagem da Ana contenha uma oferta de ajuda.
   if (/^(?:(?:certo|ok|okay|beleza|ta bom|perfeito|combinado)[ ,]+)?(?:muito )?obrigad[oa](?: mesmo)?\s+(?:volto a entrar em contato|entrarei em contato|retorno (?:depois|mais tarde)|falo (?:com voces|com voce) (?:depois|mais tarde))$/.test(normalized)) return true;
@@ -849,7 +849,7 @@ serve(async (req) => {
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
       const anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
+        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = /^(?:muito\s+)?(?:obrigad[oa](?:\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
         return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
@@ -1359,7 +1359,7 @@ Responda SOMENTE com JSON válido:
       resposta = visitId
         ? `Anotei o pedido de visita para ${confirmedVisit.date.split("-").reverse().join("/")} às ${confirmedVisit.time}. A secretaria vai conferir a disponibilidade e confirmar o horário com você.`
         : "Não consegui registrar a visita agora. Encaminhei seu pedido à secretaria para conferir a data e combinar o horário com você.";
-    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation &&
+    } else if (triagem.visita.solicitada && !awaitingEnrollmentConfirmation && !defersDetailsUntilVisit &&
         !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
         channel === "whatsapp" && leadId) {
       let opportunityId = registration?.opportunity_id || null;
