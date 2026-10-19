@@ -82,3 +82,12 @@ test("PDF/documentos e vídeos recebem marcador de encaminhamento; figurinha nã
   assert.match(mediaFallbackMessage("video"), /MÍDIA_PARA_SECRETARIA/);
   assert.equal(mediaFallbackMessage("sticker"), "[FIGURINHA_RECEBIDA]");
 });
+
+const webhookSource = readFileSync(new URL("../supabase/functions/zapi-webhook/index.ts", import.meta.url), "utf8");
+
+test("webhook integra a análise de imagens e o encaminhamento de documentos recebidos", () => {
+  assert.match(webhookSource, /direction === 'inbound' && imageUrl/);
+  assert.match(webhookSource, /analyzeWhatsAppImage\(/);
+  assert.match(webhookSource, /mediaFallbackMessage\('document'/);
+  assert.match(webhookSource, /mediaFallbackMessage\('sticker'/);
+});
