@@ -181,7 +181,7 @@ test('horário ocupado é removido das opções e a família consegue escolher o
   h.state.ai.visita.horario = '15:30';
   await h.send('15h30');
   assert.equal(h.state.rows.school_visits.length, 2);
-  assert.equal(h.state.rows.school_visits.at(-1).scheduled_at, new Date(visitDate + 'T15:30:00-03:00').toISOString());
+  assert.equal(new Date(h.state.rows.school_visits.at(-1).scheduled_at).toISOString(), new Date(visitDate + 'T15:30:00-03:00').toISOString());
 });
 
 test('dados incompletos perguntam somente o dado faltante', async () => {
@@ -353,7 +353,7 @@ test('agradecimento após resposta informativa recebe “por nada” e encerra m
   assert.equal(h.state.sent.filter(message => message.surveyStep === 'origin').length, 1);
 });
 
-test('agradecimento após confirmação de cadastro não dispara outra resposta nem repete o resumo', async () => {
+test('agradecimento após confirmação recebe resposta curta sem repetir o resumo', async () => {
   const h = harness();
   h.state.ai.visita.solicitada = false;
   await h.send('Quero cadastrar meu filho.');
@@ -363,7 +363,8 @@ test('agradecimento após confirmação de cadastro não dispara outra resposta 
   const aiCallsBeforeThanks = h.state.aiCalls;
   const result = await h.send('Obrigado!');
   assert.equal(result.body.reason, 'acknowledgement_after_confirmation');
-  assert.equal(h.state.sent.length, sentBeforeThanks);
+  assert.equal(h.state.sent.length, sentBeforeThanks + 1);
+  assert.match(h.state.sent.at(-1).message, /Por nada! Fico feliz em ajudar/);
   assert.equal(h.state.aiCalls, aiCallsBeforeThanks);
 });
 
