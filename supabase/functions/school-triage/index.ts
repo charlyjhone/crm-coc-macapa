@@ -537,7 +537,6 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
   }
 
   if (isOrigin && claimCycleAt) {
-    const admin = surveyAdminClient(url, key);
     const { error: updateError } = await admin.from("crm_survey_claims").update({
       state: sent ? "sent" : "failed", updated_at: new Date().toISOString(),
     }).eq("lead_id", leadId).eq("cycle_at", claimCycleAt).eq("state", "processing");
