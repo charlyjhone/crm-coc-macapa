@@ -946,16 +946,19 @@ serve(async (req) => {
 
     // ===== STEP 12: Process file attachments (documents, images, etc.) =====
     if (leadId) {
-      // Z-API sends file URLs in various fields depending on type
-      const documentUrl = payload.document?.documentUrl || payload.documentUrl || null;
-      const documentFileName = payload.document?.fileName || payload.fileName || null;
-      const documentMime = payload.document?.mimeType || payload.documentMimeType || null;
+      // Preserve original files in private CRM storage; content is never sent to AI.
+      const documentUrl = payload.document?.documentUrl || payload.document?.url || payload.documentUrl ||
+        payload.file?.fileUrl || payload.file?.url || payload.fileUrl || null;
+      const documentFileName = payload.document?.fileName || payload.document?.title ||
+        payload.file?.fileName || payload.fileName || null;
+      const documentMime = payload.document?.mimeType || payload.file?.mimeType ||
+        payload.documentMimeType || payload.fileMimeType || null;
       
-      const imageUrl = payload.image?.imageUrl || payload.imageUrl || null;
-      const imageMime = payload.image?.mimetype || payload.imageMimeType || 'image/jpeg';
+      const imageUrl = payload.image?.imageUrl || payload.image?.url || payload.imageUrl || null;
+      const imageMime = payload.image?.mimetype || payload.image?.mimeType || payload.imageMimeType || 'image/jpeg';
       
-      const videoUrl = payload.video?.videoUrl || payload.videoUrl || null;
-      const videoMime = payload.video?.mimetype || payload.videoMimeType || 'video/mp4';
+      const videoUrl = payload.video?.videoUrl || payload.video?.url || payload.videoUrl || null;
+      const videoMime = payload.video?.mimetype || payload.video?.mimeType || payload.videoMimeType || 'video/mp4';
 
       // Áudios NÃO são salvos como anexo — já são transcritos para texto.
 
