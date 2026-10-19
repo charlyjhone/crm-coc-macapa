@@ -551,7 +551,7 @@ async function hasMatriculatedOpportunity(url: string, key: string, leadId: stri
   // Falha de consulta: não enviar pesquisa por precaução.
   if (directError || direct) return true;
 
-  const digits = phone.replace(/\\D/g, "");
+  const digits = phone.replace(/\D/g, "");
   const variants = new Set([phone, digits]);
   if (digits.startsWith("55")) {
     variants.add(digits.slice(2));
