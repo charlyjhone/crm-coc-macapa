@@ -1195,7 +1195,7 @@ Responda SOMENTE com JSON válido:
     // Se ainda estamos coletando o nome e a pessoa ainda não trouxe assunto definido,
     // não forçar handoff — Ana está apenas aguardando apresentação.
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
-    const mediaNeedsHuman = /\\[MÍDIA_PARA_SECRETARIA:/i.test(text);
+    const mediaNeedsHuman = /\[MÍDIA_PARA_SECRETARIA:/i.test(text);
     let precisaHumano = triagem.prioridade === "urgente" || (!apenasColetandoNome && !!triagem.precisa_humano) || mediaNeedsHuman;
     const explicitHumanRequest = /\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text);
     if (visitIntentInConversation && channel === "whatsapp" && triagem.prioridade !== "urgente" && !explicitHumanRequest) {
