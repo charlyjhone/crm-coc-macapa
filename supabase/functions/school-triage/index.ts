@@ -298,19 +298,19 @@ function mergeExplicitVisitFacts(triagem: Triagem, historico: string, currentTex
   if (time) triagem.visita.horario = time;
 }
 
-function visitDateTime(date: string | null, time: string | null) {
+function visitDateTime(date: string | null, time: string | null, minimumNoticeMinutes = 60) {
   if (!date || !time || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const local = `${date}T${time}:00-03:00`; // Escola em Macapá (UTC-3).
   const instant = new Date(local);
   if (Number.isNaN(instant.getTime()) ||
       new Date(instant.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10) !== date ||
-      instant.getTime() < Date.now() + 60 * 60 * 1000) return null;
+      instant.getTime() < Date.now() + Math.max(0, minimumNoticeMinutes) * 60 * 1000) return null;
   return { local, date, time };
 }
 
-function pendingVisit(message: string) {
+function pendingVisit(message: string, minimumNoticeMinutes = 60) {
   const match = message.match(/Para registrar sua visita em (\d{4}-\d{2}-\d{2}) às (\d{2}:\d{2}) \(horário de Macapá\), responda SIM\. A secretaria confirmará a disponibilidade\./);
-  return match ? visitDateTime(match[1], match[2]) : null;
+  return match ? visitDateTime(match[1], match[2], minimumNoticeMinutes) : null;
 }
 
 function json(body: unknown, status = 200) {
@@ -479,6 +479,10 @@ function surveySelection(text: string, choices: { id: string; title: string }[])
 async function sendSurveyList(url: string, key: string, phone: string, leadId: string,
   agentName: string, step: "origin" | "rating") {
   const isOrigin = step === "origin";
+  const admin = surveyAdminClient(url, key);
+  const { data: surveySetting, error: surveySettingError } = await admin.from("system_settings")
+    .select("value").eq("key", "escola_pesquisa_ativa").maybeSingle();
+  if (surveySettingError || surveySetting?.value === "false") return false;
   let claimCycleAt: string | null = null;
 
   // A origem é a primeira etapa da pesquisa e precisa ser reivindicada uma única
@@ -533,7 +537,6 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
   }
 
   if (isOrigin && claimCycleAt) {
-    const admin = surveyAdminClient(url, key);
     const { error: updateError } = await admin.from("crm_survey_claims").update({
       state: sent ? "sent" : "failed", updated_at: new Date().toISOString(),
     }).eq("lead_id", leadId).eq("cycle_at", claimCycleAt).eq("state", "processing");
@@ -704,7 +707,7 @@ serve(async (req) => {
     const { data: settingsRows, error: settingsError } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo", "escola_valores_data_divulgacao"]);
+      .in("key", ["escola_agente_ativo", "escola_info", "escola_valores", "escola_nome", "escola_agente_nome", "escola_folder_ativo", "escola_valores_data_divulgacao", "escola_horario_secretaria", "escola_antecedencia_visita_min", "escola_pesquisa_ativa"]);
     const settings: Record<string, string> = {};
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
@@ -723,6 +726,10 @@ serve(async (req) => {
     const escolaInfo = settings.escola_info || DEFAULT_INFO;
     const escolaValores = settings.escola_valores || "";
     const dataDivulgacaoValores = (settings.escola_valores_data_divulgacao || "").trim();
+    const horarioSecretaria = (settings.escola_horario_secretaria || "7h30 às 18h").trim();
+    const antecedenciaConfigurada = Number.parseInt(settings.escola_antecedencia_visita_min || "60", 10);
+    const antecedenciaVisitaMin = Number.isInteger(antecedenciaConfigurada) && antecedenciaConfigurada >= 0 && antecedenciaConfigurada <= 10080
+      ? antecedenciaConfigurada : 60;
 
     // ---- Resolver ou criar o contato ----
     if (!leadId && phone) {
@@ -1051,8 +1058,7 @@ ESTILO E CONHECIMENTO PRÁTICO OBSERVADOS NAS RESPOSTAS RECENTES DA SECRETARIA:
 ${secretaryStyleExamples || "Ainda não há respostas humanas genéricas e seguras suficientes para usar como referência."}
 Use os exemplos para aprender o tom, a cordialidade, o tamanho das mensagens e também padrões de resposta para dúvidas escolares parecidas. Só reaproveite conteúdo geral que seja claramente aplicável; as informações oficiais cadastradas abaixo sempre prevalecem. Não copie dados pessoais. Não reutilize valores, datas, prazos ou promessas de exemplos antigos sem confirmação nas informações oficiais. Se houver dúvida, encaminhe à secretaria.
 
-INFORMAÇÕES OFICIAIS DA ESCOLA:
-${escolaInfo}
+HORÁRIO DA SECRETARIA (configuração operacional): ${horarioSecretaria}. Antecedência mínima para pedidos de visita: ${antecedenciaVisitaMin} minuto(s). Use isso ao orientar a família; nunca confirme a disponibilidade da visita.\n\nINFORMAÇÕES OFICIAIS DA ESCOLA:\n${escolaInfo}
 
 ${escolaValores ? `VALORES DE MATRÍCULA E MENSALIDADE:\n${escolaValores}` : `VALORES: ainda não cadastrados. Para perguntas gerais sobre os valores de 2027, ${dataDivulgacaoValores ? "informe que serão divulgados a partir de " + dataDivulgacaoValores : "não invente uma data de divulgação; informe que a data ainda não foi cadastrada e encaminhe à secretaria para confirmar"}. Convide para conhecer a escola e pergunte se deseja registrar interesse para contato. Não informe preços nem prometa agendamento automático. Para pedidos de preço exato ou valores de outros anos, marque precisa_humano = true e encaminhe à secretaria.`}
 
@@ -1257,8 +1263,8 @@ Responda SOMENTE com JSON válido:
           proposalAt >= outboundAt && proposalAt - outboundAt <= 15000 &&
           inboundAt > proposalAt;
         confirmedVisit = currentProposal
-          ? visitDateTime(proposal.date, proposal.time)
-          : pendingVisit(previous.message || "");
+          ? visitDateTime(proposal.date, proposal.time, antecedenciaVisitaMin)
+          : pendingVisit(previous.message || "", antecedenciaVisitaMin);
         if (confirmedVisit && proposal?.date === confirmedVisit.date && proposal?.time === confirmedVisit.time &&
             typeof proposal.opportunity_id === "string") confirmedOpportunityId = proposal.opportunity_id;
         // A confirmação pertence ao aluno da proposta, nunca a um novo cadastro inferido pela IA.
@@ -1292,7 +1298,7 @@ Responda SOMENTE com JSON válido:
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = !confirmedVisit && triagem.visita.solicitada
-      ? visitDateTime(triagem.visita.data, triagem.visita.horario) : null;
+      ? visitDateTime(triagem.visita.data, triagem.visita.horario, antecedenciaVisitaMin) : null;
     if (confirmedVisit) {
       // A secretaria valida disponibilidade; a confirmação da família apenas autoriza o registro.
       precisaHumano = true;
@@ -1423,7 +1429,7 @@ Responda SOMENTE com JSON válido:
         }
       } else if (opportunityId) {
         resposta = triagem.visita.data && triagem.visita.horario
-          ? "Preciso de uma data válida e de um horário com pelo menos uma hora de antecedência. Qual dia e horário você prefere para a visita?"
+          ? `Preciso de uma data válida e de um horário com antecedência mínima de ${antecedenciaVisitaMin} minuto(s). Qual dia e horário você prefere para a visita?`
           : "Qual dia e horário você prefere para a visita? Informe a data completa e o horário de Macapá; a secretaria vai conferir a disponibilidade.";
       } else if (ambiguousOpportunity) {
         precisaHumano = true;
