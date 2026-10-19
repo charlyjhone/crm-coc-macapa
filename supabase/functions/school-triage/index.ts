@@ -872,6 +872,7 @@ serve(async (req) => {
     // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
     // tenha mudado entre as mensagens.
     let anaAcabouDeOferecerAjuda = false;
+    let aguardaConfirmacaoExplicita = false;
     if (channel === "whatsapp" && phone && candidateClosing) {
       const { data: ultimaSaida } = await supabase
         .from("whatsapp_messages")
@@ -883,7 +884,7 @@ serve(async (req) => {
         .maybeSingle();
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
-      const aguardaConfirmacaoExplicita = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
+      aguardaConfirmacaoExplicita = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /Para cadastrar o interesse, confirme estes dados|Entendi:.*(?:Está certo|Está correto)\\?/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = isPoliteThanks(text) ||
         /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\\s🙏😊👍]*$/i.test(text.trim());
