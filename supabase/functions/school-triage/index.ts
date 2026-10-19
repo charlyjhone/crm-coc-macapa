@@ -506,7 +506,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
 
   const endpoint = `${url}/functions/v1/send-whatsapp-message`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
-  const message = `*[Atendente ${agentName}]*\\n${isOrigin
+  const message = `*[Atendente ${agentName}]*\n${isOrigin
     ? "Antes de ir, como você conheceu a escola? Sua resposta nos ajuda a melhorar nossa comunicação. É só escolher uma opção abaixo. 😊"
     : "E como você avalia este atendimento? Escolha uma nota de 1 a 5, sendo 5 excelente."}`;
   let sent = false;
@@ -528,7 +528,7 @@ async function sendSurveyList(url: string, key: string, phone: string, leadId: s
       // Algumas versões do WhatsApp não exibem listas. Mantém a pesquisa na conversa.
       const fallback = await fetch(endpoint, { method: "POST", headers,
         body: JSON.stringify({ phone, leadId, senderType: "ana", surveyStep: step,
-          message: `${message}\\n${isOrigin
+          message: `${message}\n${isOrigin
             ? SURVEY_ORIGINS.map((item) => item.title).join(" · ")
             : "Responda com 1, 2, 3, 4 ou 5."}` }),
       });
@@ -850,7 +850,7 @@ serve(async (req) => {
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
       const anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
-      const agradecimentoCurto = /^(?:muito\\s+)?(?:obrigad[oa](?:\\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\\s🙏😊👍]*$/i.test(text.trim());
+      const agradecimentoCurto = /^(?:muito\s+)?(?:obrigad[oa](?:\s+mesmo)?|valeu|ok|okay|ta bom|tá bom|beleza|perfeito|entendi|certo)[.!\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
         return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
       }
