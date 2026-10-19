@@ -872,7 +872,7 @@ serve(async (req) => {
     // curta de encerramento deve ficar silenciosa mesmo que o estado do handoff
     // tenha mudado entre as mensagens.
     let anaAcabouDeOferecerAjuda = false;
-    let aguardaConfirmacaoExplicita = false;
+    let anaAcabouDeConfirmar = false;
     if (channel === "whatsapp" && phone && candidateClosing) {
       const { data: ultimaSaida } = await supabase
         .from("whatsapp_messages")
@@ -884,24 +884,16 @@ serve(async (req) => {
         .maybeSingle();
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
-      aguardaConfirmacaoExplicita = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Entendi:.*(?:Está certo|Está correto)\?/i.test(ultimaSaida.message || "");
+      anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
+        /Para cadastrar o interesse, confirme estes dados|Para registrar sua visita em|Anotei seu pedido de visita|A secretaria vai conferir a disponibilidade e confirmar com você|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = isPoliteThanks(text) ||
         /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\s🙏😊👍]*$/i.test(text.trim());
-      if (aguardaConfirmacaoExplicita && agradecimentoCurto) {
-        const reminder = "Por nada! Para eu continuar, só preciso que confirme os dados acima ou me diga o que deseja corrigir.";
-        if (previewOnly) return json({ preview: true, resposta: reminder, aguardando_confirmacao: true });
-        const sent = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-          body: JSON.stringify({ phone, message: `*[Atendente ${agentName}]*\n${reminder}`, leadId, senderType: "ana" }),
-        });
-        if (!sent.ok) throw new Error("confirmation_reminder_send_failed");
-        return json({ success: true, skipped: "thanks_while_confirmation_pending", lead_id: leadId });
+      if (anaAcabouDeConfirmar && agradecimentoCurto) {
+        return json({ skipped: "acknowledgement_after_confirmation", lead_id: leadId });
       }
     }
 
-    if (isConversationClosing(text, anaAcabouDeOferecerAjuda) || (agradecimentoEncerramento && !aguardaConfirmacaoExplicita)) {
+    if (isConversationClosing(text, anaAcabouDeOferecerAjuda) || (agradecimentoEncerramento && !anaAcabouDeConfirmar)) {
       if (lead?.triage_status === "resolvido") return json({ skipped: "already_closed", lead_id: leadId });
       const firstName = !isPlaceholderName(lead?.name)
         ? `, ${lead!.name.trim().split(/\s+/)[0]}` : "";
