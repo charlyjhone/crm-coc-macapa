@@ -86,86 +86,9 @@ serve(async (req) => {
       console.log('✅ Registro do anexo salvo no banco');
     }
 
-    // ===== STEP 5: If PDF, interpret with AI and save as note =====
-    const isPdf = detectedMime === 'application/pdf' || 
-                  (fileName && fileName.toLowerCase().endsWith('.pdf'));
-
-    if (isPdf) {
-      console.log('📄 Arquivo PDF detectado — enviando para interpretação com IA...');
-      
-      try {
-        const base64Content = arrayBufferToBase64(fileBuffer);
-        
-        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-        if (!LOVABLE_API_KEY) {
-          console.error('LOVABLE_API_KEY não configurada, pulando interpretação do PDF');
-        } else {
-          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                {
-                  role: 'system',
-                  content: `Você é um assistente que interpreta documentos PDF recebidos via WhatsApp. 
-Extraia todas as informações relevantes do documento de forma estruturada e clara.
-Inclua: título/tipo do documento, datas, valores, nomes, detalhes de eventos, endereços, requisitos e quaisquer outras informações importantes.
-Responda em português do Brasil. Seja detalhado mas organizado.`
-                },
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Interprete o conteúdo deste arquivo PDF chamado "${fileName || 'documento.pdf'}" recebido via WhatsApp do lead "${leadName || 'cliente'}". Extraia todas as informações relevantes.`
-                    },
-                    {
-                      type: 'image_url',
-                      image_url: {
-                        url: `data:application/pdf;base64,${base64Content}`
-                      }
-                    }
-                  ]
-                }
-              ],
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            const interpretation = aiData.choices?.[0]?.message?.content;
-            
-            if (interpretation) {
-              console.log('🤖 Interpretação do PDF recebida, salvando como nota...');
-              
-              const noteContent = `[Documento WhatsApp] Interpretação do arquivo "${fileName || 'documento.pdf'}":\n\n${interpretation}`;
-              
-              const { error: noteError } = await supabase
-                .from('lead_notes')
-                .insert({
-                  lead_id: leadId,
-                  note: noteContent,
-                });
-
-              if (noteError) {
-                console.error('Erro ao salvar nota de interpretação:', noteError);
-              } else {
-                console.log('✅ Nota de interpretação do PDF salva com sucesso');
-              }
-            }
-          } else {
-            const errText = await aiResponse.text();
-            console.error('Erro na resposta da IA:', aiResponse.status, errText);
-          }
-        }
-      } catch (aiError) {
-        console.error('Erro ao interpretar PDF com IA:', aiError);
-      }
-    }
+    // ===== STEP 5: No automatic content analysis =====
+    // PDFs, images and other files remain in private storage for secretary review.
+    // Do not send family attachments to OpenAI, Lovable, Gemini or any AI provider.
 
     return new Response(
       JSON.stringify({ 
@@ -216,11 +139,4 @@ function getExtensionFromMime(mime: string, fileName?: string): string {
   return map[mime] || 'bin';
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
+
