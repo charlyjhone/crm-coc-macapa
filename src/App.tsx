@@ -59,7 +59,7 @@ const App = () => (
             <Route path="/pendentes" element={<ProtectedLayout><Pendentes /></ProtectedLayout>} />
             <Route path="/configuracoes" element={<ProtectedLayout><AdminRoute><Settings /></AdminRoute></ProtectedLayout>} />
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
-            <Route path="/auditoria" element={<ProtectedLayout><Auditoria /></ProtectedLayout>} />
+            <Route path="/auditoria" element={<ProtectedLayout><AdminRoute><Auditoria /></AdminRoute></ProtectedLayout>} />
             <Route path="/perfil" element={<ProtectedLayout><Perfil /></ProtectedLayout>} />
             <Route path="/preview-layout" element={<ProtectedLayout><CRMLayoutPreview /></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
