@@ -1,0 +1,34 @@
+name: Visual-only CRM build validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/pages/EnrollmentPipeline.tsx"
+      - ".github/workflows/visual-only-build.yml"
+  push:
+    branches: ["feat/**"]
+    paths:
+      - "src/pages/EnrollmentPipeline.tsx"
+      - ".github/workflows/visual-only-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Lint frontend
+        run: npm run lint
+      - name: Build frontend
+        run: npm run build
