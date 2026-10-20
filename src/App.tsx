@@ -16,6 +16,7 @@ const SchoolVisits = lazy(() => import("./pages/SchoolVisits"));
 const EnrollmentTasks = lazy(() => import("./pages/EnrollmentTasks"));
 const AcquisitionAnalytics = lazy(() => import("./pages/AcquisitionAnalytics"));
 const EnrollmentPossibilities = lazy(() => import("./pages/EnrollmentPossibilities"));
+const CRMLayoutPreview = lazy(() => import("./pages/CRMLayoutPreview"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
             <Route path="/auditoria" element={<ProtectedLayout><AdminRoute><Auditoria /></AdminRoute></ProtectedLayout>} />
             <Route path="/perfil" element={<ProtectedLayout><Perfil /></ProtectedLayout>} />
+            <Route path="/preview-layout" element={<ProtectedLayout><CRMLayoutPreview /></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
