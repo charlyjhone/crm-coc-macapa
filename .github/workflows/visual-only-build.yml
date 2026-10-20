@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  frontend-build:
+  frontend-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,5 +28,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Lint frontend
+        run: npm run lint
       - name: Build frontend
         run: npm run build
