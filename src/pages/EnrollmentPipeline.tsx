@@ -62,10 +62,10 @@ const EnrollmentPipeline = () => {
   );
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b bg-background px-5 py-5 md:px-8">
+    <div className="min-h-screen bg-slate-50/80">
+      <header className="border-b border-emerald-100 bg-white px-5 py-6 shadow-sm md:px-8">
         <div className="mx-auto max-w-[1600px]">
-          <p className="text-sm font-medium text-primary">Jornada de matrícula</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">COC Macapá Norte · Jornada de matrícula</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Funil de captação</h1>
           <p className="mt-1 text-sm text-slate-600">
             Cada aluno aparece uma única vez por oportunidade, série, turno e ano letivo.
@@ -74,7 +74,7 @@ const EnrollmentPipeline = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] p-5 md:p-8">
+      <main className="mx-auto max-w-[1800px] p-4 md:p-7">
         {foundationPending && (
           <div className="mb-5 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -82,17 +82,17 @@ const EnrollmentPipeline = () => {
           </div>
         )}
 
-        <div className="overflow-x-auto pb-4">
-          <div className="grid min-w-[2200px] grid-cols-8 gap-4">
+        <div className="overflow-x-auto rounded-2xl pb-4">
+          <div className="grid min-w-[2200px] grid-cols-8 items-start gap-4">
             {columns.map((column) => (
-              <section key={column.key} className="rounded-xl bg-muted/70 p-3">
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <h2 className="text-sm font-semibold">{column.label}</h2>
+              <section key={column.key} className="rounded-2xl border border-slate-200 bg-slate-100/80 p-3 shadow-sm">
+                <div className="mb-3 flex items-center justify-between rounded-lg border border-white/80 bg-white/80 px-3 py-3 shadow-sm">
+                  <h2 className="text-sm font-bold text-slate-800">{column.label}</h2>
                   <Badge variant="secondary">{grouped[column.key]?.length || 0}</Badge>
                 </div>
                 <div className="space-y-3">
                   {(grouped[column.key] || []).map((opportunity: Opportunity) => (
-                    <Card key={opportunity.id} className="shadow-sm">
+                    <Card key={opportunity.id} className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -118,7 +118,7 @@ const EnrollmentPipeline = () => {
                           </p>
                         )}
 
-                        <div className="mt-3 border-t pt-3">
+                        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
                           <p className="text-xs font-medium text-slate-800">{opportunity.next_action || "Definir próxima ação"}</p>
                           {opportunity.next_action_at && (
                             <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
@@ -135,7 +135,7 @@ const EnrollmentPipeline = () => {
                     </Card>
                   ))}
                   {!grouped[column.key]?.length && (
-                    <div className="rounded-lg border border-dashed bg-background/60 p-5 text-center text-xs text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-5 text-center text-xs text-slate-500">
                       Nenhuma oportunidade
                     </div>
                   )}
