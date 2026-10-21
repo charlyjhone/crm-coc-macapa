@@ -567,7 +567,6 @@ export default function Atendimentos() {
                   <p className="mt-1 text-xs">As sugestões serão organizadas a partir do atendimento.</p>
                 </section>
               </div>
-              </div>
             </div>
           )}
         </aside>
