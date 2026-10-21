@@ -1,4 +1,4 @@
-export type LeadStatus = 'novo' | 'em_atendimento' | 'em_negociacao' | 'matriculado' | 'nao_convertido' | 'resolvido';
+export type LeadStatus = 'novo' | 'em_atendimento' | 'em_negociacao' | 'interesse_matricula' | 'matriculado' | 'nao_convertido' | 'resolvido';
 
 export function buildStatusUpdateData(
   newStatus: LeadStatus,

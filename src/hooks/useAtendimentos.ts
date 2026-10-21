@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
-export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
+export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "interesse_matricula" | "matriculado" | "nao_convertido" | "resolvido";
 export type Assunto = "matricula" | "curriculo" | "horario" | "localizacao" | "outros";
 
 export type WhatsAppMediaType = "audio" | "image" | "video" | "document" | "sticker" | "location" | "contact" | "file";

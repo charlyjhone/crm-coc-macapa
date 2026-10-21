@@ -889,6 +889,7 @@ export type Database = {
         | "novo"
         | "em_atendimento"
         | "em_negociacao"
+        | "interesse_matricula"
         | "matriculado"
         | "nao_convertido"
         | "resolvido"
