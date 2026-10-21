@@ -153,3 +153,61 @@
 }
 
 
+
+ 
+/* Conceito: acabamento visual da nova experiência do CRM. */
+:root[data-school="conceito"] {
+  --background: 210 30% 97%;
+  --foreground: 215 32% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 32% 20%;
+  --muted: 210 25% 94%;
+  --muted-foreground: 215 14% 48%;
+  --border: 210 20% 88%;
+  --input: 210 20% 86%;
+  --primary: 174 82% 29%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 174 42% 93%;
+  --secondary-foreground: 174 82% 23%;
+  --accent: 211 75% 95%;
+  --accent-foreground: 213 70% 34%;
+  --ring: 174 82% 29%;
+}
+
+:root[data-school="conceito"] body { background: hsl(var(--background)); }
+:root[data-school="conceito"] main { color: hsl(var(--foreground)); }
+:root[data-school="conceito"] header { border-color: hsl(210 20% 88%); }
+:root[data-school="conceito"] header.bg-card,
+:root[data-school="conceito"] header.bg-background {
+  background: linear-gradient(120deg, #ffffff 0%, #f7fbfc 100%);
+}
+:root[data-school="conceito"] [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] [class*="rounded-2xl"][class*="border"] {
+  border-color: hsl(210 20% 87%);
+}
+:root[data-school="conceito"] [class*="shadow-sm"],
+:root[data-school="conceito"] [class*="shadow-md"] {
+  box-shadow: 0 4px 16px rgb(28 53 69 / 5%);
+}
+:root[data-school="conceito"] button {
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+:root[data-school="conceito"] button:focus-visible,
+:root[data-school="conceito"] a:focus-visible,
+:root[data-school="conceito"] input:focus-visible,
+:root[data-school="conceito"] select:focus-visible,
+:root[data-school="conceito"] textarea:focus-visible {
+  outline: 2px solid hsl(174 82% 29% / 70%);
+  outline-offset: 2px;
+}
+:root[data-school="conceito"] .text-primary { color: hsl(174 82% 27%); }
+:root[data-school="conceito"] .bg-primary { background-color: hsl(174 82% 29%); }
+:root[data-school="conceito"] .border-primary { border-color: hsl(174 82% 29%); }
+:root[data-school="conceito"] .text-emerald-700,
+:root[data-school="conceito"] .text-emerald-800 { color: hsl(174 82% 27%); }
+:root[data-school="conceito"] .bg-emerald-50,
+:root[data-school="conceito"] .bg-emerald-100 { background-color: hsl(174 42% 93%); }
+:root[data-school="conceito"] .text-emerald-900 { color: hsl(174 82% 23%); }
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main { padding-left: 1rem; padding-right: 1rem; }
+}
