@@ -463,7 +463,7 @@ export default function Atendimentos() {
           </Button>
         ))}
       </div>
-      <div className="mt-4 grid overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm md:grid-cols-[minmax(280px,360px)_1fr]">
+      <div className="mt-4 grid overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_280px]">
         <div className="border-b md:border-b-0 md:border-r">
           <div className="border-b p-3">
             <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone ou e-mail"
@@ -488,6 +488,58 @@ export default function Atendimentos() {
           <div className="flex min-h-[400px] items-center justify-center p-8 text-center text-sm text-slate-600">
             Selecione um atendimento para ler o histórico e responder.
           </div>
+        )}
+        {selected && (
+          <aside className="border-t bg-slate-50/70 p-4 md:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0">
+            <div className="sticky top-24 space-y-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Resumo da família</p>
+                <h2 className="mt-1 break-words text-lg font-semibold text-slate-900">{selected.name}</h2>
+                <p className="mt-1 break-all text-sm text-slate-600">{selected.phone || "Telefone não cadastrado"}</p>
+                <p className="break-all text-sm text-slate-600">{selected.email || "E-mail não cadastrado"}</p>
+              </div>
+              <div className="space-y-3 rounded-xl border bg-white p-3">
+                <div>
+                  <p className="text-xs text-slate-500">Assunto identificado</p>
+                  <p className="mt-0.5 text-sm font-medium">{subjectLabel(selected.assunto)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Interesse informado</p>
+                  <p className="mt-0.5 text-sm font-medium">{selected.interesse || "Ainda não identificado"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Origem do contato</p>
+                  <p className="mt-0.5 text-sm font-medium">{selected.source || "Não informada"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Andamento</p>
+                  <p className="mt-0.5 text-sm font-medium">{stages.find((item) => item.key === selected.status)?.label || "Novo"}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Resumo do atendimento</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">{selected.triage_summary || selected.last_inbound_message || "Ainda não há resumo automático disponível."}</p>
+              </div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <p className="text-sm font-semibold text-slate-900">Próxima ação sugerida</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {selected.triage_status === "aguardando_secretaria"
+                    ? "Responder à família e atualizar o andamento do contato."
+                    : selected.triage_status === "resolvido"
+                      ? "Atendimento concluído. Consulte o histórico se a família retornar."
+                      : selected.assunto === "matricula"
+                        ? "Confirmar a série e o turno de interesse e orientar o próximo passo da matrícula."
+                        : "Conferir a solicitação e encaminhar ao setor responsável, se necessário."}
+                </p>
+              </div>
+              {selected.phone && (
+                <a href={`https://web.whatsapp.com/send?phone=${selected.phone.replace(/\\D/g, "")}`} target="_blank" rel="noreferrer"
+                  className="inline-flex h-9 w-full items-center justify-center rounded-md border border-primary/30 bg-white px-3 text-sm font-medium text-primary hover:bg-primary/5">
+                  Abrir WhatsApp Web
+                </a>
+              )}
+            </div>
+          </aside>
         )}
       </div>
     </div>
