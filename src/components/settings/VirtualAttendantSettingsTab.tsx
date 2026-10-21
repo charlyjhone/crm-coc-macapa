@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Bot, FileText, Loader2, MessageSquare, ShieldCheck, Users } from "lucide-react";
 
 const DEFAULT_VALUES_DATE = "1º de novembro de 2026";
+const IS_CONCEITO_BUILD = import.meta.env.MODE === "conceito";
 const DEFAULT_HOURS = "7h30 às 18h";
 const SETTINGS_KEYS = [
   "escola_agente_ativo",
@@ -48,7 +49,7 @@ export default function VirtualAttendantSettingsTab() {
         if (fileError) throw fileError;
         setFolderExists(!!files?.some((file) => file.name === "folder-digital.pdf"));
       } catch (error) {
-        toast.error("Não foi possível carregar as configurações da atendente virtual");
+        toast.error(IS_CONCEITO_BUILD ? "Não foi possível carregar as configurações da atendente virtual" : "Não foi possível carregar as configurações da Ana");
         console.error("virtual_attendant_settings_load_failed", error);
       } finally {
         setLoading(false);
@@ -82,7 +83,7 @@ export default function VirtualAttendantSettingsTab() {
       toast.error("Erro ao salvar as configurações", { description: error.message });
       return;
     }
-    toast.success(`Configurações de ${name} salvas`);
+    toast.success(IS_CONCEITO_BUILD ? `Configurações de ${name} salvas` : "Configurações da Ana salvas");
   };
 
   const uploadFolder = async (file?: File) => {
@@ -104,19 +105,19 @@ export default function VirtualAttendantSettingsTab() {
     toast.success("Folder atualizado", { description: "Salve as configurações para confirmar o estado do envio." });
   };
 
-  if (loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando configurações da atendente virtual...</div>;
+  if (loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{IS_CONCEITO_BUILD ? "Carregando configurações da atendente virtual..." : "Carregando configurações da Ana..."}</div>;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />Atendimento automático</CardTitle>
-          <CardDescription>Controle se {agentName || "a atendente virtual"} pode responder automaticamente e defina como ela se identifica.</CardDescription>
+          <CardDescription>Controle se {(IS_CONCEITO_BUILD ? agentName : "Ana") || "a atendente virtual"} pode responder automaticamente e defina como ela se identifica.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
             <Switch id="agent-active" checked={agentActive} onCheckedChange={setAgentActive} />
-            <Label htmlFor="agent-active">{agentActive ? `${agentName || "Atendente virtual"} ligada` : `${agentName || "Atendente virtual"} desligada`}</Label>
+            <Label htmlFor="agent-active">{agentActive ? `${(IS_CONCEITO_BUILD ? agentName : "Ana") || "Atendente virtual"} ligada` : `${(IS_CONCEITO_BUILD ? agentName : "Ana") || "Atendente virtual"} desligada`}</Label>
           </div>
           <div className="space-y-2">
             <Label htmlFor="agent-name">Nome da atendente virtual</Label>
@@ -193,14 +194,14 @@ export default function VirtualAttendantSettingsTab() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p><strong>Imagens, PDFs e documentos:</strong> encaminhar à secretaria para conferência manual; não enviar o conteúdo a OpenAI, Gemini, Lovable ou outros serviços de IA.</p>
-          <p><strong>Secretaria:</strong> solicitações que {agentName || "a atendente virtual"} não consegue resolver devem ser encaminhadas à equipe. Quando um atendente assumir a conversa, a atendente virtual deve parar de responder automaticamente.</p>
+          <p><strong>Secretaria:</strong> solicitações que {(IS_CONCEITO_BUILD ? agentName : "Ana") || "a atendente virtual"} não consegue resolver devem ser encaminhadas à equipe. Quando um atendente assumir a conversa, a atendente virtual deve parar de responder automaticamente.</p>
           <p className="text-xs text-muted-foreground">A regra de privacidade só estará efetiva em produção depois que a alteração correspondente no backend for revisada, incorporada e publicada.</p>
         </CardContent>
       </Card>
 
       <div className="flex justify-end">
         <Button onClick={() => void save()} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar configurações de {agentName || "atendimento virtual"}
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar configurações de {(IS_CONCEITO_BUILD ? agentName : "Ana") || "atendimento virtual"}
         </Button>
       </div>
     </div>
