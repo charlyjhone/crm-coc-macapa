@@ -126,7 +126,7 @@ export default function VirtualAttendantSettingsTab() {
           <div className="space-y-2">
             <Label htmlFor="ana-values-date">Data de divulgação dos valores de 2027</Label>
             <Input id="ana-values-date" value={valuesDate} onChange={(e) => setValuesDate(e.target.value)} placeholder="Ex.: 1º de novembro de 2026" />
-            <p className="text-xs text-muted-foreground">Data confirmada: 1º de novembro de 2026. Se apagar a data, a Ana não deve inventar outra.</p>
+            <p className="text-xs text-muted-foreground">Data confirmada: 1º de novembro de 2026. Se apagar a data, {(IS_CONCEITO_BUILD ? agentName : "Ana")} não deve inventar outra.</p>
           </div>
         </CardContent>
       </Card>
@@ -148,12 +148,12 @@ export default function VirtualAttendantSettingsTab() {
               <li>Segunda a sexta-feira, das 8h às 18h (horário de Macapá).</li>
               <li>Duração de cada visita: 30 minutos.</li>
               <li>Antecedência mínima: 60 minutos.</li>
-              <li>A Ana consulta a agenda antes de oferecer horários e revalida a disponibilidade antes de reservar.</li>
+              <li>{IS_CONCEITO_BUILD ? agentName : "Ana"} consulta a agenda antes de oferecer horários e revalida a disponibilidade antes de reservar.</li>
               <li>Depois de salvar, a visita aparece no CRM como agendada; a equipe registra quando ela for realizada.</li>
             </ul>
           </div>
           <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-            O telefone de contato não é duplicado aqui: a Ana deve usar o mesmo número da integração WhatsApp já configurada no CRM.
+            O telefone de contato não é duplicado aqui: {IS_CONCEITO_BUILD ? agentName : "Ana"} deve usar o mesmo número da integração WhatsApp já configurada no CRM.
           </div>
         </CardContent>
       </Card>
@@ -182,7 +182,7 @@ export default function VirtualAttendantSettingsTab() {
           <p className="text-xs text-muted-foreground">{folderExists ? "PDF carregado na escola" : "Nenhum PDF carregado"} · Limite de 18 MB.</p>
           <div className="flex items-center gap-3">
             <Switch id="ana-folder-active" checked={folderActive} onCheckedChange={setFolderActive} disabled={!folderExists} />
-            <Label htmlFor="ana-folder-active">Permitir que a Ana envie o folder</Label>
+            <Label htmlFor="ana-folder-active">Permitir que {IS_CONCEITO_BUILD ? agentName : "Ana"} envie o folder</Label>
           </div>
         </CardContent>
       </Card>
