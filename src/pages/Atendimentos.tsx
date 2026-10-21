@@ -539,7 +539,7 @@ export default function Atendimentos() {
           <div className="flex-1 overflow-y-auto">
             {isLoading && <div className="p-5 text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando conversas...</div>}
             {isError && <p className="p-5 text-sm text-destructive">Não foi possível carregar os atendimentos. Atualize a página para tentar novamente.</p>}
-            {!isLoading && !isError && !list.length && (
+            {!isLoading && !isError && !list.length && !demoMode && (
               <div className="flex min-h-[260px] flex-col items-center justify-center px-5 py-8 text-center">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
                 <p className="text-sm font-semibold">Nenhuma conversa ainda</p>
@@ -557,6 +557,11 @@ export default function Atendimentos() {
                 <span className="mt-1.5 block line-clamp-2 text-xs leading-relaxed text-muted-foreground">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
               </button>
             ))}
+            {demoMode && <div className="border-b border-l-4 border-l-sky-500 bg-primary/5 px-3 py-3">
+              <div className="flex items-center justify-between gap-2"><span className="truncate text-sm font-semibold">Mariana Oliveira</span><span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">DEMO</span></div>
+              <span className="mt-1 block text-xs text-muted-foreground">(96) 99999-0101 · contato fictício</span>
+              <span className="mt-1.5 block text-xs text-muted-foreground">Gostaria de saber sobre matrícula para o 6º ano.</span>
+            </div>}
           </div>
         </aside>
 
