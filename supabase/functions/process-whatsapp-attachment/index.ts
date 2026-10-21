@@ -40,9 +40,24 @@ serve(async (req) => {
       );
     }
 
+    const contentLength = Number(fileResponse.headers.get('content-length') || 0);
+    const maxAttachmentBytes = 18 * 1024 * 1024;
+    if (contentLength > maxAttachmentBytes) {
+      return new Response(
+        JSON.stringify({ error: 'attachment_too_large', maxBytes: maxAttachmentBytes }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const fileBuffer = await fileResponse.arrayBuffer();
     const fileBytes = new Uint8Array(fileBuffer);
     const fileSizeBytes = fileBytes.length;
+    if (fileSizeBytes > maxAttachmentBytes) {
+      return new Response(
+        JSON.stringify({ error: 'attachment_too_large', maxBytes: maxAttachmentBytes }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     console.log(`   Tamanho: ${(fileSizeBytes / 1024).toFixed(1)} KB`);
 
     // ===== STEP 2: Determine file name and extension =====

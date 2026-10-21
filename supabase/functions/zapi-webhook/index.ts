@@ -1006,15 +1006,8 @@ serve(async (req) => {
       }
     }
 
-    // ===== STEP 12.5: Auto-generate description if needed =====
-    if (leadId) {
-      try {
-        const { triggerAutoDescription } = await import("../_shared/auto-generate-description.ts");
-        triggerAutoDescription(leadId);
-      } catch (e) {
-        console.error('Erro ao disparar auto-descrição:');
-      }
-    }
+    // Não disparar geração/diagnóstico comercial legado neste CRM escolar.
+    // O fluxo de triagem escolar é responsabilidade de school-triage.
 
     // ===== STEP 13: Fetch profile picture if needed =====
     if (direction === 'inbound' && chosenLead && !chosenLead.profile_picture_url) {
