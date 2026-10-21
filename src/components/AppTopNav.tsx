@@ -80,11 +80,10 @@ export function AppTopNav() {
       <div className="mx-auto flex min-h-[68px] max-w-[1480px] flex-wrap items-center gap-x-5 gap-y-0 px-4 py-2 md:flex-nowrap md:px-7 md:py-0">
         <Link to="/captacao" className="flex min-w-[150px] shrink-0 items-center gap-2.5" aria-label={`${schoolDisplayName} — início`}>
           {import.meta.env.MODE === "conceito" ? (
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary">C</span>
+            <img src="/brand/colegio-conceito.svg" alt="Colégio Conceito Bilíngue" className="h-12 w-auto max-w-[178px] object-contain" />
           ) : (
-            <img src="/brand/ae-crm-logo.svg" alt="AE CRM" className="h-10 w-auto max-w-[170px]" />
+            <img src="/brand/coc-macapa-norte.svg" alt="COC Macapá Norte" className="h-12 w-auto max-w-[178px] object-contain" />
           )}
-          {import.meta.env.MODE === "conceito" && <span className="max-w-[145px] text-xs font-semibold leading-tight text-foreground">COLÉGIO CONCEITO <span className="block text-[10px] font-bold tracking-[0.2em] text-primary">BILÍNGUE</span></span>}
         </Link>
 
         <nav className="order-3 flex w-full items-center gap-1 overflow-x-auto py-2 md:order-none md:w-auto md:overflow-visible md:py-0" aria-label="Navegação principal">
