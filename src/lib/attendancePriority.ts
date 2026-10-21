@@ -5,13 +5,14 @@ const schoolTopics = /matricul|document|declarac|vaga|transferenc|visita/;
 const enrollmentDeadline = /\b(ultimo dia|prazo (?:final|termina|vence|encerra|acaba)|ate hoje|ainda hoje|preciso.{0,35}(?:hoje|amanha)|necessito.{0,35}(?:hoje|amanha)|matricula.{0,25}(?:hoje|amanha)|vaga.{0,25}(?:hoje|amanha)|documentos?.{0,25}(?:hoje|amanha))\b/i;
 
 export function attendancePriority(lead: Atendimento, now = Date.now()) {
-  // O status comercial escolhido pela secretaria prevalece sobre a prioridade antiga.
-  // "Interesse em matrícula" não significa matrícula concluída.
-  // Em negociação, Não convertido e Resolvido removem o alerta ativo.
+  // Apenas estados de encerramento removem a prioridade automaticamente.
+  // "Interesse em matrícula" é interesse comercial, não matrícula concluída.
+  // Em negociação não pode bloquear alertas de novas mensagens sem resposta.
   if (
     lead.triage_status === "resolvido" ||
-    ["em_negociacao", "nao_convertido", "resolvido"].includes(lead.status)
+    ["nao_convertido", "resolvido"].includes(lead.status)
   ) return { level: 0, reason: "" };
+
   const inbound = lead.last_inbound_message_at ? Date.parse(lead.last_inbound_message_at) : NaN;
   const outbound = lead.last_outbound_message_at ? Date.parse(lead.last_outbound_message_at) : NaN;
   const unanswered = Number.isFinite(inbound) && (!Number.isFinite(outbound) || inbound > outbound);
