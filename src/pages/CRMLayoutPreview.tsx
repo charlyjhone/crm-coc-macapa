@@ -117,7 +117,7 @@ export default function CRMLayoutPreview() {
       </section>
       <footer className="flex flex-col justify-between gap-2 border-t border-slate-200 pt-4 text-[11px] text-slate-400 sm:flex-row"><span>Protótipo de interface · Colégio Conceito Bilíngue</span><span>Sem conexão com dados reais, mensagens ou gravação de alterações</span></footer>
     </main>
-  </div>;
+  </div></div></div>;
 }
 
 function Metric({label, value, note, icon, tone}: {label:string; value:number; note:string; icon:React.ReactNode; tone:string}) {
