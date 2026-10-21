@@ -553,10 +553,20 @@ export default function Atendimentos() {
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-background text-muted-foreground"><ExternalLink className="h-5 w-5" /></div>
               <h2 className="text-sm font-semibold">Dados da família</h2>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">Ao selecionar uma conversa, os dados disponíveis e a próxima ação aparecerão aqui.</p>
-              <div className="mt-4 space-y-2">
-                <div className="rounded-lg border bg-background p-2.5"><p className="text-[10px] text-muted-foreground">Responsável e telefone</p><p className="mt-1 text-xs">Aguardando contato</p></div>
-                <div className="rounded-lg border bg-background p-2.5"><p className="text-[10px] text-muted-foreground">Aluno e série de interesse</p><p className="mt-1 text-xs">Aguardando identificação</p></div>
-                <div className="rounded-lg border bg-background p-2.5"><p className="text-[10px] text-muted-foreground">Próxima ação</p><p className="mt-1 text-xs">Será organizada conforme o atendimento</p></div>
+              <div className="mt-4 space-y-3">
+                <section className="rounded-xl border bg-background p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Responsável</p>
+                  <p className="mt-1 text-xs">Nome e telefone serão exibidos ao selecionar um contato.</p>
+                </section>
+                <section className="rounded-xl border bg-background p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Aluno e matrícula</p>
+                  <p className="mt-1 text-xs">Série, turno e interesse aparecerão quando estiverem disponíveis.</p>
+                </section>
+                <section className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-primary">Próxima ação</p>
+                  <p className="mt-1 text-xs">As sugestões serão organizadas a partir do atendimento.</p>
+                </section>
+              </div>
               </div>
             </div>
           )}
