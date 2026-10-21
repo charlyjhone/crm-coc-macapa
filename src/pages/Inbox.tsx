@@ -165,7 +165,7 @@ const STATUS_LABELS: Record<string, string> = {
   novo: "Novo",
   em_atendimento: "Em Atendimento",
   em_negociacao: "Em Negociação",
-  matriculado: "Matriculado",
+  matriculado: "Interesse em matrícula",
   resolvido: "Resolvido",
   nao_convertido: "Não Convertido",
 };
