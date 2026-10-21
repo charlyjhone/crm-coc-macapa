@@ -53,7 +53,7 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
     const interest = (initialLead.interesse || "").toLocaleLowerCase("pt-BR");
     setGrade(grades.find((item) => interest.includes(item.toLocaleLowerCase("pt-BR"))) || "");
     setShift(/tarde/i.test(interest) ? "tarde" : /manha/i.test(interest) ? "manhã" : "");
-  }, [open, initialLead]);
+  }, [open, initialLead?.id, initialLead?.name, initialLead?.phone, initialLead?.email, initialLead?.interesse]);
 
   const reset = () => {
     setGuardianName("");
