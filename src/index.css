@@ -211,3 +211,106 @@
 @media (max-width: 768px) {
   :root[data-school="conceito"] main { padding-left: 1rem; padding-right: 1rem; }
 }
+
+
+/* Conceito — acabamento global da experiência, isolado do tema COC. */
+:root[data-school="conceito"] {
+  --concept-ink: #173544;
+  --concept-teal: #087f78;
+  --concept-teal-dark: #08665f;
+  --concept-teal-soft: #e6f5f2;
+  --concept-blue-soft: #edf4fb;
+  --concept-line: #dce6e9;
+  --concept-surface: #ffffff;
+  --concept-page: #f4f7f9;
+}
+:root[data-school="conceito"] body {
+  background: var(--concept-page);
+  color: var(--concept-ink);
+}
+:root[data-school="conceito"] header.sticky {
+  background: rgb(255 255 255 / 94%);
+  border-bottom-color: var(--concept-line);
+  box-shadow: 0 3px 16px rgb(23 53 68 / 5%);
+}
+:root[data-school="conceito"] header.sticky > div {
+  max-width: 1680px;
+}
+:root[data-school="conceito"] header.sticky a[aria-label*="COLÉGIO"],
+:root[data-school="conceito"] header.sticky a[aria-label*="Conceito"] {
+  min-height: 48px;
+}
+:root[data-school="conceito"] header.sticky a[aria-label*="início"] > span:first-child {
+  border-radius: 14px;
+  background: linear-gradient(145deg, #0c9188, #086b68);
+  box-shadow: 0 4px 10px rgb(8 127 120 / 18%);
+  color: white;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] {
+  scrollbar-width: thin;
+  scrollbar-color: #cbdadd transparent;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] a,
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] button {
+  border-radius: 10px;
+  font-weight: 600;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] a.bg-primary\/10,
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] button.bg-primary\/10 {
+  background: var(--concept-teal-soft);
+  color: var(--concept-teal-dark);
+}
+:root[data-school="conceito"] main {
+  max-width: 1680px;
+  margin-inline: auto;
+}
+:root[data-school="conceito"] main h1 {
+  color: var(--concept-ink);
+  letter-spacing: -0.035em;
+}
+:root[data-school="conceito"] main h2,
+:root[data-school="conceito"] main h3 {
+  letter-spacing: -0.025em;
+}
+:root[data-school="conceito"] main [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] main [class*="rounded-2xl"][class*="border"] {
+  border-color: var(--concept-line);
+}
+:root[data-school="conceito"] main [class*="bg-card"],
+:root[data-school="conceito"] main [class*="bg-white"] {
+  background-color: var(--concept-surface);
+}
+:root[data-school="conceito"] main button[class*="bg-primary"],
+:root[data-school="conceito"] main a[class*="bg-primary"] {
+  box-shadow: 0 2px 5px rgb(8 127 120 / 12%);
+}
+:root[data-school="conceito"] input,
+:root[data-school="conceito"] textarea,
+:root[data-school="conceito"] select {
+  border-radius: 10px;
+  border-color: #d2dfe3;
+}
+:root[data-school="conceito"] input:focus,
+:root[data-school="conceito"] textarea:focus,
+:root[data-school="conceito"] select:focus {
+  border-color: var(--concept-teal);
+  box-shadow: 0 0 0 3px rgb(8 127 120 / 10%);
+}
+:root[data-school="conceito"] [role="dialog"] {
+  border-color: var(--concept-line);
+  box-shadow: 0 24px 70px rgb(23 53 68 / 18%);
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] header.sticky > div {
+    gap: 0.25rem 0.75rem;
+    padding-inline: 0.75rem;
+  }
+  :root[data-school="conceito"] nav[aria-label="Navegação principal"] {
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
+  }
+  :root[data-school="conceito"] main {
+    padding-inline: 0.75rem;
+  }
+}
