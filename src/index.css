@@ -314,3 +314,71 @@
     padding-inline: 0.75rem;
   }
 }
+
+
+/* Conceito — central de atendimento: prioriza leitura da conversa e contexto da família. */
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+  min-height: calc(100vh - 184px);
+  border-radius: 16px;
+  border-color: #d8e4e8;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(23 53 68 / 5%);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child {
+  background: #fbfcfd;
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child > div:first-child {
+  padding: 16px;
+  border-color: #e2eaed;
+  background: linear-gradient(180deg, #fff, #fbfdfe);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child h2 {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child input {
+  min-height: 40px;
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child button[class*="border-b"] {
+  border-bottom-color: #e8eef0;
+  padding-block: 14px;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child button[class*="bg-primary\/10"] {
+  background: #e8f6f3;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main {
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main > div > div:first-child {
+  border-color: #e5edef;
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child {
+  background: #f7fafb;
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child section {
+  border-color: #e0e9ec;
+  box-shadow: 0 2px 5px rgb(23 53 68 / 2%);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child [class*="bg-primary\/5"] {
+  background: #eaf7f4;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child [class*="border-primary\/20"] {
+  border-color: #b8e2d9;
+}
+@media (min-width: 1280px) {
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+    grid-template-columns: minmax(300px, 340px) minmax(420px, 1fr) minmax(290px, 320px);
+  }
+}
+@media (max-width: 1023px) {
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+    min-height: auto;
+  }
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main {
+    min-height: 520px;
+  }
+}
