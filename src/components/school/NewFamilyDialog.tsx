@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,9 @@ const grades = [
   "1ª série", "2ª série", "3ª série",
 ];
 
-export function NewFamilyDialog({ onCreated }: { onCreated?: () => void }) {
+type LeadPrefill = { id: string; name: string; phone: string | null; email: string | null; interesse: string | null };
+
+export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCreated?: () => void; initialLead?: LeadPrefill; triggerLabel?: string }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,16 @@ export function NewFamilyDialog({ onCreated }: { onCreated?: () => void }) {
   const [grade, setGrade] = useState("");
   const [shift, setShift] = useState("");
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+
+  useEffect(() => {
+    if (!open || !initialLead) return;
+    setGuardianName(initialLead.name || "");
+    setPhone(initialLead.phone || "");
+    setEmail(initialLead.email || "");
+    const interest = (initialLead.interesse || "").toLocaleLowerCase("pt-BR");
+    setGrade(grades.find((item) => interest.includes(item.toLocaleLowerCase("pt-BR"))) || "");
+    setShift(/tarde/i.test(interest) ? "tarde" : /manha/i.test(interest) ? "manhã" : "");
+  }, [open, initialLead]);
 
   const reset = () => {
     setGuardianName("");
