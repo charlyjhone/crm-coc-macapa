@@ -21,6 +21,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 const Pendentes = lazy(() => import("./pages/Pendentes"));
+const CRMLayoutPreview = lazy(() => import("./pages/CRMLayoutPreview"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
             <Route path="/captacao" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
+            <Route path="/preview-layout" element={<ProtectedRoute><CRMLayoutPreview /></ProtectedRoute>} />
             <Route path="/matriculas" element={<ProtectedLayout><EnrollmentPipeline /></ProtectedLayout>} />
             <Route path="/familias" element={<ProtectedLayout><Families /></ProtectedLayout>} />
             <Route path="/visitas" element={<ProtectedLayout><SchoolVisits /></ProtectedLayout>} />
