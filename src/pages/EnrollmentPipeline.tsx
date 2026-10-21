@@ -21,14 +21,14 @@ type Opportunity = {
 };
 
 const columns = [
-  { key: "novo_interessado", label: "Novos" },
-  { key: "contato_realizado", label: "Contato realizado" },
-  { key: "qualificado", label: "Qualificados" },
-  { key: "visita_agendada", label: "Visita agendada" },
-  { key: "visita_realizada", label: "Visita realizada" },
-  { key: "condicoes_apresentadas", label: "Condições" },
-  { key: "documentacao_pendente", label: "Documentação" },
-  { key: "matricula_em_conclusao", label: "Em conclusão" },
+  { key: "novo_interessado", label: "Novos", tone: "border-t-sky-500" },
+  { key: "contato_realizado", label: "Contato realizado", tone: "border-t-cyan-600" },
+  { key: "qualificado", label: "Qualificados", tone: "border-t-teal-600" },
+  { key: "visita_agendada", label: "Visita agendada", tone: "border-t-blue-600" },
+  { key: "visita_realizada", label: "Visita realizada", tone: "border-t-indigo-500" },
+  { key: "condicoes_apresentadas", label: "Condições", tone: "border-t-violet-500" },
+  { key: "documentacao_pendente", label: "Documentação", tone: "border-t-amber-500" },
+  { key: "matricula_em_conclusao", label: "Em conclusão", tone: "border-t-emerald-600" },
 ] as const;
 
 const probabilityStyle = (score: number) => {
@@ -83,12 +83,15 @@ const EnrollmentPipeline = () => {
         )}
 
         <div className="overflow-x-auto pb-4">
-          <div className="grid min-w-[1200px] grid-cols-8 gap-3 2xl:min-w-0">
-            {columns.map((column) => (
-              <section key={column.key} className="min-w-0 rounded-xl border border-border/80 bg-muted/50 p-2.5">
+          <div className="grid min-w-[1600px] grid-cols-8 gap-3 2xl:min-w-0">
+            {columns.map((column, index) => (
+              <section key={column.key} aria-label={`Etapa ${column.label}`} className={`min-w-0 rounded-xl border border-t-[3px] border-border/80 bg-white p-2.5 shadow-[0_2px_8px_rgba(23,53,68,0.025)] ${column.tone}`}>
                 <div className="mb-3 flex min-h-10 items-center justify-between gap-1 px-1">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{column.label}</h2>
-                  <Badge variant="secondary">{grouped[column.key]?.length || 0}</Badge>
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[9px] font-bold tracking-[0.12em] text-muted-foreground/75">ETAPA {String(index + 1).padStart(2, "0")}</p>
+                    <h2 className="text-[11px] font-bold uppercase leading-tight tracking-wide text-slate-700">{column.label}</h2>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0 rounded-full px-2.5 font-bold tabular-nums">{grouped[column.key]?.length || 0}</Badge>
                 </div>
                 <div className="space-y-2">
                   {(grouped[column.key] || []).map((opportunity: Opportunity) => (
@@ -135,8 +138,10 @@ const EnrollmentPipeline = () => {
                     </Card>
                   ))}
                   {!grouped[column.key]?.length && (
-                    <div className="rounded-lg border border-dashed bg-background/60 p-5 text-center text-xs text-muted-foreground">
-                      Nenhuma oportunidade
+                    <div className="flex min-h-[104px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-2 py-4 text-center">
+                      <span className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm"><GraduationCap className="h-3.5 w-3.5" /></span>
+                      <span className="text-[11px] font-medium text-slate-500">Nenhuma oportunidade</span>
+                      <span className="mt-1 text-[10px] leading-relaxed text-slate-400">Os alunos desta etapa aparecerão aqui</span>
                     </div>
                   )}
                 </div>
