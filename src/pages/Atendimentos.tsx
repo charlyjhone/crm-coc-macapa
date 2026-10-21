@@ -24,6 +24,7 @@ const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
   { key: "em_atendimento", label: "Em atendimento" },
   { key: "em_negociacao", label: "Em negociação" },
+  { key: "interesse_matricula", label: "Interesse em matrícula" },
   { key: "nao_convertido", label: "Não convertido" },
   { key: "resolvido", label: "Resolvido" },
 ];
@@ -275,7 +276,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
-          {lead.status === "matriculado" && <option value="matriculado" disabled>Matrícula confirmada no funil</option>}
+          {lead.status === "matriculado" && <option value="matriculado" disabled>Status legado — revisar no funil escolar</option>}
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
