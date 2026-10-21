@@ -15,7 +15,7 @@ Este guia descreve a lógica de prioridade do CRM. O alerta visual é uma indica
 A partir desta alteração, a prioridade ativa é zerada quando o status comercial é:
 
 - **Em negociação:** o alerta anterior some, mas a conversa continua aberta para acompanhamento comercial.
-- **Matriculado:** não permanece na fila de alertas de atendimento.
+- **Interesse em matrícula:** indica um possível aluno, não uma matrícula concluída. Esse status, por si só, não remove alertas; a prioridade continua seguindo as regras de pendência até a secretaria atualizar o andamento.
 - **Não convertido:** o alerta some; o histórico é preservado.
 - **Resolvido:** o alerta some; o histórico é preservado.
 
@@ -24,13 +24,13 @@ O alerta também não aparece quando o atendimento está com triagem **Resolvido
 ## O que fazer na prática
 
 1. Abra a conversa e trate a necessidade.
-2. Atualize o status para refletir o andamento real: **Em negociação**, **Matriculado**, **Não convertido** ou **Resolvido**, conforme o caso.
+2. Atualize o status para refletir o andamento real: **Em negociação**, **Interesse em matrícula**, **Não convertido** ou **Resolvido**, conforme o caso.
 3. Se a conversa ainda exige ação da secretaria, não marque **Resolvido** apenas para esconder o alerta; use o status que representa o andamento real.
 4. A mudança de status remove a prioridade visual ativa, não exclui a mensagem nem o histórico.
 
 ## Observação importante
 
-A regra atual usa o status comercial como referência. Enquanto o contato estiver em **Em negociação** ou **Matriculado**, a prioridade antiga não será exibida. Se uma nova mensagem chegar depois, a equipe deve revisar o status do contato para que a fila represente corretamente o novo atendimento.
+A regra atual usa o status comercial como referência. Enquanto o contato estiver em **Em negociação**, **Não convertido** ou **Resolvido**, a prioridade antiga não será exibida. **Interesse em matrícula** não é tratado como matrícula concluída. Se uma nova mensagem chegar depois, a equipe deve revisar o status do contato para que a fila represente corretamente o novo atendimento.
 
 ## Atualização da lista
 
