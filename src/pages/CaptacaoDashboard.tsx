@@ -164,14 +164,14 @@ const CaptacaoDashboard = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-card px-5 py-4 md:px-8">
+      <header className="border-b bg-card px-4 py-3 md:px-7">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm font-medium text-primary">
               <School className="h-4 w-4" />
               {schoolName}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">Captação e matrículas</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-[28px]">Captação e matrículas</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Visão executiva das oportunidades, próximas ações e vagas da escola.
             </p>
@@ -183,8 +183,8 @@ const CaptacaoDashboard = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6">
-        <section className="space-y-3">
+      <main className="mx-auto max-w-[1600px] space-y-4 p-3 md:p-5">
+        <section className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Atendimentos da escola</h2>
@@ -195,7 +195,7 @@ const CaptacaoDashboard = () => {
           {attendanceError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Não foi possível atualizar os atendimentos. Tente recarregar a página.</p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <MetricCard title="Contatos ativos" value={attendance?.total ?? "—"} note="histórico de atendimento" icon={Users} to="/atendimentos?status=todos" />
               <MetricCard title="Aguardando secretaria" value={attendance?.waiting ?? "—"} note="precisam de atendimento humano" icon={InboxIcon} attention={!!attendance?.waiting} to="/atendimentos?status=aguardando_secretaria" />
               <MetricCard title={`Respondidos por ${agentName}`} value={attendance?.replied ?? "—"} note="triagem automática" icon={CheckCircle2} to="/atendimentos?status=respondido_agente" />
@@ -209,11 +209,11 @@ const CaptacaoDashboard = () => {
             <h2 className="text-lg font-semibold text-slate-900">Funil dos contatos</h2>
             <p className="text-sm text-muted-foreground">Andamento das conversas. Selecione uma etapa para abrir os contatos e atualizar o status.</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {contactStages.map(([key, label]) => (
-              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-xl border border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
-                <p className="text-2xl font-bold text-slate-900">{contactCounts?.[key] ?? "—"}</p>
-                <p className="mt-2 text-sm font-medium">{label}</p>
+              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-xl border border-border/80 bg-card p-3 transition-all hover:border-primary/50 hover:shadow-sm">
+                <p className="text-xl font-bold tabular-nums text-slate-900">{contactCounts?.[key] ?? "—"}</p>
+                <p className="mt-1.5 text-sm font-medium">{label}</p>
               </Link>
             ))}
           </div>
@@ -232,7 +232,7 @@ const CaptacaoDashboard = () => {
           </div>
         )}
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <p className="col-span-full text-sm text-muted-foreground">Os indicadores abaixo usam oportunidades de matrícula vinculadas a alunos cadastrados. Conversas sem aluno e oportunidade permanecem apenas no funil de contatos.</p>
           <MetricCard title="Confirmadas" value={metrics.confirmed} note="matrículas concluídas" icon={CheckCircle2} />
           <MetricCard title="Previsão" value={formatNumber(metrics.forecast)} note="matrículas ponderadas" icon={TrendingUp} />
@@ -247,7 +247,7 @@ const CaptacaoDashboard = () => {
           />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+        <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
