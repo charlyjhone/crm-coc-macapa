@@ -382,3 +382,53 @@
     min-height: 520px;
   }
 }
+
+
+/* Conceito — acabamento dos painéis executivos e de inteligência de captação. */
+:root[data-school="conceito"] main > header,
+:root[data-school="conceito"] main > div > header {
+  background: linear-gradient(110deg, #ffffff 0%, #f5fbfa 100%);
+}
+:root[data-school="conceito"] main .recharts-cartesian-grid-horizontal line {
+  stroke: #e8eff1;
+}
+:root[data-school="conceito"] main .recharts-text {
+  fill: #657b86;
+  font-size: 11px;
+}
+:root[data-school="conceito"] main .recharts-tooltip-wrapper {
+  outline: none;
+}
+:root[data-school="conceito"] main [class*="shadow-sm"][class*="border"] {
+  box-shadow: 0 3px 12px rgb(23 53 68 / 4%);
+}
+:root[data-school="conceito"] main [class*="rounded-xl"][class*="border"] {
+  border-radius: 14px;
+}
+:root[data-school="conceito"] main [class*="rounded-2xl"][class*="border"] {
+  border-radius: 16px;
+}
+:root[data-school="conceito"] main [class*="text-3xl"][class*="font-bold"],
+:root[data-school="conceito"] main [class*="text-2xl"][class*="font-bold"] {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+:root[data-school="conceito"] main button[class*="bg-emerald-700"] {
+  background: #087f78;
+}
+:root[data-school="conceito"] main button[class*="bg-emerald-700"]:hover {
+  background: #08665f;
+}
+:root[data-school="conceito"] main [class*="border-dashed"] {
+  border-color: #d5e4e8;
+  background-color: #f7fafb;
+}
+@media (max-width: 640px) {
+  :root[data-school="conceito"] main > header {
+    padding-inline: 1rem;
+  }
+  :root[data-school="conceito"] main > header h1 {
+    font-size: 1.55rem;
+    line-height: 1.2;
+  }
+}
