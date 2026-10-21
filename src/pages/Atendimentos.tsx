@@ -418,6 +418,48 @@ function Conversation({ lead }: { lead: Atendimento }) {
   );
 }
 
+
+function DemoConversation({ onClose }: { onClose: () => void }) {
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState([
+    { id: 1, from: "family", time: "09:14", text: "Bom dia! Gostaria de saber sobre matrícula para o 6º ano." },
+    { id: 2, from: "school", time: "09:15", text: "Bom dia! Seja bem-vinda ao Colégio Conceito Bilíngue. Posso ajudar com as informações iniciais." },
+    { id: 3, from: "family", time: "09:16", text: "Quais são os turnos disponíveis?" },
+  ]);
+  const sendDemoMessage = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setMessages((current) => [...current, { id: Date.now(), from: "school", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), text }]);
+    setDraft("");
+  };
+  return (
+    <div className="flex min-h-[500px] h-full min-w-0 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-card p-4">
+        <div><div className="flex items-center gap-2"><h2 className="font-semibold">Mariana Oliveira</h2><span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">DEMONSTRAÇÃO</span></div><p className="text-xs text-muted-foreground">(96) 99999-0101 · Exemplo fictício</p></div>
+        <Button size="sm" variant="outline" onClick={onClose}>Fechar demonstração</Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-3">
+        <span className="text-xs font-medium text-muted-foreground">Andamento</span><span className="rounded-full border px-2.5 py-1 text-xs">Novo</span>
+        <span className="ml-auto text-xs text-muted-foreground">Matrícula · 6º ano</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
+        <div className="mx-auto rounded-full bg-white px-3 py-1 text-[10px] text-slate-500 shadow-sm">Hoje · conversa fictícia</div>
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.from === "school" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm ${message.from === "school" ? "rounded-br-sm bg-emerald-100 text-slate-800" : "rounded-bl-sm border bg-white text-slate-800"}`}>
+              <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p><p className="mt-1 text-right text-[10px] text-slate-500">{message.time} · {message.from === "school" ? "Secretaria (simulado)" : "Família (simulado)"}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form className="border-t bg-card p-3" onSubmit={(event) => { event.preventDefault(); sendDemoMessage(); }}>
+        <div className="flex items-end gap-2"><textarea aria-label="Mensagem de demonstração" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Digite uma resposta de teste (não será enviada ao WhatsApp)..." rows={2} className="min-h-11 flex-1 resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" /><Button type="submit" disabled={!draft.trim()}><Send className="mr-2 h-4 w-4" />Simular envio</Button></div>
+        <p className="mt-2 text-[10px] text-muted-foreground">Modo demonstração: as mensagens ficam somente nesta tela e não são gravadas nem enviadas.</p>
+      </form>
+    </div>
+  );
+}
+
 export default function Atendimentos() {
   const { agentName } = useSchoolIdentity();
   const { data, isLoading, isError } = useAtendimentos();
@@ -428,6 +470,7 @@ export default function Atendimentos() {
   const isValidRequestedFilter = filters.some((item) => item.key === requestedFilter);
   const filter: Filter = isValidRequestedFilter ? requestedFilter as Filter : "aguardando_secretaria";
   const [search, setSearch] = useState("");
+  const [demoMode, setDemoMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("lead"));
   const counts = useMemo(() => ({
     urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
@@ -500,6 +543,7 @@ export default function Atendimentos() {
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
                 <p className="text-sm font-semibold">Nenhuma conversa ainda</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Os novos contatos aparecerão automaticamente nesta lista.</p>
+                <Button size="sm" variant="outline" className="mt-4" onClick={() => setDemoMode(true)}>Ver conversa demonstrativa</Button>
               </div>
             )}
             {list.map((lead) => (
@@ -516,7 +560,7 @@ export default function Atendimentos() {
         </aside>
 
         <main className="min-w-0 bg-background/40">
-          {selected ? <Conversation key={selected.id} lead={selected} /> : (
+          {demoMode ? <DemoConversation onClose={() => setDemoMode(false)} /> : selected ? <Conversation key={selected.id} lead={selected} /> : (
             <div className="flex h-full min-h-[500px] flex-col items-center justify-center px-8 py-10 text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-primary shadow-sm"><MessageCircle className="h-8 w-8" /></div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Área de atendimento</p><h2 className="text-xl font-semibold">Sua próxima conversa começa aqui</h2>
@@ -530,7 +574,15 @@ export default function Atendimentos() {
         </main>
 
         <aside className="border-t bg-muted/20 p-4 xl:border-l xl:border-t-0">
-          {selected ? (
+          {demoMode ? (
+            <div className="space-y-4">
+              <div className="border-b pb-3"><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Perfil fictício</p><h2 className="mt-1.5 text-base font-bold">Mariana Oliveira</h2><p className="mt-1 text-xs text-muted-foreground">(96) 99999-0101 · dado inventado</p></div>
+              <section className="rounded-xl border bg-background p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Responsável</p><p className="mt-1 text-sm font-medium">Mariana Oliveira</p><p className="text-xs text-muted-foreground">Telefone fictício para teste</p></section>
+              <section className="rounded-xl border bg-background p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Aluno e matrícula</p><p className="mt-1 text-sm font-medium">6º ano · turno a confirmar</p><p className="text-xs text-muted-foreground">Interesse inicial em matrícula</p></section>
+              <section className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-primary">Próxima ação</p><p className="mt-1 text-xs">Confirmar turno de interesse e oferecer agendamento de visita.</p></section>
+              <p className="text-[10px] text-muted-foreground">Os dados acima são fictícios e não foram salvos no CRM.</p>
+            </div>
+          ) : selected ? (
             <div className="space-y-4">
               <div className="border-b pb-3">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Perfil da família</p>
