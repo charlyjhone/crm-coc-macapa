@@ -118,3 +118,40 @@
     @apply inline-block h-2 w-2 rounded-full shrink-0;
   }
 }
+
+
+/* Identidade exclusiva do build Colégio Conceito Bilíngue. */
+:root[data-school="conceito"] {
+  --primary: 171 100% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 171 45% 94%;
+  --secondary-foreground: 171 100% 24%;
+  --accent: 171 45% 94%;
+  --accent-foreground: 171 100% 24%;
+  --ring: 171 100% 30%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 205 54% 18%;
+  --sidebar-primary: 171 100% 30%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 171 45% 94%;
+  --sidebar-accent-foreground: 171 100% 24%;
+  --sidebar-border: 171 20% 88%;
+  --sidebar-ring: 171 100% 30%;
+}
+
+:root[data-school="conceito"] body {
+  background: hsl(210 25% 97%);
+}
+
+:root[data-school="conceito"] .text-emerald-700,
+:root[data-school="conceito"] .text-emerald-800 {
+  color: hsl(171 100% 27%);
+}
+
+:root[data-school="conceito"] .bg-emerald-50 {
+  background-color: hsl(171 45% 94%);
+}
+
+:root[data-school="conceito"] .hover\\:bg-emerald-50:hover {
+  background-color: hsl(171 45% 94%);
+}
