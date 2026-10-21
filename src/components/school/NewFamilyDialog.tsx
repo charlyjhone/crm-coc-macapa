@@ -77,17 +77,26 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
     }
 
     setSaving(true);
-    const { error } = await (supabase as any).rpc("create_school_enrollment", {
-      p_guardian_name: guardianName.trim(),
-      p_guardian_phone: phone.trim(),
-      p_guardian_email: email.trim(),
-      p_student_name: studentName.trim(),
-      p_academic_year: Number(academicYear),
-      p_desired_grade: grade,
-      p_desired_shift: shift || null,
-      p_whatsapp_opt_in: whatsappOptIn,
-      p_source_channel: "cadastro_manual",
-    });
+    const { error } = initialLead
+      ? await (supabase as any).rpc("register_ana_enrollment", {
+          p_lead_id: initialLead.id,
+          p_guardian_name: guardianName.trim(),
+          p_student_name: studentName.trim(),
+          p_academic_year: Number(academicYear),
+          p_desired_grade: grade,
+          p_desired_shift: shift || null,
+        })
+      : await (supabase as any).rpc("create_school_enrollment", {
+          p_guardian_name: guardianName.trim(),
+          p_guardian_phone: phone.trim(),
+          p_guardian_email: email.trim(),
+          p_student_name: studentName.trim(),
+          p_academic_year: Number(academicYear),
+          p_desired_grade: grade,
+          p_desired_shift: shift || null,
+          p_whatsapp_opt_in: whatsappOptIn,
+          p_source_channel: "cadastro_manual",
+        });
     setSaving(false);
 
     if (error) {
@@ -100,8 +109,8 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
     }
 
     toast({
-      title: "Família e oportunidade cadastradas",
-      description: studentName.trim() + " entrou no funil como novo interessado.",
+      title: initialLead ? "Contato vinculado ao funil" : "Família e oportunidade cadastradas",
+      description: studentName.trim() + (initialLead ? " foi vinculado ao contato e ao funil de matrículas." : " entrou no funil como novo interessado."),
     });
     reset();
     setOpen(false);
