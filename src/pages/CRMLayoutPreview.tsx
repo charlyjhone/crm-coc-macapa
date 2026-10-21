@@ -66,7 +66,7 @@ export default function CRMLayoutPreview() {
       </nav>
     </header>
 
-    <main className="mx-auto max-w-[1800px] space-y-5 p-4 md:p-6 lg:p-8">\n      {workspace === "captacao" ? <>
+    <main className="mx-auto max-w-[1800px] space-y-5 p-4 md:p-6 lg:p-8">
       <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-[#0f766e]"><Sparkles size={14}/> Gestão de relacionamento</div><h1 className="text-2xl font-bold tracking-tight text-[#173544] md:text-3xl">Captação de famílias</h1><p className="mt-1.5 max-w-2xl text-sm text-slate-500">Acompanhe cada família desde o primeiro contato até a matrícula, com próximos passos visíveis em cada etapa.</p></div>
         <div className="flex flex-wrap gap-2"><button onClick={() => setShowFilters(!showFilters)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium hover:border-slate-300"><SlidersHorizontal size={15}/> Filtros <ChevronDown size={14}/></button><button onClick={() => setNotice("Cadastro desativado na prévia. Nenhum dado real será criado.")} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0f766e] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#0b615b]"><Plus size={16}/> Nova família</button></div>
