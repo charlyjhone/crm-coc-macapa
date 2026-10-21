@@ -211,7 +211,7 @@ const CaptacaoDashboard = () => {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {contactStages.map(([key, label]) => (
-              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-xl border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
+              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-xl border border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
                 <p className="text-2xl font-bold text-slate-900">{contactCounts?.[key] ?? "—"}</p>
                 <p className="mt-2 text-sm font-medium">{label}</p>
               </Link>
