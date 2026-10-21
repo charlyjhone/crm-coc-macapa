@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Bot, FileText, Loader2, MessageSquare, ShieldCheck, Users } from "lucide-react";
 
 const DEFAULT_VALUES_DATE = "1º de novembro de 2026";
-const IS_CONCEITO_BUILD = import.meta.env.MODE === "conceito";
 const DEFAULT_HOURS = "7h30 às 18h";
 const SETTINGS_KEYS = [
   "escola_agente_ativo",
@@ -25,7 +24,7 @@ export default function VirtualAttendantSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [agentActive, setAgentActive] = useState(true);
-  const [agentName, setAgentName] = useState("Ana");
+  const [agentName, setAgentName] = useState("");
   const [valuesDate, setValuesDate] = useState(DEFAULT_VALUES_DATE);
   const [officeHours, setOfficeHours] = useState(DEFAULT_HOURS);
   const [surveyActive, setSurveyActive] = useState(true);
@@ -40,7 +39,7 @@ export default function VirtualAttendantSettingsTab() {
         const values: Record<string, string> = {};
         (data || []).forEach((row: { key: string; value: string | null }) => { values[row.key] = row.value || ""; });
         setAgentActive((values.escola_agente_ativo || "true") === "true");
-        setAgentName(values.escola_agente_nome || "Ana");
+        setAgentName(values.escola_agente_nome || "");
         setValuesDate(values.escola_valores_data_divulgacao || DEFAULT_VALUES_DATE);
         setOfficeHours(values.escola_horario_secretaria || DEFAULT_HOURS);
         setSurveyActive((values.escola_pesquisa_ativa || "true") === "true");
@@ -49,7 +48,7 @@ export default function VirtualAttendantSettingsTab() {
         if (fileError) throw fileError;
         setFolderExists(!!files?.some((file) => file.name === "folder-digital.pdf"));
       } catch (error) {
-        toast.error(IS_CONCEITO_BUILD ? "Não foi possível carregar as configurações da atendente virtual" : "Não foi possível carregar as configurações da Ana");
+        toast.error("Não foi possível carregar as configurações da atendente virtual");
         console.error("virtual_attendant_settings_load_failed", error);
       } finally {
         setLoading(false);
@@ -83,7 +82,7 @@ export default function VirtualAttendantSettingsTab() {
       toast.error("Erro ao salvar as configurações", { description: error.message });
       return;
     }
-    toast.success(IS_CONCEITO_BUILD ? `Configurações de ${name} salvas` : "Configurações da Ana salvas");
+    toast.success("Configurações da atendente virtual salvas");
   };
 
   const uploadFolder = async (file?: File) => {
@@ -105,19 +104,19 @@ export default function VirtualAttendantSettingsTab() {
     toast.success("Folder atualizado", { description: "Salve as configurações para confirmar o estado do envio." });
   };
 
-  if (loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{IS_CONCEITO_BUILD ? "Carregando configurações da atendente virtual..." : "Carregando configurações da Ana..."}</div>;
+  if (loading) return <div className="flex items-center gap-2 p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando configurações da atendente virtual...</div>;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />Atendimento automático</CardTitle>
-          <CardDescription>Controle se {(IS_CONCEITO_BUILD ? agentName : "Ana") || "a atendente virtual"} pode responder automaticamente e defina como ela se identifica.</CardDescription>
+          <CardDescription>Configure o atendimento automático e a identificação da atendente virtual.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
             <Switch id="agent-active" checked={agentActive} onCheckedChange={setAgentActive} />
-            <Label htmlFor="agent-active">{agentActive ? `${(IS_CONCEITO_BUILD ? agentName : "Ana") || "Atendente virtual"} ligada` : `${(IS_CONCEITO_BUILD ? agentName : "Ana") || "Atendente virtual"} desligada`}</Label>
+            <Label htmlFor="agent-active">{agentActive ? "Atendente virtual ligada" : "Atendente virtual desligada"}</Label>
           </div>
           <div className="space-y-2">
             <Label htmlFor="agent-name">Nome da atendente virtual</Label>
@@ -126,7 +125,7 @@ export default function VirtualAttendantSettingsTab() {
           <div className="space-y-2">
             <Label htmlFor="ana-values-date">Data de divulgação dos valores de 2027</Label>
             <Input id="ana-values-date" value={valuesDate} onChange={(e) => setValuesDate(e.target.value)} placeholder="Ex.: 1º de novembro de 2026" />
-            <p className="text-xs text-muted-foreground">Data confirmada: 1º de novembro de 2026. Se apagar a data, {(IS_CONCEITO_BUILD ? agentName : "Ana")} não deve inventar outra.</p>
+            <p className="text-xs text-muted-foreground">Data confirmada: 1º de novembro de 2026. Se apagar a data, a atendente não deve inventar outra.</p>
           </div>
         </CardContent>
       </Card>
@@ -148,12 +147,12 @@ export default function VirtualAttendantSettingsTab() {
               <li>Segunda a sexta-feira, das 8h às 18h (horário de Macapá).</li>
               <li>Duração de cada visita: 30 minutos.</li>
               <li>Antecedência mínima: 60 minutos.</li>
-              <li>{IS_CONCEITO_BUILD ? agentName : "Ana"} consulta a agenda antes de oferecer horários e revalida a disponibilidade antes de reservar.</li>
+              <li>A atendente virtual consulta a agenda antes de oferecer horários e revalida a disponibilidade antes de reservar.</li>
               <li>Depois de salvar, a visita aparece no CRM como agendada; a equipe registra quando ela for realizada.</li>
             </ul>
           </div>
           <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-            O telefone de contato não é duplicado aqui: {IS_CONCEITO_BUILD ? agentName : "Ana"} deve usar o mesmo número da integração WhatsApp já configurada no CRM.
+            O telefone de contato não é duplicado aqui: a atendente virtual deve usar o mesmo número da integração WhatsApp já configurada no CRM.
           </div>
         </CardContent>
       </Card>
@@ -182,7 +181,7 @@ export default function VirtualAttendantSettingsTab() {
           <p className="text-xs text-muted-foreground">{folderExists ? "PDF carregado na escola" : "Nenhum PDF carregado"} · Limite de 18 MB.</p>
           <div className="flex items-center gap-3">
             <Switch id="ana-folder-active" checked={folderActive} onCheckedChange={setFolderActive} disabled={!folderExists} />
-            <Label htmlFor="ana-folder-active">Permitir que {IS_CONCEITO_BUILD ? agentName : "Ana"} envie o folder</Label>
+            <Label htmlFor="ana-folder-active">Permitir que a atendente virtual envie o folder</Label>
           </div>
         </CardContent>
       </Card>
@@ -194,14 +193,14 @@ export default function VirtualAttendantSettingsTab() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p><strong>Imagens, PDFs e documentos:</strong> encaminhar à secretaria para conferência manual; não enviar o conteúdo a OpenAI, Gemini, Lovable ou outros serviços de IA.</p>
-          <p><strong>Secretaria:</strong> solicitações que {(IS_CONCEITO_BUILD ? agentName : "Ana") || "a atendente virtual"} não consegue resolver devem ser encaminhadas à equipe. Quando um atendente assumir a conversa, a atendente virtual deve parar de responder automaticamente.</p>
+          <p><strong>Secretaria:</strong> solicitações que a atendente virtual não consegue resolver devem ser encaminhadas à equipe. Quando um atendente assumir a conversa, a atendente virtual deve parar de responder automaticamente.</p>
           <p className="text-xs text-muted-foreground">A regra de privacidade só estará efetiva em produção depois que a alteração correspondente no backend for revisada, incorporada e publicada.</p>
         </CardContent>
       </Card>
 
       <div className="flex justify-end">
         <Button onClick={() => void save()} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar configurações de {(IS_CONCEITO_BUILD ? agentName : "Ana") || "atendimento virtual"}
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar configurações
         </Button>
       </div>
     </div>
