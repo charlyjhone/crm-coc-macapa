@@ -120,9 +120,9 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-emerald-700 text-white hover:bg-emerald-800">
+        <Button className="gap-2 bg-emerald-700 text-white hover:bg-emerald-800" onClick={() => { if (!initialLead) reset(); }}>
           <Plus className="h-4 w-4" />
-          Nova família
+          {triggerLabel || "Nova família"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -130,10 +130,10 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-950">
               <UserPlus className="h-5 w-5 text-emerald-700" />
-              Cadastrar família e interesse
+              {initialLead ? "Vincular contato ao funil" : "Cadastrar família e interesse"}
             </DialogTitle>
             <DialogDescription className="text-slate-600">
-              O cadastro cria o responsável, o aluno e a oportunidade de matrícula em uma única operação.
+              {initialLead ? "Os dados conhecidos do contato já vêm preenchidos. Confira as informações e complete o que falta antes de salvar." : "O cadastro cria o responsável, o aluno e a oportunidade de matrícula em uma única operação."}
             </DialogDescription>
           </DialogHeader>
 
@@ -196,7 +196,7 @@ export function NewFamilyDialog({ onCreated, initialLead, triggerLabel }: { onCr
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={saving} className="bg-emerald-700 text-white hover:bg-emerald-800">
-              {saving ? "Salvando..." : "Cadastrar e incluir no funil"}
+              {saving ? "Salvando..." : initialLead ? "Vincular e incluir no funil" : "Cadastrar e incluir no funil"}
             </Button>
           </DialogFooter>
         </form>
