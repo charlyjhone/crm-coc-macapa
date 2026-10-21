@@ -521,9 +521,12 @@ export default function Atendimentos() {
       <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_330px]">
         <aside className="flex min-h-[460px] flex-col border-b lg:border-b-0 lg:border-r">
           <div className="border-b p-3">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-sm font-bold">Conversas</h2>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{list.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{list.length}</span>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setDemoMode((current) => !current)}>{demoMode ? "Fechar demo" : "Ver demo"}</Button>
+              </div>
             </div>
             <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone..." value={search} onChange={(event) => setSearch(event.target.value)} />
             <div className="mt-3 grid grid-cols-2 gap-2">
