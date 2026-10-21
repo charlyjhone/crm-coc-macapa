@@ -484,9 +484,9 @@ export default function Atendimentos() {
             <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone..." value={search} onChange={(event) => setSearch(event.target.value)} />
             <div className="mt-3 grid grid-cols-2 gap-2">
               {filters.map((item) => (
-                <Button key={item.key} size="sm" className="h-9 min-w-0 justify-between gap-2 px-2.5 text-xs" variant={!stageFilter && filter === item.key ? "default" : "outline"}
+                <Button key={item.key} size="sm" className="h-auto min-h-9 min-w-0 justify-start gap-2 whitespace-normal px-2.5 py-2 text-left text-xs leading-tight" variant={!stageFilter && filter === item.key ? "default" : "outline"}
                   onClick={() => { setSearchParams({ status: item.key }); setSelectedId(null); }}>
-                  <span className="min-w-0 truncate text-left">{item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label}</span>
+                  <span className="min-w-0 flex-1 text-left">{item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label}</span>
                   <span className="ml-1 shrink-0 opacity-75">{counts[item.key]}</span>
                 </Button>
               ))}
@@ -519,8 +519,8 @@ export default function Atendimentos() {
           {selected ? <Conversation key={selected.id} lead={selected} /> : (
             <div className="flex h-full min-h-[500px] flex-col items-center justify-center px-8 py-10 text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-primary shadow-sm"><MessageCircle className="h-8 w-8" /></div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Área de atendimento</p><h2 className="text-lg font-semibold">Tudo pronto para atender</h2>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Escolha uma conversa na lista à esquerda. O histórico, a resposta e os dados da família ficarão reunidos nesta mesma tela, sem precisar alternar entre páginas.</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Área de atendimento</p><h2 className="text-xl font-semibold">Sua próxima conversa começa aqui</h2>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Selecione uma conversa à esquerda para abrir o histórico, responder à família e consultar os dados do contato no painel ao lado. Tudo fica reunido nesta tela.</p>
               <div className="mt-6 grid w-full max-w-lg grid-cols-2 gap-3 text-left">
                 <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Aguardando secretaria</p><p className="mt-1 text-2xl font-semibold">{counts.aguardando_secretaria}</p><p className="mt-1 text-xs text-muted-foreground">Precisam de resposta humana</p></div>
                 <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Respondidos por {agentName}</p><p className="mt-1 text-2xl font-semibold">{counts.respondido_agente}</p><p className="mt-1 text-xs text-muted-foreground">Triagem automática concluída</p></div>
