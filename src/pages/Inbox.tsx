@@ -165,7 +165,8 @@ const STATUS_LABELS: Record<string, string> = {
   novo: "Novo",
   em_atendimento: "Em Atendimento",
   em_negociacao: "Em Negociação",
-  matriculado: "Matriculado",
+  interesse_matricula: "Interesse em matrícula",
+  matriculado: "Status legado — revisar",
   resolvido: "Resolvido",
   nao_convertido: "Não Convertido",
 };
@@ -174,6 +175,7 @@ const STATUS_COLORS: Record<string, string> = {
   novo: "bg-muted text-muted-foreground",
   em_atendimento: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   em_negociacao: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  interesse_matricula: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200",
   matriculado: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   resolvido: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   nao_convertido: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
@@ -221,7 +223,7 @@ const Inbox = () => {
       const { data, error } = await supabase
         .from("leads")
         .select("id")
-        .in("status", ["novo", "em_atendimento", "em_negociacao", "matriculado"]);
+        .in("status", ["novo", "em_atendimento", "em_negociacao", "interesse_matricula", "matriculado"]);
       if (error) {
         console.error("Erro carregando leads ativos:", error);
         setActiveLeadIds([]);
