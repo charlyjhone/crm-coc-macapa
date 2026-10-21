@@ -490,3 +490,109 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* Conceito — camada final de layout para páginas administrativas e de conta. */
+:root[data-school="conceito"] body {
+  background: #f4f7f9;
+}
+:root[data-school="conceito"] main > div.min-h-screen > header,
+:root[data-school="conceito"] main > header {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-school="conceito"] main > div.min-h-screen > header::after,
+:root[data-school="conceito"] main > header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, #087f78 0%, #51b6a6 42%, #f0a35b 100%);
+  opacity: .7;
+  pointer-events: none;
+}
+:root[data-school="conceito"] main form label {
+  color: #435e6a;
+  font-weight: 600;
+}
+:root[data-school="conceito"] main [role="tablist"] {
+  padding: 4px;
+  border: 1px solid #e0e9ec;
+  border-radius: 12px;
+  background: #f4f8f9;
+}
+:root[data-school="conceito"] main [role="tab"][data-state="active"] {
+  border-radius: 9px;
+  background: #fff;
+  color: #08665f;
+  box-shadow: 0 1px 3px rgb(23 53 68 / 10%);
+}
+:root[data-school="conceito"] main [role="alert"] {
+  border-radius: 12px;
+}
+:root[data-school="conceito"] main button:not(:disabled),
+:root[data-school="conceito"] main a {
+  -webkit-tap-highlight-color: transparent;
+}
+:root[data-school="conceito"] main button:focus-visible,
+:root[data-school="conceito"] main a:focus-visible,
+:root[data-school="conceito"] nav a:focus-visible,
+:root[data-school="conceito"] nav button:focus-visible {
+  outline: 3px solid rgb(8 127 120 / 35%);
+  outline-offset: 2px;
+}
+:root[data-school="conceito"] main hr {
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] main [class*="text-muted-foreground"] {
+  color: #637985;
+}
+:root[data-school="conceito"] main [class*="bg-muted"] {
+  background-color: #f4f7f9;
+}
+:root[data-school="conceito"] main [class*="bg-background"] {
+  background-color: #fff;
+}
+:root[data-school="conceito"] [role="dialog"] {
+  max-width: min(calc(100vw - 24px), 720px);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-school="conceito"] *,
+  :root[data-school="conceito"] *::before,
+  :root[data-school="conceito"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main > div.min-h-screen > header,
+  :root[data-school="conceito"] main > header {
+    padding-top: 1.1rem;
+    padding-bottom: 1.1rem;
+  }
+  :root[data-school="conceito"] main section {
+    min-width: 0;
+  }
+  :root[data-school="conceito"] main [class*="grid-cols-3"],
+  :root[data-school="conceito"] main [class*="grid-cols-4"],
+  :root[data-school="conceito"] main [class*="grid-cols-5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :root[data-school="conceito"] main table {
+    font-size: 12px;
+  }
+  :root[data-school="conceito"] [role="dialog"] {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 420px) {
+  :root[data-school="conceito"] main [class*="grid-cols-2"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root[data-school="conceito"] main h1 {
+    overflow-wrap: anywhere;
+  }
+}
