@@ -596,3 +596,57 @@
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Conceito — pendências e configurações administrativas. */
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen {
+  min-height: calc(100dvh - 68px);
+  height: auto;
+  background: #f4f7f9;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > header {
+  height: auto;
+  min-height: 60px;
+  padding: 14px 20px;
+  background: #fff;
+  border-color: #dfe8eb;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex.items-center.gap-2.px-4 {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fff;
+  border-color: #e3ebee;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex-1 > button,
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex-1 > a {
+  border-color: #e4ecef;
+  background: #fff;
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl {
+  max-width: 1120px;
+  padding-top: 28px;
+  padding-bottom: 40px;
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl > div.mb-8 {
+  padding: 22px 24px;
+  border: 1px solid #dfe8eb;
+  border-radius: 16px;
+  background: linear-gradient(110deg, #fff, #f5fbfa);
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl [role="tabpanel"] {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  :root[data-school="conceito"] main > div.mx-auto.max-w-5xl {
+    padding: 16px 12px 28px;
+  }
+  :root[data-school="conceito"] main > div.mx-auto.max-w-5xl > div.mb-8 {
+    gap: 10px;
+    padding: 16px;
+  }
+  :root[data-school="conceito"] main > div.flex.flex-col.h-screen > header,
+  :root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex.items-center.gap-2.px-4 {
+    padding-inline: 12px;
+  }
+}
