@@ -8,7 +8,8 @@ const statusLabels: Record<string, string> = {
   novo: "Novo",
   em_atendimento: "Em Atendimento",
   em_negociacao: "Em Negociação",
-  matriculado: "Matriculado",
+  interesse_matricula: "Interesse em matrícula",
+  matriculado: "Status legado — revisar",
   resolvido: "Resolvido",
   nao_convertido: "Não Convertido",
 };
