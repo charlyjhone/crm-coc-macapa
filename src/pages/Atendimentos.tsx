@@ -474,7 +474,7 @@ export default function Atendimentos() {
         </div>
       )}
 
-      <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_280px]">
+      <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_320px]">
         <aside className="flex min-h-[460px] flex-col border-b lg:border-b-0 lg:border-r">
           <div className="border-b p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -482,11 +482,11 @@ export default function Atendimentos() {
               <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{list.length}</span>
             </div>
             <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            <div className="mt-3 grid grid-cols-2 gap-1.5">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               {filters.map((item) => (
-                <Button key={item.key} size="sm" className="h-8 justify-between px-2 text-[11px]" variant={!stageFilter && filter === item.key ? "default" : "outline"}
+                <Button key={item.key} size="sm" className="h-9 min-w-0 justify-between gap-2 px-2.5 text-xs" variant={!stageFilter && filter === item.key ? "default" : "outline"}
                   onClick={() => { setSearchParams({ status: item.key }); setSelectedId(null); }}>
-                  <span className="truncate">{item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label}</span>
+                  <span className="min-w-0 truncate text-left">{item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label}</span>
                   <span className="ml-1 shrink-0 opacity-75">{counts[item.key]}</span>
                 </Button>
               ))}
@@ -517,19 +517,19 @@ export default function Atendimentos() {
 
         <main className="min-w-0 bg-background/40">
           {selected ? <Conversation key={selected.id} lead={selected} /> : (
-            <div className="flex h-full min-h-[500px] flex-col items-center justify-center px-6 py-10 text-center">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border bg-card text-primary shadow-sm"><MessageCircle className="h-7 w-7" /></div>
-              <h2 className="text-base font-semibold">Central de conversas</h2>
-              <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Selecione uma família à esquerda para acompanhar o histórico e responder sem sair desta tela.</p>
-              <div className="mt-5 grid w-full max-w-sm grid-cols-2 gap-2 text-left">
-                <div className="rounded-lg border bg-card p-3"><p className="text-[11px] text-muted-foreground">Aguardando secretaria</p><p className="mt-1 text-xl font-semibold">{counts.aguardando_secretaria}</p></div>
-                <div className="rounded-lg border bg-card p-3"><p className="text-[11px] text-muted-foreground">Respondidos por {agentName}</p><p className="mt-1 text-xl font-semibold">{counts.respondido_agente}</p></div>
+            <div className="flex h-full min-h-[500px] flex-col items-center justify-center px-8 py-10 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-primary shadow-sm"><MessageCircle className="h-8 w-8" /></div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Área de atendimento</p><h2 className="text-lg font-semibold">Tudo pronto para atender</h2>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Escolha uma conversa na lista à esquerda. O histórico, a resposta e os dados da família ficarão reunidos nesta mesma tela, sem precisar alternar entre páginas.</p>
+              <div className="mt-6 grid w-full max-w-lg grid-cols-2 gap-3 text-left">
+                <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Aguardando secretaria</p><p className="mt-1 text-2xl font-semibold">{counts.aguardando_secretaria}</p><p className="mt-1 text-xs text-muted-foreground">Precisam de resposta humana</p></div>
+                <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Respondidos por {agentName}</p><p className="mt-1 text-2xl font-semibold">{counts.respondido_agente}</p><p className="mt-1 text-xs text-muted-foreground">Triagem automática concluída</p></div>
               </div>
             </div>
           )}
         </main>
 
-        <aside className="border-t bg-muted/20 p-3 xl:border-l xl:border-t-0">
+        <aside className="border-t bg-muted/20 p-4 xl:border-l xl:border-t-0">
           {selected ? (
             <div className="space-y-4">
               <div className="border-b pb-3">
@@ -545,8 +545,8 @@ export default function Atendimentos() {
                 <div><p className="text-[11px] text-muted-foreground">Origem do contato</p><p className="mt-0.5 text-sm font-medium">{selected.source || "Não informada"}</p></div>
                 <div><p className="text-[11px] text-muted-foreground">Etapa do contato</p><p className="mt-0.5 text-sm font-medium">{stages.find((item) => item.key === selected.status)?.label || "Novo"}</p></div>
               </div>
-              <div className="rounded-lg border bg-card p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Resumo do atendimento</p><p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed">{selected.triage_summary || selected.last_inbound_message || "O resumo aparecerá quando houver mensagens."}</p></div>
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold">Próximo passo sugerido</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{selected.triage_status === "aguardando_secretaria" ? "Responder à família e atualizar o andamento." : selected.triage_status === "resolvido" ? "Atendimento concluído; consultar o histórico se houver novo contato." : selected.assunto === "matricula" ? "Confirmar série e turno de interesse e orientar o próximo passo." : "Conferir a solicitação e encaminhar ao setor responsável, se necessário."}</p></div>
+              <div className="rounded-xl border bg-card p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Resumo do atendimento</p><p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed">{selected.triage_summary || selected.last_inbound_message || "O resumo aparecerá quando houver mensagens."}</p></div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold">Próxima ação sugerida</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{selected.triage_status === "aguardando_secretaria" ? "Responder à família e atualizar o andamento." : selected.triage_status === "resolvido" ? "Atendimento concluído; consultar o histórico se houver novo contato." : selected.assunto === "matricula" ? "Confirmar série e turno de interesse e orientar o próximo passo." : "Conferir a solicitação e encaminhar ao setor responsável, se necessário."}</p></div>
             </div>
           ) : (
             <div className="flex h-full min-h-[300px] flex-col justify-center">
