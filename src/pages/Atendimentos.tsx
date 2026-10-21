@@ -451,9 +451,9 @@ export default function Atendimentos() {
     || (isValidRequestedFilter || stageFilter ? list[0] ?? null : null);
 
   return (
-    <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
-      <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. O vermelho indica uma demanda escolar urgente; o amarelo, atenção por espera; o azul, contato novo.</p>
+    <div className="mx-auto max-w-[1600px] space-y-4 px-4 py-5 md:px-7">
+      <div className="rounded-xl border border-border/80 bg-card px-5 py-4"><p className="text-sm font-medium text-primary">Central de atendimento</p><h1 className="mt-1 text-2xl font-bold tracking-tight">Atendimentos da escola</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. O vermelho indica uma demanda escolar urgente; o amarelo, atenção por espera; o azul, contato novo.</p></div>
       {stageFilter && <p className="mt-2 text-sm text-slate-600">Andamento: {stages.find((item) => item.key === stageFilter)?.label}. <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Mostrar todos</button></p>}
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((item) => (
@@ -463,7 +463,7 @@ export default function Atendimentos() {
           </Button>
         ))}
       </div>
-      <div className="mt-4 grid overflow-hidden rounded-xl border bg-white md:grid-cols-[minmax(280px,360px)_1fr]">
+      <div className="mt-4 grid overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm md:grid-cols-[minmax(280px,360px)_1fr]">
         <div className="border-b md:border-b-0 md:border-r">
           <div className="border-b p-3">
             <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone ou e-mail"
