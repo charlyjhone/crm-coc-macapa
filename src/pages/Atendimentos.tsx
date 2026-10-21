@@ -8,6 +8,7 @@ import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Tras
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
 
 type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
 const filters: { key: Filter; label: string }[] = [
@@ -599,6 +600,7 @@ export default function Atendimentos() {
               </div>
               <div className="rounded-xl border bg-card p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Resumo do atendimento</p><p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed">{selected.triage_summary || selected.last_inbound_message || "O resumo aparecerá quando houver mensagens."}</p></div>
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold">Próxima ação sugerida</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{selected.triage_status === "aguardando_secretaria" ? "Responder à família e atualizar o andamento." : selected.triage_status === "resolvido" ? "Atendimento concluído; consultar o histórico se houver novo contato." : selected.assunto === "matricula" ? "Confirmar série e turno de interesse e orientar o próximo passo." : "Conferir a solicitação e encaminhar ao setor responsável, se necessário."}</p></div>
+              {selected.phone && <div className="pt-1"><NewFamilyDialog initialLead={{ id: selected.id, name: selected.name, phone: selected.phone, email: selected.email, interesse: selected.interesse }} triggerLabel="Preparar cadastro de matrícula" /></div>}
             </div>
           ) : (
             <div className="flex h-full min-h-[300px] flex-col justify-center">
