@@ -276,7 +276,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
-          {lead.status === "matriculado" && <option value="matriculado" disabled>Matrícula confirmada no funil</option>}
+          {lead.status === "matriculado" && <option value="matriculado" disabled>Interesse em matrícula</option>}
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
