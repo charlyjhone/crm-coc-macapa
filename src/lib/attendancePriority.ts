@@ -6,11 +6,11 @@ const enrollmentDeadline = /\b(ultimo dia|prazo (?:final|termina|vence|encerra|a
 
 export function attendancePriority(lead: Atendimento, now = Date.now()) {
   // O status comercial escolhido pela secretaria prevalece sobre a prioridade antiga.
-  // Em negociação e matrícula concluída continuam sendo acompanhamentos ativos,
-  // mas não devem permanecer na fila de alertas urgentes/atenção.
+  // "Interesse em matrícula" não significa matrícula concluída.
+  // Em negociação, Não convertido e Resolvido removem o alerta ativo.
   if (
     lead.triage_status === "resolvido" ||
-    ["em_negociacao", "matriculado", "nao_convertido", "resolvido"].includes(lead.status)
+    ["em_negociacao", "nao_convertido", "resolvido"].includes(lead.status)
   ) return { level: 0, reason: "" };
   const inbound = lead.last_inbound_message_at ? Date.parse(lead.last_inbound_message_at) : NaN;
   const outbound = lead.last_outbound_message_at ? Date.parse(lead.last_outbound_message_at) : NaN;
