@@ -474,7 +474,7 @@ export default function Atendimentos() {
         </div>
       )}
 
-      <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_320px]">
+      <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_330px]">
         <aside className="flex min-h-[460px] flex-col border-b lg:border-b-0 lg:border-r">
           <div className="border-b p-3">
             <div className="mb-2 flex items-center justify-between">
