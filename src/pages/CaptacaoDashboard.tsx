@@ -43,7 +43,7 @@ const contactStages = [
   ["novo", "Novos"],
   ["em_atendimento", "Em atendimento"],
   ["em_negociacao", "Em negociação"],
-  ["matriculado", "Matrícula confirmada"],
+  ["matriculado", "Interesse em matrícula"],
   ["nao_convertido", "Não convertidos"],
   ["resolvido", "Resolvidos"],
 ] as const;
