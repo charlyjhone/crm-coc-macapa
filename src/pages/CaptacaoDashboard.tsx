@@ -163,9 +163,9 @@ const CaptacaoDashboard = () => {
     opportunities.filter((item) => item.stage === stage).length;
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b bg-background px-5 py-5 md:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-end md:justify-between">
+    <div className="min-h-screen bg-muted/30">
+      <header className="border-b bg-card px-5 py-4 md:px-8">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm font-medium text-primary">
               <School className="h-4 w-4" />
@@ -183,14 +183,14 @@ const CaptacaoDashboard = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 p-5 md:p-8">
+      <main className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6">
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Atendimentos da escola</h2>
               <p className="text-sm text-muted-foreground">Contatos recebidos por {agentName} e pela secretaria.</p>
             </div>
-            <Link to="/atendimentos" className="text-sm font-medium text-emerald-700 hover:underline">Abrir atendimentos</Link>
+            <Link to="/atendimentos" className="text-sm font-medium text-primary hover:underline">Abrir atendimentos</Link>
           </div>
           {attendanceError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Não foi possível atualizar os atendimentos. Tente recarregar a página.</p>
@@ -211,7 +211,7 @@ const CaptacaoDashboard = () => {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {contactStages.map(([key, label]) => (
-              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-slate-50">
+              <Link key={key} to={`/atendimentos?etapa=${key}`} className="rounded-xl border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
                 <p className="text-2xl font-bold text-slate-900">{contactCounts?.[key] ?? "—"}</p>
                 <p className="mt-2 text-sm font-medium">{label}</p>
               </Link>
