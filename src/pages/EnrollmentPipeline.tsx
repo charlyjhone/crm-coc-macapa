@@ -83,7 +83,7 @@ const EnrollmentPipeline = () => {
         )}
 
         <div className="overflow-x-auto pb-4">
-          <div className="grid min-w-[2200px] grid-cols-8 gap-4">
+          <div className="grid min-w-[1200px] grid-cols-8 gap-3 2xl:min-w-0">
             {columns.map((column) => (
               <section key={column.key} className="min-w-0 rounded-xl border border-border/80 bg-muted/50 p-2.5">
                 <div className="mb-3 flex min-h-10 items-center justify-between gap-1 px-1">
