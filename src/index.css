@@ -432,3 +432,61 @@
     line-height: 1.2;
   }
 }
+
+
+/* Conceito — listas operacionais: famílias, visitas e tarefas. */
+:root[data-school="conceito"] main > div.min-h-screen,
+:root[data-school="conceito"] main > div.mx-auto {
+  color: #173544;
+}
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-2xl"][class*="border"] {
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-xl"][class*="border"]:hover,
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-2xl"][class*="border"]:hover {
+  border-color: #c4dcd9;
+  box-shadow: 0 6px 18px rgb(23 53 68 / 6%);
+}
+:root[data-school="conceito"] main [class*="text-emerald-700"] {
+  color: #087f78;
+}
+:root[data-school="conceito"] main [class*="bg-emerald-50"] {
+  background-color: #e8f6f3;
+}
+:root[data-school="conceito"] main [class*="border-emerald-950\/10"] {
+  border-color: #dce7e9;
+}
+:root[data-school="conceito"] main table thead {
+  background: #f5f9fa;
+}
+:root[data-school="conceito"] main table th {
+  color: #526b77;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+:root[data-school="conceito"] main table tbody tr {
+  border-color: #e6edef;
+}
+:root[data-school="conceito"] main table tbody tr:hover {
+  background: #f8fbfb;
+}
+:root[data-school="conceito"] main [role="status"] {
+  color: #526b77;
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main .overflow-x-auto table {
+    min-width: 680px;
+  }
+  :root[data-school="conceito"] main [class*="grid-cols-4"],
+  :root[data-school="conceito"] main [class*="grid-cols-5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  :root[data-school="conceito"] main [class*="grid-cols-2"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
