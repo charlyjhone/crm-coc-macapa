@@ -1254,7 +1254,9 @@ serve(async (req) => {
       .filter((line) => line.startsWith("Família:"))
       .join("\n");
     const wantsReschedule = !!activeVisit && RESCHEDULE_INTENT.test(`${visitFamilyMessages}\n${text}`);
-    let visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|registrar|visita|visitar|conhecer)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b/i
+    // "Quero conhecer a escola" é pedido de informação (apresentação + folder).
+    // "Conhecer" só vira visita quando indica ida presencial (dia, horário, pessoalmente).
+    let visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|visita|visitar)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b|\bconhecer\b[\s\S]{0,40}\b(?:pessoalmente|presencialmente|ir at[eé]|passar a[ií]|amanh[ãa]|hoje|segunda|ter[çc]a|quarta|quinta|sexta|dia \d|[àa]s? \d)/i
       .test(`${visitFamilyMessages}\n${text}`);
     if (activeVisit) visitIntentInConversation = wantsReschedule;
 
