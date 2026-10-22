@@ -243,7 +243,7 @@ export default function Usuarios() {
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Administrador gerencia equipe, auditoria e configurações da Ana.</p>
+                <p className="text-xs text-muted-foreground">Administrador gerencia equipe, auditoria e configurações da atendente virtual.</p>
               </div>
               <div>
                 <Label>Nome</Label>

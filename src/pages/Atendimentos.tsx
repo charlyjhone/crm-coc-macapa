@@ -289,7 +289,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const outgoing = m.direction === "outbound";
           const rawText = m.message.trim();
           const text = outgoing
-            ? rawText.replace(/^\\*(?:\\[Atendente\\s+Ana\\]|[^*\\r\\n]*(?:Secretaria COC|Atendente Ana))\\*\\s*/i, "")
+            ? rawText.replace(/^\*(?:\[Atendente\s+[^\]\r\n]+\]|[^*\r\n]*(?:Secretaria|Atendente)[^*\r\n]*)\*\s*/i, "")
             : rawText;
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);

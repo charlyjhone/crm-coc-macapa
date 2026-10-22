@@ -34,7 +34,7 @@ const GeneralSettingsTab = () => {
           <h2 className="text-base font-semibold">Integração com WhatsApp (Z-API)</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          O número usado pela Ana é o mesmo número conectado à instância WhatsApp do CRM. Não cadastre um telefone diferente nesta tela.
+          O número usado pela atendente virtual é o mesmo número conectado à instância WhatsApp do CRM. Não cadastre um telefone diferente nesta tela.
         </p>
         <div className="space-y-2">
           <Label htmlFor="zapi-webhook">URL do webhook</Label>
