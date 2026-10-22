@@ -8,19 +8,22 @@ export function useUserRole() {
   const [products, setProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id ?? null;
+
   useEffect(() => {
     let active = true;
-    if (!user) {
+    if (!userId) {
       setIsAdmin(false);
       setProducts([]);
       setLoading(false);
       return;
     }
+    // Depende só do id: reconfirmar a sessão ao voltar à aba não recarrega a tela.
     setLoading(true);
     (async () => {
       const [{ data: roles }, { data: prods }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("user_product_access").select("produto").eq("user_id", user.id),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase.from("user_product_access").select("produto").eq("user_id", userId),
       ]);
       if (!active) return;
       const admin = (roles || []).some((r: any) => r.role === "admin");
@@ -31,7 +34,7 @@ export function useUserRole() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [userId]);
 
   return { isAdmin: !!isAdmin, products, loading };
 }
