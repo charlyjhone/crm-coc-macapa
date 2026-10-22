@@ -185,9 +185,31 @@ export function demoDirecaoData() {
 // Base mutável enquanto a página estiver aberta.
 const store = DEMO_MODE ? build() : { leads: [], messages: {}, opportunities: [] } as ReturnType<typeof build>;
 let manualEntries: { academic_year: number; day: string; count: number }[] | null = null;
+export type DemoReminder = { id: string; lead_id: string; remind_on: string; kind: string; note: string | null; done_at: string | null; created_at: string; leads: { name: string } | null };
+const dayOffset = (days: number) => todayKey(new Date(Date.now() + days * DAY));
+const nextFirstOfMonth = () => { const [y, m] = todayKey().split("-").map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`; };
+const reminders: DemoReminder[] = DEMO_MODE ? [
+  { id: "r-1", lead_id: "demo-6", remind_on: dayOffset(0), kind: "enviar_valores", note: "Mandar a tabela de valores do 5º ano", done_at: null, created_at: ago(4 * DAY), leads: { name: "Júlia Moreira" } },
+  { id: "r-2", lead_id: "demo-5", remind_on: dayOffset(-1), kind: "retornar_contato", note: "Perguntar se conversou com o marido", done_at: null, created_at: ago(3 * DAY), leads: { name: "Fernanda Castro" } },
+  { id: "r-3", lead_id: "demo-2", remind_on: nextFirstOfMonth(), kind: "enviar_valores", note: "Valores 2027 liberados no dia 1º", done_at: null, created_at: ago(HOUR), leads: { name: "Carlos Lima" } },
+] : [];
 const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const demo = {
+  async reminders(leadId?: string) {
+    await wait(120);
+    return reminders.filter((r) => !r.done_at && (!leadId || r.lead_id === leadId)).map((r) => ({ ...r }));
+  },
+  async addReminder(r: { lead_id: string; remind_on: string; kind: string; note: string | null }) {
+    await wait();
+    const lead = store.leads.find((l) => l.id === r.lead_id);
+    reminders.push({ ...r, id: `r-${Date.now()}`, done_at: null, created_at: new Date().toISOString(), leads: lead ? { name: lead.name } : null });
+  },
+  async completeReminder(id: string) {
+    await wait();
+    const r = reminders.find((item) => item.id === id);
+    if (r) r.done_at = new Date().toISOString();
+  },
   async leads() { await wait(150); return store.leads.map((l) => ({ ...l })); },
   async messages(leadId: string) { await wait(120); return [...(store.messages[leadId] || [])]; },
   async send(leadId: string, text: string) {
@@ -206,7 +228,7 @@ export const demo = {
   async setLeadStatus(leadId: string, status: Atendimento["status"]) {
     await wait();
     const l = store.leads.find((item) => item.id === leadId);
-    if (l) { l.status = status; if (l.triage_status === "resolvido" && status !== "resolvido") l.triage_status = "aguardando_secretaria"; }
+    if (l) { l.status = status; if (l.triage_status === "resolvido" && status !== "resolvido") l.triage_status = "aguardando_secretaria"; else if (l.triage_status === "aguardando_secretaria" && (status === "em_atendimento" || status === "em_negociacao")) l.triage_status = "respondido_agente"; }
   },
   async opportunities() { await wait(150); return store.opportunities.map((o) => ({ ...o, school_visits: o.school_visits.map((v) => ({ ...v })) })); },
   async moveOpportunity(id: string, stage: string) {

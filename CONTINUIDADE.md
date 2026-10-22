@@ -709,3 +709,10 @@ Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-pre
 8. Confirmar com o responsável se a campanha de matrículas começa em 1º de agosto (usado no comparativo) e se o número lançado pela secretaria inclui rematrículas.
 9. Conceito: continuam pendentes o roteiro da Ceci, segredos OpenAI/Z-API e webhook antes de ativar a atendente.
 - 22/10: cores do COC ajustadas pelo logo oficial (verde #2EA04F, verde-claro #6EC646; botões #217A39 para leitura com texto branco; destaque âmbar #F2A93B no selo de conversas e em "querem matricular").
+
+## 22/10/2026 — urgência e lembretes
+
+- **Urgência:** ao mudar o andamento para "Em atendimento" ou "Em negociação", o `useUpdateLeadStatus` passa `triage_status` de `aguardando_secretaria` para `respondido_agente` (a secretaria assumiu). Assim a família sai de "Aguardando/urgente"; uma mensagem nova volta a acionar a triagem. Se a última mensagem da família continua sem resposta, ela segue marcada (alguém precisa responder). Em 22/10 havia 9 famílias no COC com andamento em atendimento/negociação ainda em `aguardando_secretaria` (criadas antes da correção); a secretaria pode resolvê-las mudando o andamento, ou fazer um ajuste único no banco se o responsável autorizar.
+- O selo de "Conversas" na barra conta as famílias que aguardam a secretaria pela mesma regra da tela Hoje.
+- **Lembretes** (`useReminders`, `components/crm/Reminders.tsx`): botão "Criar lembrete" na ficha da conversa e na ficha do Funil (tipo: enviar valores, enviar documento, falar sobre matrícula, retornar contato, outro; data com atalhos Amanhã / Próxima segunda / Dia 1º; observação). No dia, o lembrete aparece no painel "Lembretes de hoje" da tela Hoje (com atrasados), gera aviso na abertura do CRM (uma vez por dia) e um selo no item "Hoje" da barra. "Feito" conclui.
+- Tabela `lead_reminders` em `supabase/migrations/20261022150000_lead_reminders.sql` (RLS: equipe admin/user). Testada no COC dentro de transação desfeita (ok). **Ainda não aplicada** — aguardando liberação do responsável. Sem a tabela, a ficha mostra "Lembretes ainda não ativados" e o painel não aparece. Na demonstração funciona em memória.

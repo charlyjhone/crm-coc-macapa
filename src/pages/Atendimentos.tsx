@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatSchoolDateTime } from "@/lib/schoolDateTime";
 import { timeAgo } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
+import { LeadReminders } from "@/components/crm/Reminders";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
@@ -530,6 +531,7 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
       </div>
+      <LeadReminders leadId={lead.id} leadName={lead.name} />
       {lead.phone && !DEMO_MODE && !data?.id && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
     </div>
   );

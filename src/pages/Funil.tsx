@@ -8,6 +8,7 @@ import { formatSchoolDateTime, schoolDateTimeInput } from "@/lib/schoolDateTime"
 import { OpportunityProgressDialog } from "@/components/school/OpportunityProgressDialog";
 import { Tag, btn, btnPrimary } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
+import { LeadReminders } from "@/components/crm/Reminders";
 
 type Opportunity = {
   id: string; stage: string; legacy_lead_id: string | null; desired_grade: string; desired_shift: string | null;
@@ -143,6 +144,7 @@ export default function Funil() {
               <p className="text-sm">{selected.next_action || "Ainda não definido"}</p>
               {selected.next_action_at && <p className="text-[13px] text-[#5B6675]">{formatSchoolDateTime(selected.next_action_at)}</p>}
             </div>
+            {selected.legacy_lead_id && <LeadReminders leadId={selected.legacy_lead_id} leadName={selected.guardians?.full_name || "a família"} />}
             <div className="mt-auto flex flex-col gap-2 pb-2">
               {selected.legacy_lead_id && <Link to={`/atendimentos?aba=todas&lead=${selected.legacy_lead_id}`} className={btnPrimary}>Abrir conversa</Link>}
               {DEMO_MODE ? (

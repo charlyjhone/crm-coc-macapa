@@ -11,6 +11,7 @@ import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
 import { EnrollmentComparisonCard } from "@/components/crm/EnrollmentComparison";
+import { RemindersTodayPanel } from "@/components/crm/Reminders";
 
 type TodayVisit = {
   id: string; scheduled_at: string; status: string;
@@ -101,6 +102,8 @@ export default function Hoje() {
         <Panel><p className="text-[28px] font-semibold leading-none">{visits.data?.filter((v) => activeVisit.includes(v.status)).length ?? 0}</p><p className="mt-2 text-[13px] text-[#5B6675]">Visitas hoje</p></Panel>
         <Panel><p className="text-[28px] font-semibold leading-none">{staleCount}</p><p className="mt-2 text-[13px] text-[#5B6675]">Sem retorno há 3 dias ou mais</p></Panel>
       </div>
+
+      <RemindersTodayPanel />
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <Panel title="Precisa de você" className="flex-1">

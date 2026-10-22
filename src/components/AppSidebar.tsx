@@ -1,4 +1,8 @@
-import { Link, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { attendancePriority } from "@/lib/attendancePriority";
+import { useDueReminders } from "@/hooks/useReminders";
 import {
   BarChart3, CalendarDays, ChevronDown, CircleUserRound, ClipboardList, Columns3,
   ContactRound, Home, ListChecks, LogOut, MessageCircle, Settings, Users,
@@ -15,13 +19,26 @@ import {
 // Logo da escola no topo da barra (escolhido pelo modo do build).
 const schoolLogo = import.meta.env.MODE === "conceito" ? "/brand/colegio-conceito-logo.png" : "/brand/coc-macapa-norte-logo.svg";
 
-type NavItem = { to: string; label: string; icon: typeof Home; match: string[]; badge?: number };
+type NavItem = { to: string; label: string; icon: typeof Home; match: string[]; badge?: number; badgeLabel?: string };
 
 function useNavItems() {
   const { data } = useAtendimentos();
-  const waiting = (data || []).filter((lead) => lead.triage_status === "aguardando_secretaria").length;
+  const waiting = (data || []).filter((lead) => lead.triage_status === "aguardando_secretaria" || attendancePriority(lead).level >= 1).length;
+  const { due } = useDueReminders();
+  const navigate = useNavigate();
+  // Aviso uma vez por dia quando há lembretes para hoje (ou atrasados).
+  useEffect(() => {
+    if (!due.length) return;
+    const key = `crm-lembretes-avisados-${new Date().toDateString()}`;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch { /* sem storage */ }
+    toast(`Você tem ${due.length} ${due.length === 1 ? "lembrete" : "lembretes"} para hoje`, {
+      description: due.slice(0, 2).map((r) => r.leads?.name).filter(Boolean).join(", "),
+      action: { label: "Ver", onClick: () => navigate("/hoje") },
+      duration: 10_000,
+    });
+  }, [due.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const main: NavItem[] = [
-    { to: "/hoje", label: "Hoje", icon: Home, match: ["/", "/hoje", "/captacao"] },
+    { to: "/hoje", label: "Hoje", icon: Home, match: ["/", "/hoje", "/captacao"], badge: due.length, badgeLabel: "lembretes para hoje" },
     { to: "/atendimentos", label: "Conversas", icon: MessageCircle, match: ["/atendimentos", "/pendentes"], badge: waiting },
     { to: "/funil", label: "Funil", icon: Columns3, match: ["/funil", "/matriculas"] },
     { to: "/direcao", label: "Direção", icon: BarChart3, match: ["/direcao", "/origem-conversao"] },
@@ -50,7 +67,7 @@ function SideLink({ item, pathname }: { item: NavItem; pathname: string }) {
       <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
       <span className="flex-1 truncate">{item.label}</span>
       {!!item.badge && (
-        <span className="rounded-full bg-[var(--crm-warm)] px-2 py-0.5 text-[11px] font-semibold text-[var(--crm-warm-text)]" aria-label={`${item.badge} aguardando`}>
+        <span className="rounded-full bg-[var(--crm-warm)] px-2 py-0.5 text-[11px] font-semibold text-[var(--crm-warm-text)]" aria-label={`${item.badge} ${item.badgeLabel || "aguardando"}`}>
           {item.badge}
         </span>
       )}
