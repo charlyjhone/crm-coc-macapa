@@ -255,8 +255,10 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         const raw = asRecord(m.raw_data) || {};
         const senderType = firstString(raw.sender_type, raw.source) || "";
         const operatorName = firstString(raw.operator_name, raw.attendant_name, raw.agent_name);
+        // O nome da atendente virtual vem da assinatura "*[Atendente Nome]*" da própria mensagem.
+        const agentSignature = /^\*?\[Atendente\s+([^\]\r\n]+)\]/i.exec(m.message || "")?.[1]?.trim();
         const senderName = m.direction === "outbound"
-          ? (senderType === "ana" || /^\\*?\\[Atendente Ana\\]/i.test(m.message || "") ? "Atendente Ana" : operatorName)
+          ? (senderType === "ana" || agentSignature ? `Atendente ${agentSignature || "virtual"}` : operatorName)
           : null;
         return {
           id: m.id,
