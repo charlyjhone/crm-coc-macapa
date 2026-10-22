@@ -25,12 +25,13 @@ const themes: Record<string, CrmTheme> = {
     accent2: "#12B9AE", accent3: "#46C8B6", accentLight: "#A6E6DC", chart2: "#46C8B6",
     warm: "#E27C26", warmText: "#1B2430",
   },
-  // Build padrão (COC Macapá Norte) — verde e verde-limão da marca.
+  // Build padrão (COC Macapá Norte) — verde #2EA04F e verde-claro #6EC646 do logo.
   padrao: {
-    side: "#0A3D24", sideText: "#A8CDB9", sideLabel: "#7DB596",
-    accent: "#007A43", accentHover: "#006236", accentSoft: "#E6F4EC", accentSofter: "#F0F8F3", accentLine: "#C6E6D3",
-    accent2: "#158A52", accent3: "#2FA86A", accentLight: "#A9DDBC", chart2: "#3FB97A",
-    warm: "#86B844", warmText: "#1B2430",
+    side: "#0F3D22", sideText: "#B9DEC4", sideLabel: "#6EC646",
+    accent: "#217A39", accentHover: "#1B6630", accentSoft: "#E5F4E9", accentSofter: "#F1F9F3", accentLine: "#C3E6CC",
+    accent2: "#2EA04F", accent3: "#6EC646", accentLight: "#B5E3A3", chart2: "#6EC646",
+    // Destaque (selo de conversas, "querem matricular"): âmbar, para não se confundir com os verdes.
+    warm: "#F2A93B", warmText: "#1B2430",
   },
 };
 

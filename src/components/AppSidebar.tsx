@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 // Logo da escola no topo da barra (escolhido pelo modo do build).
-const schoolLogo = import.meta.env.MODE === "conceito" ? "/brand/colegio-conceito-logo.png" : "/brand/coc-macapa-norte.svg";
+const schoolLogo = import.meta.env.MODE === "conceito" ? "/brand/colegio-conceito-logo.png" : "/brand/coc-macapa-norte-logo.svg";
 
 type NavItem = { to: string; label: string; icon: typeof Home; match: string[]; badge?: number };
 
