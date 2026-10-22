@@ -652,3 +652,15 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Migrations: `20261019173000_ana_auto_visit_booking.sql` e `20261019180000_remove_legacy_visit_notice_setting.sql`.
 - Publicado no Supabase COC (`fenqnbzdjnyvgrmjczoi`): `school-triage` v101 ACTIVE, `verify_jwt=false` preservado e validação interna de segredo mantida. A migration foi aplicada e a RPC de disponibilidade foi consultada com sucesso.
 - Código e testes em `feat/ana-auto-agendamento-visitas`; antes de encerrar, revisar o CI do PR e validar com um número de teste real. Não considerar o envio pelo provedor como prova de entrega no aparelho.
+
+## Layout novo no prévio do Conceito (21/10/2026)
+
+Branch `feat/novo-visual-crm-escolas` (publicado só no serviço `crm-conceito-preview`; `main` e a produção não mudam).
+
+- Menu superior trocado por barra lateral (`src/components/AppSidebar.tsx`): Hoje, Conversas, Funil, Direção; em "Mais": Visitas, Famílias e alunos, Tarefas. Equipe, Configurações e Auditoria ficam no menu do usuário.
+- `/` e `/hoje` — nova tela Hoje (`src/pages/Hoje.tsx`): famílias aguardando a secretaria, visitas do dia (registro pelo `VisitStatusDialog`) e oportunidades/conversas sem retorno há 3 dias ou mais.
+- `/atendimentos` — Conversas em três colunas (lista com abas Aguardando/Em conversa/Resolvidas/Todas, conversa, ficha da família com visita e resumo da IA). Envio, áudio, conclusão e pesquisa continuam usando as mesmas funções. Parâmetros antigos `?status=` são aceitos.
+- `/funil` — quadro com quatro colunas (Novo interessado, Visita agendada, Visitou, Quer matricular) agrupando as etapas de `enrollment_opportunities`, com ficha lateral e `OpportunityProgressDialog`. `/matriculas` continua disponível.
+- `/direcao` — indicadores de 7/30/90 dias: novos contatos, visitas realizadas, querem matricular, satisfação (pesquisa), contatos por período, origem (pesquisa; sem respostas usa a origem do funil), caminho das famílias e motivos de desistência.
+- Telas antigas (`/captacao`, `/origem-conversao`, `/pendentes` etc.) seguem acessíveis pela URL.
+- Nenhuma alteração de banco, funções ou permissões.

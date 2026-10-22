@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppTopNav } from "@/components/AppTopNav";
+import { AppSidebar } from "@/components/AppSidebar";
 import { AdminRoute } from "@/components/AdminRoute";
 
 const CaptacaoDashboard = lazy(() => import("./pages/CaptacaoDashboard"));
@@ -25,14 +25,17 @@ const CRMLayoutPreview = lazy(() => import("./pages/CRMLayoutPreview"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
+const Hoje = lazy(() => import("./pages/Hoje"));
+const Funil = lazy(() => import("./pages/Funil"));
+const Direcao = lazy(() => import("./pages/Direcao"));
 
 const queryClient = new QueryClient();
 
 const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <div className="min-h-screen bg-white">
-      <AppTopNav />
-      <main className="min-w-0">{children}</main>
+    <div className="min-h-screen bg-[#F4F6F8] md:flex">
+      <AppSidebar />
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   </ProtectedRoute>
 );
@@ -47,7 +50,10 @@ const App = () => (
           <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-white text-sm font-medium text-slate-600">Carregando CRM...</div>}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
+            <Route path="/" element={<ProtectedLayout><Hoje /></ProtectedLayout>} />
+            <Route path="/hoje" element={<ProtectedLayout><Hoje /></ProtectedLayout>} />
+            <Route path="/funil" element={<ProtectedLayout><Funil /></ProtectedLayout>} />
+            <Route path="/direcao" element={<ProtectedLayout><Direcao /></ProtectedLayout>} />
             <Route path="/captacao" element={<ProtectedLayout><CaptacaoDashboard /></ProtectedLayout>} />
             <Route path="/preview-layout" element={<ProtectedRoute><CRMLayoutPreview /></ProtectedRoute>} />
             <Route path="/matriculas" element={<ProtectedLayout><EnrollmentPipeline /></ProtectedLayout>} />

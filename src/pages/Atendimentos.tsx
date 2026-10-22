@@ -5,22 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
-import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { formatSchoolDateTime } from "@/lib/schoolDateTime";
+import { timeAgo } from "@/components/crm/ui";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
 
-type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
-const filters: { key: Filter; label: string }[] = [
-  { key: "urgentes", label: "Urgentes" },
-  { key: "atencao", label: "Atenção" },
-  { key: "novos", label: "Novos" },
-  { key: "aguardando_secretaria", label: "Aguardando secretaria" },
-  { key: "matricula", label: "Matrículas" },
-  { key: "respondido_agente", label: "Respondidos pelo agente" },
-  { key: "resolvido", label: "Resolvidos" },
-  { key: "todos", label: "Todos" },
-];
 const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
   { key: "em_atendimento", label: "Em atendimento" },
@@ -235,8 +227,8 @@ function Conversation({ lead }: { lead: Atendimento }) {
   };
 
   return (
-    <section className="flex min-h-[500px] min-w-0 flex-1 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+    <section className="flex min-h-[500px] min-w-0 flex-1 flex-col md:min-h-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E7EC] bg-white px-5 py-3.5">
         <div>
           <h2 className="font-semibold">{lead.name}</h2>
           <p className="text-xs text-slate-600">{lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
@@ -268,11 +260,11 @@ function Conversation({ lead }: { lead: Atendimento }) {
             </a>
           )}
           <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
-            {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Concluir atendimento"}
+            {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Marcar como resolvida"}
           </Button>
         </div>
-      </header>
-      <div className="flex flex-wrap items-center gap-3 border-b bg-white px-4 py-3">
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#E4E7EC] bg-white px-5 py-2.5">
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
@@ -282,7 +274,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
         <Link to="/matriculas" className="text-xs font-medium text-primary underline">Confirmar matrícula no funil do aluno</Link>
       </div>
-      <div className="flex max-h-[60vh] min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
+      <div className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-[#F6F7F9] p-5">
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
         {isError && <p className="text-sm text-red-700">Não foi possível carregar o histórico.</p>}
         {!isLoading && !isError && !messages?.length && <p className="text-sm text-slate-600">Nenhuma mensagem encontrada.</p>}
@@ -295,8 +287,8 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
-            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
-              {outgoing && m.senderName && <p className="mb-1 text-xs font-semibold text-emerald-900">[{m.senderName}]</p>}
+            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed md:max-w-[62%] ${outgoing ? "self-end border-[#CDE9E4] bg-[#E6F4F1]" : "self-start border-[#E4E7EC] bg-white"}`}>
+              {outgoing && m.senderName && <p className="mb-0.5 text-xs text-[#5B6675]">{m.senderName}</p>}
               {m.mediaType && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-300/70 bg-white/70 px-2 py-1.5 text-xs font-semibold text-slate-700">
                   <span aria-hidden="true">{m.mediaType === "audio" ? "🎙️" : m.mediaType === "image" ? "🖼️" : m.mediaType === "video" ? "🎬" : m.mediaType === "document" || m.mediaType === "file" ? "📎" : m.mediaType === "location" ? "📍" : "📄"}</span>
@@ -354,7 +346,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           );
         })}
       </div>
-      <div className="border-t p-4">
+      <div className="border-t border-[#E4E7EC] bg-white px-5 py-3.5">
         {lead.phone ? (
           <>
             {isRecording && (
@@ -461,178 +453,177 @@ function DemoConversation({ onClose }: { onClose: () => void }) {
   );
 }
 
+type Tab = "aguardando" | "em_conversa" | "resolvidas" | "todas";
+const tabs: { key: Tab; label: string }[] = [
+  { key: "aguardando", label: "Aguardando" },
+  { key: "em_conversa", label: "Em conversa" },
+  { key: "resolvidas", label: "Resolvidas" },
+  { key: "todas", label: "Todas" },
+];
+
+function tabOf(lead: Atendimento): Exclude<Tab, "todas"> {
+  if (lead.triage_status === "resolvido" || lead.status === "resolvido" || lead.status === "nao_convertido") return "resolvidas";
+  if (lead.triage_status === "aguardando_secretaria" || attendancePriority(lead).level >= 1) return "aguardando";
+  return "em_conversa";
+}
+
+function legacyFilterToTab(value: string | null): Tab | null {
+  if (!value) return null;
+  if (tabs.some((item) => item.key === value)) return value as Tab;
+  if (value === "todos") return "todas";
+  if (value === "resolvido") return "resolvidas";
+  if (["urgentes", "atencao", "aguardando_secretaria"].includes(value)) return "aguardando";
+  if (["novos", "respondido_agente", "matricula"].includes(value)) return "em_conversa";
+  return null;
+}
+
+type LeadVisit = { scheduled_at: string; status: string };
+function useLeadVisit(leadId: string | null) {
+  return useQuery({
+    queryKey: ["conversa-visita", leadId],
+    enabled: !!leadId,
+    queryFn: async (): Promise<{ grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null }> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
+      const { data, error } = await (supabase as any).from("enrollment_opportunities")
+        .select("desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
+        .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
+      if (error || !data?.length) return { grade: null, shift: null, student: null, visit: null };
+      const row = data[0];
+      const visits = ((row.school_visits || []) as LeadVisit[]).filter((v) => v.status !== "cancelada")
+        .sort((a, b) => Date.parse(b.scheduled_at) - Date.parse(a.scheduled_at));
+      return { grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null };
+    },
+  });
+}
+
+const visitStatusLabel: Record<string, string> = { agendada: "Agendada", confirmada: "Confirmada", reagendada: "Reagendada", realizada: "Realizada", faltou: "Não compareceu" };
+
+function FamilyCard({ lead }: { lead: Atendimento }) {
+  const { data } = useLeadVisit(lead.id);
+  const row = (label: string, value: string | null | undefined) => (
+    <div className="flex justify-between gap-3 py-1.5 text-sm"><span className="text-[#5B6675]">{label}</span><span className="min-w-0 break-words text-right">{value || "—"}</span></div>
+  );
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Família</p>
+        {row("Responsável", lead.name)}
+        {row("Telefone", lead.phone || lead.email)}
+        {data?.student && row("Aluno", data.student)}
+        {row("Série", data?.grade ? `${data.grade}${data.shift ? `, ${data.shift}` : ""}` : lead.interesse)}
+        {row("Como conheceu", lead.source)}
+        {row("Assunto", subjectLabel(lead.assunto))}
+      </div>
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Visita</p>
+        {data?.visit ? (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>{formatSchoolDateTime(data.visit.scheduled_at)}</span>
+            <span className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-xs font-semibold text-[#067647]">{visitStatusLabel[data.visit.status] || data.visit.status}</span>
+          </div>
+        ) : <p className="text-sm text-[#5B6675]">Nenhuma visita marcada.</p>}
+      </div>
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
+      </div>
+      {lead.phone && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
+    </div>
+  );
+}
+
 export default function Atendimentos() {
-  const { agentName } = useSchoolIdentity();
   const { data, isLoading, isError } = useAtendimentos();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedFilter = searchParams.get("status");
   const requestedStage = searchParams.get("etapa");
   const stageFilter = stages.some((item) => item.key === requestedStage) ? requestedStage as LeadStatus : null;
-  const isValidRequestedFilter = filters.some((item) => item.key === requestedFilter);
-  const filter: Filter = isValidRequestedFilter ? requestedFilter as Filter : "aguardando_secretaria";
+  const requestedLeadId = searchParams.get("lead");
+  const tab: Tab = legacyFilterToTab(searchParams.get("aba") || searchParams.get("status")) || "aguardando";
   const [search, setSearch] = useState("");
   const [demoMode, setDemoMode] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("lead"));
-  const counts = useMemo(() => ({
-    urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
-    atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
-    novos: (data || []).filter(isNewContact).length,
-    aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
-    matricula: (data || []).filter((a) => a.assunto === "matricula").length,
-    respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
-    resolvido: (data || []).filter((a) => a.triage_status === "resolvido").length,
-    todos: data?.length || 0,
-  }), [data]);
+  const [selectedId, setSelectedId] = useState<string | null>(requestedLeadId);
+
+  const counts = useMemo(() => {
+    const result: Record<Tab, number> = { aguardando: 0, em_conversa: 0, resolvidas: 0, todas: data?.length || 0 };
+    for (const lead of data || []) result[tabOf(lead)]++;
+    return result;
+  }, [data]);
+
   const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
+    const matchesTab = stageFilter ? lead.status === stageFilter : tab === "todas" || tabOf(lead) === tab;
     const term = search.toLocaleLowerCase("pt-BR");
-    return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
+    return matchesTab && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
-    (Date.parse(a.last_inbound_message_at || "") || 0) - (Date.parse(b.last_inbound_message_at || "") || 0));
-  const requestedLeadId = searchParams.get("lead");
-  const selected = list.find((lead) => lead.id === selectedId)
-    || (requestedLeadId ? (data || []).find((lead) => lead.id === requestedLeadId) ?? null : null)
-    || (isValidRequestedFilter || stageFilter ? list[0] ?? null : null);
+    (Date.parse(b.last_inbound_message_at || "") || 0) - (Date.parse(a.last_inbound_message_at || "") || 0));
+
+  const selected = (data || []).find((lead) => lead.id === selectedId) || list[0] || null;
+
+  const tagFor = (lead: Atendimento) => {
+    const level = attendancePriority(lead).level;
+    if (level >= 3) return <span className="rounded-full bg-[#FEF3F2] px-2 py-0.5 text-xs font-semibold text-[#B42318]">Urgente</span>;
+    if (level >= 1) return <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 text-xs font-semibold text-[#93370D]">Atenção</span>;
+    if (isNewContact(lead)) return <span className="rounded-full bg-[#EFF8FF] px-2 py-0.5 text-xs font-semibold text-[#175CD3]">Novo</span>;
+    return null;
+  };
 
   return (
-    <div className="mx-auto max-w-[1900px] space-y-3 px-3 py-3 md:px-5">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-bold tracking-tight">Atendimento às famílias</h1>
-            <p className="text-xs text-muted-foreground">Conversa, cadastro e próximos passos em um só lugar</p>
-          </div>
+    <section aria-label="Conversas" className="flex min-h-[calc(100vh-104px)] flex-col bg-[#F6F7F9] md:h-screen md:min-h-0 lg:flex-row">
+      <aside className="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-[#E4E7EC] bg-white lg:max-h-none lg:w-[300px] lg:border-b-0 lg:border-r">
+        <div className="px-4 pb-2 pt-[18px]">
+          <h1 className="text-base font-semibold">Conversas</h1>
+          <Input aria-label="Buscar conversa" placeholder="Buscar nome ou telefone" value={search} onChange={(event) => setSearch(event.target.value)} className="mt-3 h-9" />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700"><span className="h-2 w-2 rounded-full bg-red-500" />{counts.urgentes} urgentes</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800"><span className="h-2 w-2 rounded-full bg-amber-500" />{counts.atencao} atenção</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-800"><span className="h-2 w-2 rounded-full bg-sky-500" />{counts.novos} novos</span>
+        <div className="flex flex-wrap gap-1 px-3 pb-2.5" role="tablist" aria-label="Situação das conversas">
+          {tabs.map((item) => (
+            <button key={item.key} type="button" role="tab" aria-selected={!stageFilter && tab === item.key}
+              onClick={() => { setSearchParams({ aba: item.key }); setSelectedId(null); }}
+              className={`min-h-9 rounded-lg px-2.5 text-sm font-medium ${!stageFilter && tab === item.key ? "bg-[#E6F4F1] text-[#0F766E]" : "text-[#5B6675] hover:bg-[#F2F4F7]"}`}>
+              {item.label} {item.key !== "resolvidas" && item.key !== "todas" ? counts[item.key] : ""}
+            </button>
+          ))}
         </div>
-      </header>
-
-      {stageFilter && (
-        <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2 text-xs">
-          <span>Etapa: <strong>{stages.find((item) => item.key === stageFilter)?.label}</strong></span>
-          <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Limpar filtro</button>
-        </div>
-      )}
-
-      <section aria-label="Área de trabalho do atendimento" className="grid min-h-[calc(100vh-190px)] overflow-hidden rounded-xl border bg-card shadow-sm lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_330px]">
-        <aside className="flex min-h-[460px] flex-col border-b lg:border-b-0 lg:border-r">
-          <div className="border-b p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold">Conversas</h2>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{list.length}</span>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setDemoMode((current) => !current)}>{demoMode ? "Fechar demo" : "Ver demo"}</Button>
-              </div>
-            </div>
-            <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {filters.map((item) => (
-                <Button key={item.key} size="sm" className="h-auto min-h-9 min-w-0 justify-start gap-2 whitespace-normal px-2.5 py-2 text-left text-xs leading-tight" variant={!stageFilter && filter === item.key ? "default" : "outline"}
-                  onClick={() => { setSearchParams({ status: item.key }); setSelectedId(null); }}>
-                  <span className="min-w-0 flex-1 text-left">{item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label}</span>
-                  <span className="ml-1 shrink-0 opacity-75">{counts[item.key]}</span>
-                </Button>
-              ))}
-            </div>
+        {stageFilter && (
+          <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-[#F0F7F6] px-3 py-2 text-xs">
+            <span>Etapa: <strong>{stages.find((item) => item.key === stageFilter)?.label}</strong></span>
+            <button className="font-medium text-[#0F766E] underline" onClick={() => setSearchParams({ aba: "todas" })}>Limpar</button>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {isLoading && <div className="p-5 text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando conversas...</div>}
-            {isError && <p className="p-5 text-sm text-destructive">Não foi possível carregar os atendimentos. Atualize a página para tentar novamente.</p>}
-            {!isLoading && !isError && !list.length && !demoMode && (
-              <div className="flex min-h-[260px] flex-col items-center justify-center px-5 py-8 text-center">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
-                <p className="text-sm font-semibold">Nenhuma conversa ainda</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Os novos contatos aparecerão automaticamente nesta lista.</p>
-                <Button size="sm" variant="outline" className="mt-4" onClick={() => setDemoMode(true)}>Ver conversa demonstrativa</Button>
-              </div>
-            )}
-            {list.map((lead) => (
-              <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
-                className={`w-full border-b px-3 py-3 text-left transition-colors hover:bg-primary/5 ${lead.id === selected?.id ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""} ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-500" : attendancePriority(lead).level === 2 ? "border-l-4 border-l-amber-400" : isNewContact(lead) ? "border-l-4 border-l-sky-500" : ""}`}>
-                <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-semibold">{lead.name}</span>
-                  {attendancePriority(lead).level >= 3 ? <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">URGENTE</span> : attendancePriority(lead).level === 2 ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">ATENÇÃO</span> : isNewContact(lead) ? <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">NOVO</span> : null}
-                </span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{lead.phone || lead.email || "Sem telefone ou e-mail"}</span>
-                <span className="mt-1.5 block line-clamp-2 text-xs leading-relaxed text-muted-foreground">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
-              </button>
-            ))}
-            {demoMode && <div className="border-b border-l-4 border-l-sky-500 bg-primary/5 px-3 py-3">
-              <div className="flex items-center justify-between gap-2"><span className="truncate text-sm font-semibold">Mariana Oliveira</span><span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">DEMO</span></div>
-              <span className="mt-1 block text-xs text-muted-foreground">(96) 99999-0101 · contato fictício</span>
-              <span className="mt-1.5 block text-xs text-muted-foreground">Gostaria de saber sobre matrícula para o 6º ano.</span>
-            </div>}
-          </div>
-        </aside>
-
-        <main className="min-w-0 bg-background/40">
-          {demoMode ? <DemoConversation onClose={() => setDemoMode(false)} /> : selected ? <Conversation key={selected.id} lead={selected} /> : (
-            <div className="flex h-full min-h-[500px] flex-col items-center justify-center px-8 py-10 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-primary shadow-sm"><MessageCircle className="h-8 w-8" /></div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Área de atendimento</p><h2 className="text-xl font-semibold">Sua próxima conversa começa aqui</h2>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Selecione uma conversa à esquerda para abrir o histórico, responder à família e consultar os dados do contato no painel ao lado. Tudo fica reunido nesta tela.</p>
-              <div className="mt-6 grid w-full max-w-lg grid-cols-2 gap-3 text-left">
-                <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Aguardando secretaria</p><p className="mt-1 text-2xl font-semibold">{counts.aguardando_secretaria}</p><p className="mt-1 text-xs text-muted-foreground">Precisam de resposta humana</p></div>
-                <div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Respondidos por {agentName}</p><p className="mt-1 text-2xl font-semibold">{counts.respondido_agente}</p><p className="mt-1 text-xs text-muted-foreground">Triagem automática concluída</p></div>
-              </div>
+        )}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading && <p className="p-5 text-sm text-[#5B6675]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando conversas…</p>}
+          {isError && <p className="p-5 text-sm text-[#B42318]">Não foi possível carregar as conversas. Atualize a página.</p>}
+          {!isLoading && !isError && !list.length && (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm font-semibold">Nenhuma conversa aqui</p>
+              <p className="mt-1 text-xs text-[#5B6675]">As mensagens novas aparecem automaticamente.</p>
+              <button type="button" className="mt-3 text-xs font-medium text-[#0F766E] underline" onClick={() => setDemoMode(true)}>Ver conversa de exemplo</button>
             </div>
           )}
-        </main>
+          {list.map((lead) => (
+            <button key={lead.id} type="button" onClick={() => { setDemoMode(false); setSelectedId(lead.id); }}
+              className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[#F0F7F6]" : ""}`}>
+              <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{lead.name}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
+              <span className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
+              {tagFor(lead) && <span>{tagFor(lead)}</span>}
+            </button>
+          ))}
+        </div>
+      </aside>
 
-        <aside className="border-t bg-muted/20 p-4 xl:border-l xl:border-t-0">
-          {demoMode ? (
-            <div className="space-y-4">
-              <div className="border-b pb-3"><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Perfil fictício</p><h2 className="mt-1.5 text-base font-bold">Mariana Oliveira</h2><p className="mt-1 text-xs text-muted-foreground">(96) 99999-0101 · dado inventado</p></div>
-              <section className="rounded-xl border bg-background p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Responsável</p><p className="mt-1 text-sm font-medium">Mariana Oliveira</p><p className="text-xs text-muted-foreground">Telefone fictício para teste</p></section>
-              <section className="rounded-xl border bg-background p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Aluno e matrícula</p><p className="mt-1 text-sm font-medium">6º ano · turno a confirmar</p><p className="text-xs text-muted-foreground">Interesse inicial em matrícula</p></section>
-              <section className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-primary">Próxima ação</p><p className="mt-1 text-xs">Confirmar turno de interesse e oferecer agendamento de visita.</p></section>
-              <p className="text-[10px] text-muted-foreground">Os dados acima são fictícios e não foram salvos no CRM.</p>
-            </div>
-          ) : selected ? (
-            <div className="space-y-4">
-              <div className="border-b pb-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Perfil da família</p>
-                <h2 className="mt-1.5 break-words text-base font-bold">{selected.name}</h2>
-                <p className="mt-1 break-all text-xs text-muted-foreground">{selected.phone || "Telefone não cadastrado"}</p>
-                <p className="break-all text-xs text-muted-foreground">{selected.email || "E-mail não cadastrado"}</p>
-                {selected.phone && <a href={`https://web.whatsapp.com/send?phone=${selected.phone.replace(/\\D/g, "")}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"><ExternalLink className="h-3.5 w-3.5" />Abrir WhatsApp Web</a>}
-              </div>
-              <div className="space-y-3">
-                <div><p className="text-[11px] text-muted-foreground">Assunto</p><p className="mt-0.5 text-sm font-medium">{subjectLabel(selected.assunto)}</p></div>
-                <div><p className="text-[11px] text-muted-foreground">Série ou interesse</p><p className="mt-0.5 text-sm font-medium">{selected.interesse || "Ainda não informado"}</p></div>
-                <div><p className="text-[11px] text-muted-foreground">Origem do contato</p><p className="mt-0.5 text-sm font-medium">{selected.source || "Não informada"}</p></div>
-                <div><p className="text-[11px] text-muted-foreground">Etapa do contato</p><p className="mt-0.5 text-sm font-medium">{stages.find((item) => item.key === selected.status)?.label || "Novo"}</p></div>
-              </div>
-              <div className="rounded-xl border bg-card p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Resumo do atendimento</p><p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed">{selected.triage_summary || selected.last_inbound_message || "O resumo aparecerá quando houver mensagens."}</p></div>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold">Próxima ação sugerida</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{selected.triage_status === "aguardando_secretaria" ? "Responder à família e atualizar o andamento." : selected.triage_status === "resolvido" ? "Atendimento concluído; consultar o histórico se houver novo contato." : selected.assunto === "matricula" ? "Confirmar série e turno de interesse e orientar o próximo passo." : "Conferir a solicitação e encaminhar ao setor responsável, se necessário."}</p></div>
-              {selected.phone && <div className="pt-1"><NewFamilyDialog initialLead={{ id: selected.id, name: selected.name, phone: selected.phone, email: selected.email, interesse: selected.interesse }} triggerLabel="Preparar cadastro de matrícula" /></div>}
-            </div>
-          ) : (
-            <div className="flex h-full min-h-[300px] flex-col justify-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-background text-muted-foreground"><ExternalLink className="h-5 w-5" /></div>
-              <h2 className="text-sm font-semibold">Dados da família</h2>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">Ao selecionar uma conversa, os dados disponíveis e a próxima ação aparecerão aqui.</p>
-              <div className="mt-4 space-y-3">
-                <section className="rounded-xl border bg-background p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Responsável</p>
-                  <p className="mt-1 text-xs">Nome e telefone serão exibidos ao selecionar um contato.</p>
-                </section>
-                <section className="rounded-xl border bg-background p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Aluno e matrícula</p>
-                  <p className="mt-1 text-xs">Série, turno e interesse aparecerão quando estiverem disponíveis.</p>
-                </section>
-                <section className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-primary">Próxima ação</p>
-                  <p className="mt-1 text-xs">As sugestões serão organizadas a partir do atendimento.</p>
-                </section>
-              </div>
-            </div>
-          )}
-        </aside>
-      </section>
-    </div>
+      <div className="flex min-h-[520px] min-w-0 flex-1 flex-col">
+        {demoMode ? <DemoConversation onClose={() => setDemoMode(false)} /> : selected ? <Conversation key={selected.id} lead={selected} /> : (
+          <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
+            <MessageCircle className="mb-3 h-8 w-8 text-[#0F766E]" aria-hidden="true" />
+            <h2 className="text-lg font-semibold">Escolha uma conversa</h2>
+            <p className="mt-1 max-w-sm text-sm text-[#5B6675]">O histórico, a resposta e a ficha da família aparecem aqui.</p>
+          </div>
+        )}
+      </div>
+
+      <aside className="w-full shrink-0 border-t border-[#E4E7EC] bg-white p-[18px] lg:w-[300px] lg:overflow-y-auto lg:border-l lg:border-t-0">
+        {selected && !demoMode ? <FamilyCard lead={selected} /> : (
+          <p className="text-sm text-[#5B6675]">{demoMode ? "Conversa de exemplo: nada é salvo nem enviado." : "A ficha da família aparece ao abrir uma conversa."}</p>
+        )}
+      </aside>
+    </section>
   );
 }
