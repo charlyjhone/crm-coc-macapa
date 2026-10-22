@@ -1082,8 +1082,15 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(24);
       lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
-      historico = (msgs || [])
-        .reverse()
+      // Só a conversa atual: uma pausa de 8h ou mais começa uma conversa nova,
+      // para mensagens antigas não serem lidas como pedido atual.
+      const ordered = [...(msgs || [])].reverse();
+      let sessionStart = 0;
+      for (let i = 1; i < ordered.length; i++) {
+        const gap = new Date(ordered[i].created_at).getTime() - new Date(ordered[i - 1].created_at).getTime();
+        if (gap >= GREETING_GAP_MS) sessionStart = i;
+      }
+      historico = ordered.slice(sessionStart)
         .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").slice(0, 400)}`)
         .join("\n");
     } else if (leadId) {
@@ -1350,7 +1357,14 @@ serve(async (req) => {
         !/\?\s*[\p{Extended_Pictographic}\s]*$/u.test(resposta.trim())) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
-    if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
+    if (deveSaudar && resposta) {
+      // Em conversa nova, a atendente sempre se apresenta uma vez.
+      const nomeAtendente = new RegExp(`\\b${agentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (!nomeAtendente.test(resposta)) {
+        resposta = `Aqui é a ${agentName}, assistente virtual do ${escolaNome}. ${resposta.replace(/^(?:(?:olá|oi|bom dia|boa tarde|boa noite)[!.,]?\s*)/iu, "")}`;
+      }
+      resposta = withGreeting(resposta, nomeReal);
+    }
     if (mediaNeedsHuman) {
       precisaHumano = true;
       if (triagem.prioridade !== "urgente") {
