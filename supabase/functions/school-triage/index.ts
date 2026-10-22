@@ -876,14 +876,29 @@ serve(async (req) => {
       }
     }
 
+    // ---- Identificador interno do chat (LID) ----
+    // Respostas da secretaria enviadas pelo celular podem chegar só com o LID do chat,
+    // sem o número. Considera número OU LID para não atropelar quem já está atendendo.
+    let chatLidAtual: string | null = null;
+    if (channel === "whatsapp" && messageId) {
+      const { data: inboundRaw } = await supabase.from("whatsapp_messages")
+        .select("raw_data").eq("id", messageId).maybeSingle();
+      const lid = (inboundRaw?.raw_data as any)?.chatLid;
+      if (typeof lid === "string" && /^[0-9]{5,20}@lid$/.test(lid)) chatLidAtual = lid;
+    }
+    const filtroConversa = phone && chatLidAtual
+      ? `phone.eq."${phone}",phone.eq."${chatLidAtual}",raw_data->>chatLid.eq."${chatLidAtual}"`
+      : null;
+    const daConversa = (query: any) => filtroConversa ? query.or(filtroConversa) : query.eq("phone", phone);
+
     // A equipe tem prioridade durante quatro horas. A atendente observa apenas um
     // encerramento explícito da família para enviar a pesquisa, sem se intrometer.
     if (channel === "whatsapp" && phone) {
-      const { data: saidasRecentes, error: saidasError } = await supabase
+      const { data: saidasRecentes, error: saidasError } = await daConversa(supabase
         .from("whatsapp_messages")
         .select("message, raw_data, created_at")
-        .eq("phone", phone).eq("direction", "outbound")
-        .order("created_at", { ascending: false }).limit(50);
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false }).limit(50));
       if (saidasError) throw new Error("human_handoff_check_failed");
       const ultimaSaidaHumana = (saidasRecentes || []).find((m: any) => !isAnaOutbound(m));
       const humanConversationActive = !!ultimaSaidaHumana &&
@@ -1028,10 +1043,9 @@ serve(async (req) => {
 
       if (esfriou) {
         if (phone) {
-          const { data: saidasAposHandoff } = await supabase
+          const { data: saidasAposHandoff } = await daConversa(supabase
             .from("whatsapp_messages")
-            .select("id, message, raw_data")
-            .eq("phone", phone)
+            .select("id, message, raw_data"))
             .eq("direction", "outbound")
             .gt("created_at", lead?.handoff_at)
             .limit(20);
@@ -1065,10 +1079,9 @@ serve(async (req) => {
 
     const employeeAlreadyReplied = async () => {
       if (channel !== "whatsapp" || !phone || !inboundCreatedAt) return false;
-      const { data: outbound, error } = await supabase
+      const { data: outbound, error } = await daConversa(supabase
         .from("whatsapp_messages")
-        .select("id, message, raw_data")
-        .eq("phone", phone)
+        .select("id, message, raw_data"))
         .eq("direction", "outbound")
         .gt("created_at", inboundCreatedAt)
         .limit(20);
@@ -1100,10 +1113,9 @@ serve(async (req) => {
     let historico = "";
     let lastSchoolMessageAt: string | null = null;
     if (phone) {
-      const { data: msgs } = await supabase
+      const { data: msgs } = await daConversa(supabase
         .from("whatsapp_messages")
-        .select("direction, message, timestamp, created_at")
-        .eq("phone", phone)
+        .select("direction, message, timestamp, created_at"))
         .order("created_at", { ascending: false })
         .limit(24);
       lastSchoolMessageAt = (msgs || []).find((m: { direction: string; created_at: string }) => m.direction === "outbound")?.created_at || null;
