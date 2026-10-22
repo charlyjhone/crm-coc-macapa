@@ -664,7 +664,7 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 
 ## Layout novo no prévio do Conceito (21/10/2026)
 
-Branch `feat/novo-visual-crm-escolas` (publicado só no serviço `crm-conceito-preview`; `main` e a produção não mudam).
+Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-preview` (demonstração) e `crm-coc-macapa` (COC, dados reais — ver seção de estado abaixo). `main` ainda não recebeu o layout novo.
 
 - Menu superior trocado por barra lateral (`src/components/AppSidebar.tsx`): Hoje, Conversas, Funil, Direção; em "Mais": Visitas, Famílias e alunos, Tarefas. Equipe, Configurações e Auditoria ficam no menu do usuário.
 - `/` e `/hoje` — nova tela Hoje (`src/pages/Hoje.tsx`): famílias aguardando a secretaria, visitas do dia (registro pelo `VisitStatusDialog`) e oportunidades/conversas sem retorno há 3 dias ou mais.
@@ -679,3 +679,32 @@ Branch `feat/novo-visual-crm-escolas` (publicado só no serviço `crm-conceito-p
 - Confirmar matrícula (`ConfirmEnrollmentButton`): no Funil e na ficha da conversa; usa a RPC existente `update_enrollment_progress` com `matriculado` (grava `enrolled_at`).
 - Comparativo de matrículas (`useEnrollmentComparison`, `EnrollmentComparison`, `RecordEnrollmentsDialog`): a secretaria lança data + quantidade de matrículas do dia (ou cola vários dias); o sistema calcula o acumulado do ano letivo (campanha de 1º/08 a 31/03) e compara com a mesma data dos dois anos anteriores. Cartão na tela Hoje e painel na Direção.
 - PENDENTE para usar fora da demonstração: criar a tabela `enrollment_history (academic_year int, day date unique, count int)` com RLS para usuários da equipe. Sem ela o comparativo usa só as matrículas confirmadas no funil e o lançamento mostra aviso. Não criada por decisão do responsável (prévio só para testes).
+- Logo da escola no topo da barra lateral, em cartão branco (`AppSidebar.tsx`): Conceito usa o logo oficial `public/brand/colegio-conceito-logo.png` (o SVG antigo `colegio-conceito.svg` é uma redesenhada aproximada e não deve ser usado); COC usa `coc-macapa-norte.svg`. "AE CRM" fica pequeno no rodapé da barra.
+- Direção → "Caminho das famílias" redesenhado em barras horizontais alinhadas à esquerda (nome, % da etapa anterior, número), sem texto dentro das barras.
+- Branch juntado com o `main` em 21/10 (commit `8b44835`): inclui correções de anexos do WhatsApp e nome da atendente configurável. Conflito só no CONTINUIDADE.md, resolvido mantendo as duas seções.
+
+## Estado em 21/10/2026, 23h30 — continuar daqui
+
+### Serviços no Render (equipe "CRM COC")
+| Serviço | Tipo | Branch | Uso | Situação |
+|---|---|---|---|---|
+| `crm-conceito-preview` | estático | `feat/novo-visual-crm-escolas` | prévio do Conceito, modo demonstração automático (host com "preview") | no ar |
+| `crm-coc-macapa` (crm-coc-macapa.onrender.com) | web service grátis (`npx serve -s dist`) | `feat/novo-visual-crm-escolas` | COC com layout novo e **dados reais** | reativado em 21/10; ver problema abaixo |
+| `crm-escola` | estático | `main` | produção atual do COC | no ar, sem mudanças |
+| `crm-conceito` | estático | `main` | produção do Conceito | no ar, sem mudanças |
+
+- `crm-coc-macapa`: o responsável trocou o branch e o Build Command para `npm ci && npm run build` (o antigo `npm run build` falhava com `vite: not found`). O build passa.
+- **Problema aberto:** a primeira publicação abriu página em branco. Os logs mostram que o navegador baixa `index-*.js` e o CSS, mas nenhum chunk de rota (nem `/auth`), então o app quebra ao iniciar. Hipótese: variáveis de ambiente antigas do serviço sobrescrevendo o Supabase. Em 21/10 foram definidas no serviço `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` com os valores públicos do COC (iguais ao `.env`) e foi disparado novo deploy (`dep-dbcn9ca9lscs73efotv0`). **Primeiro passo amanhã:** abrir o link; se continuar em branco, pegar o erro do Console (F12) e corrigir.
+- Decisão do responsável: depois de validado, deixar **apenas um** CRM do COC no ar — o `crm-coc-macapa` (pelo link) — e suspender o `crm-escola`.
+- A Ana não depende do frontend (roda nas funções do Supabase COC `fenqnbzdjnyvgrmjczoi` + Z-API); trocar o link não a afeta. Nenhuma função tem URL do frontend fixa; CORS `*`.
+
+### Próximos passos
+1. Resolver a página em branco do `crm-coc-macapa` e validar com login real (Hoje, Conversas, Funil, Direção, enviar mensagem, confirmar matrícula).
+2. Supabase COC → Authentication → URL Configuration: adicionar `https://crm-coc-macapa.onrender.com` em Redirect URLs e como Site URL.
+3. No Render, em cada serviço estático/web: header `Cache-Control: no-cache` para `/*` (evita navegador mostrar versão antiga após deploy).
+4. Suspender `crm-escola` quando o link novo estiver aprovado.
+5. Avaliar plano pago ou site estático para o `crm-coc-macapa` (o web service grátis "dorme" após ~15 min; primeiro acesso demora até ~1 min).
+6. Criar a tabela `enrollment_history` (COC e Conceito) para o lançamento manual de matrículas valer fora da demonstração — só quando o responsável liberar mudanças no banco.
+7. Quando aprovado, levar o branch para o `main` (Conceito e COC sobem o mesmo layout, cada um com seu tema).
+8. Confirmar com o responsável se a campanha de matrículas começa em 1º de agosto (usado no comparativo) e se o número lançado pela secretaria inclui rematrículas.
+9. Conceito: continuam pendentes o roteiro da Ceci, segredos OpenAI/Z-API e webhook antes de ativar a atendente.
