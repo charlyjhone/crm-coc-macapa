@@ -48,4 +48,10 @@ test("webhook encaminha imagens e documentos sem chamar análise de imagem por I
 test("processamento de anexos não envia PDFs/documentos a serviços de IA", () => {
   assert.doesNotMatch(attachmentSource, /ai\.gateway\.lovable\.dev|api\.openai\.com|gemini-2\.5-flash|LOVABLE_API_KEY/);
   assert.match(attachmentSource, /private storage for secretary review/i);
+  assert.match(attachmentSource, /maxAttachmentBytes = 18 \* 1024 \* 1024/);
+  assert.match(attachmentSource, /attachment_too_large/);
+});
+
+test("webhook escolar não dispara funções comerciais legadas de descrição/diagnóstico", () => {
+  assert.doesNotMatch(webhookSource, /auto-generate-description|generate-lead-description|diagnose-leads/);
 });

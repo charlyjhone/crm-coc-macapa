@@ -653,6 +653,15 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Publicado no Supabase COC (`fenqnbzdjnyvgrmjczoi`): `school-triage` v101 ACTIVE, `verify_jwt=false` preservado e validação interna de segredo mantida. A migration foi aplicada e a RPC de disponibilidade foi consultada com sucesso.
 - Código e testes em `feat/ana-auto-agendamento-visitas`; antes de encerrar, revisar o CI do PR e validar com um número de teste real. Não considerar o envio pelo provedor como prova de entrega no aparelho.
 
+## 49. Nome da atendente configurável e limpeza de referências ao COC no Conceito (21/10/2026)
+
+- Varredura no Conceito (`xkcxvbagzxwwauofvlin`): nenhum dado do COC no banco (contatos, telefones, endereço, usuários, segredos, arquivos). Restavam apenas textos fixos "Ana" no código.
+- Regra nova: o nome da atendente virtual vem sempre de `system_settings.escola_agente_nome` (COC = Ana, Conceito = Ceci). Para trocar o nome, basta alterar essa configuração. O identificador técnico interno `sender_type = 'ana'` e os nomes das RPCs (`register_ana_*`) foram mantidos por compatibilidade; não aparecem para as famílias nem para a equipe.
+- Frontend: Configurações usam o nome configurado; padrão sem configuração passou a ser "Assistente"; regex de `Atendimentos.tsx` corrigida (tinha barras duplicadas e nunca removia a assinatura) e agora remove a assinatura de qualquer atendente; no layout novo, o rótulo da mensagem vem da assinatura `*[Atendente Nome]*`.
+- Supabase Conceito: migration `conceito_generic_agent_signature_handoff` (trigger reconhece `*[Atendente %]*`); publicadas `school-triage` v4 e `zapi-webhook` v5 (entrada curta que importa a fonte versionada em `deployments/conceito/supabase/functions/` no commit fixo `466603a`), `send-school-folder` v2 e `complete-school-attendance` v2. As quatro respondem 401 sem autenticação.
+- `escola_valores_data_divulgacao` do Conceito foi esvaziada (o "1º de novembro" era do COC). Backup do roteiro anterior em `escola_info_backup_2026_10_21`.
+- Pendente: colar o roteiro da Ceci em Configurações → Escola (o conector recusou gravar o texto longo); depois, segredos da OpenAI/Z-API, webhook e testes em modo prévia antes de ativar a Ceci.
+
 ## Layout novo no prévio do Conceito (21/10/2026)
 
 Branch `feat/novo-visual-crm-escolas` (publicado só no serviço `crm-conceito-preview`; `main` e a produção não mudam).
