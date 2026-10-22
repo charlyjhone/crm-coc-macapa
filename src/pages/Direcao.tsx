@@ -6,12 +6,15 @@ import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContaine
 import { supabase } from "@/integrations/supabase/client";
 import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { Empty, Page, PageTitle, Panel } from "@/components/crm/ui";
+import { DEMO_MODE, demoDirecaoData } from "@/lib/demo";
+import { crmTheme as t } from "@/lib/crmTheme";
 
 const DAY = 86_400_000;
+const ratingColors = ["#D92D20", "#F79009", "#98A2B3", t.accentLight, t.accent];
 const periods = [7, 30, 90] as const;
 type Period = (typeof periods)[number];
 const wantStages = new Set(["documentacao_pendente", "matricula_em_conclusao", "matriculado"]);
-const originColors: Record<string, string> = { indicacao: "#0F766E", redes_sociais: "#14B8A6", panfletagem_outdoor: "#F59E0B", outros: "#98A2B3" };
+const originColors: Record<string, string> = { indicacao: t.accent, redes_sociais: t.chart2, panfletagem_outdoor: t.warm, outros: "#98A2B3" };
 const originLabels: Record<string, string> = { indicacao: "Indicação", redes_sociais: "Redes sociais", panfletagem_outdoor: "Panfletagem", outros: "Outros" };
 
 const originCategory = (value: string | null | undefined) => {
@@ -35,6 +38,7 @@ function useDirecaoData(period: Period) {
     queryKey: ["direcao", period],
     refetchInterval: 300_000,
     queryFn: async () => {
+      if (DEMO_MODE) return demoDirecaoData() as Data;
       const client = supabase as any;
       const since = new Date(Date.now() - 2 * period * DAY).toISOString();
       const [leads, visits, opportunities, origins, ratings] = await Promise.all([
@@ -58,7 +62,7 @@ function Kpi({ icon, value, label, chip }: { icon: ReactNode; value: string | nu
   return (
     <Panel className="flex-1">
       <div className="flex items-start justify-between gap-2">
-        <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#E6F4F1] text-[#0F766E]">{icon}</span>
+        <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[var(--crm-accent-soft)] text-[var(--crm-accent)]">{icon}</span>
         {chip && <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-xs font-semibold text-[#344054]">{chip}</span>}
       </div>
       <p className="mt-3 text-[30px] font-bold leading-tight">{value}</p>
@@ -155,10 +159,10 @@ export default function Direcao() {
 
   const fmt1 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const funnel = view ? [
-    { label: "contatos", value: view.contacts, color: "#0F766E", text: "#fff" },
-    { label: "visitas agendadas", value: view.scheduled, color: "#14857C", text: "#fff" },
-    { label: "visitaram", value: view.visited, color: "#2A9D8F", text: "#fff" },
-    { label: "querem matricular", value: view.want, color: "#F59E0B", text: "#1B2430" },
+    { label: "contatos", value: view.contacts, color: t.accent, text: "#fff" },
+    { label: "visitas agendadas", value: view.scheduled, color: t.accent2, text: "#fff" },
+    { label: "visitaram", value: view.visited, color: t.accent3, text: "#fff" },
+    { label: "querem matricular", value: view.want, color: t.warm, text: t.warmText },
   ] : [];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
   const lossMax = Math.max(1, ...(view?.lossRows.map((r) => r.count) || [1]));
@@ -172,7 +176,7 @@ export default function Direcao() {
           <div className="flex rounded-[10px] bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,.06)]" role="group" aria-label="Período">
             {periods.map((p) => (
               <button key={p} type="button" aria-pressed={period === p} onClick={() => setPeriod(p)}
-                className={`min-h-[34px] rounded-lg px-3 text-sm font-medium ${period === p ? "bg-[#0F766E] text-white" : "text-[#5B6675]"}`}>{p} dias</button>
+                className={`min-h-[34px] rounded-lg px-3 text-sm font-medium ${period === p ? "bg-[var(--crm-accent)] text-white" : "text-[#5B6675]"}`}>{p} dias</button>
             ))}
           </div>
         }
@@ -196,12 +200,12 @@ export default function Direcao() {
               <div className="h-[230px]" role="img" aria-label={`Novos contatos: ${view.series.map((s) => `${s.label} ${s.contatos}`).join(", ")}`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={view.series} margin={{ top: 16, right: 12, left: -18, bottom: 0 }}>
-                    <defs><linearGradient id="contatosFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0F766E" stopOpacity={0.28} /><stop offset="1" stopColor="#0F766E" stopOpacity={0} /></linearGradient></defs>
+                    <defs><linearGradient id="contatosFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={t.accent} stopOpacity={0.28} /><stop offset="1" stopColor={t.accent} stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid stroke="#EEF0F3" vertical={false} />
                     <XAxis dataKey="label" tick={{ fill: "#5B6675", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals={false} tick={{ fill: "#5B6675", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v: number) => [v, "Contatos"]} contentStyle={{ borderRadius: 10, border: "1px solid #E4E7EC" }} />
-                    <Area type="monotone" dataKey="contatos" stroke="#0F766E" strokeWidth={3} fill="url(#contatosFill)" dot={{ r: 4, fill: "#fff", stroke: "#0F766E", strokeWidth: 3 }} />
+                    <Area type="monotone" dataKey="contatos" stroke={t.accent} strokeWidth={3} fill="url(#contatosFill)" dot={{ r: 4, fill: "#fff", stroke: t.accent, strokeWidth: 3 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -249,10 +253,10 @@ export default function Direcao() {
                 <>
                   <div className="mt-2 flex items-baseline gap-2"><span className="text-[30px] font-bold">{fmt1(view.ratingAvg!)}</span><span className="text-[13px] text-[#5B6675]">de 5 · {view.ratingTotal} {view.ratingTotal === 1 ? "resposta" : "respostas"}</span></div>
                   <div className="my-3 flex h-3.5 overflow-hidden rounded-lg bg-[#EEF0F3]">
-                    {[4, 3, 2, 1, 0].map((i) => view.ratingCounts[i] ? <i key={i} style={{ width: `${(view.ratingCounts[i] / view.ratingTotal) * 100}%`, background: ["#D92D20", "#F79009", "#98A2B3", "#5EEAD4", "#0F766E"][i] }} /> : null)}
+                    {[4, 3, 2, 1, 0].map((i) => view.ratingCounts[i] ? <i key={i} style={{ width: `${(view.ratingCounts[i] / view.ratingTotal) * 100}%`, background: ratingColors[i] }} /> : null)}
                   </div>
                   {[4, 3, 2, 1, 0].filter((i) => view.ratingCounts[i]).map((i) => (
-                    <div key={i} className="flex items-center gap-2 py-1 text-[13px]"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: ["#D92D20", "#F79009", "#98A2B3", "#5EEAD4", "#0F766E"][i] }} />Nota {i + 1}<b className="ml-auto">{Math.round((view.ratingCounts[i] / view.ratingTotal) * 100)}%</b></div>
+                    <div key={i} className="flex items-center gap-2 py-1 text-[13px]"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: ratingColors[i] }} />Nota {i + 1}<b className="ml-auto">{Math.round((view.ratingCounts[i] / view.ratingTotal) * 100)}%</b></div>
                   ))}
                 </>
               )}
@@ -264,7 +268,7 @@ export default function Direcao() {
                   {view.lossRows.map((row) => (
                     <div key={row.name} className="flex items-center gap-2.5 py-1.5">
                       <span className="w-[120px] truncate text-[13px]" title={row.name}>{row.name}</span>
-                      <span className="h-2.5 flex-1 overflow-hidden rounded-md bg-[#EEF0F3]"><i className="block h-full rounded-md bg-[#F59E0B]" style={{ width: `${(row.count / lossMax) * 100}%` }} /></span>
+                      <span className="h-2.5 flex-1 overflow-hidden rounded-md bg-[#EEF0F3]"><i className="block h-full rounded-md bg-[var(--crm-warm)]" style={{ width: `${(row.count / lossMax) * 100}%` }} /></span>
                       <b className="w-6 text-right">{row.count}</b>
                     </div>
                   ))}

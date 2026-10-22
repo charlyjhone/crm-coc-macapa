@@ -664,3 +664,5 @@ Branch `feat/novo-visual-crm-escolas` (publicado só no serviço `crm-conceito-p
 - `/direcao` — indicadores de 7/30/90 dias: novos contatos, visitas realizadas, querem matricular, satisfação (pesquisa), contatos por período, origem (pesquisa; sem respostas usa a origem do funil), caminho das famílias e motivos de desistência.
 - Telas antigas (`/captacao`, `/origem-conversao`, `/pendentes` etc.) seguem acessíveis pela URL.
 - Nenhuma alteração de banco, funções ou permissões.
+- Modo demonstração (`src/lib/demo.ts`): liga sozinho em hosts com "preview" (ou `?demo=1`; `?demo=0` desliga). Usa famílias fictícias em memória; enviar, resolver, mover no funil e registrar visita funcionam só na tela. Nada vai ao Supabase nem ao WhatsApp. Botões de cadastro que gravam no banco ficam ocultos.
+- Cores por escola (`src/lib/crmTheme.ts`): um tema por modo de build (Conceito: verde-azulado + laranja; padrão: verde + verde-limão), aplicado como variáveis `--crm-*` no início do app.

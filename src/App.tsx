@@ -7,6 +7,7 @@ import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppSidebar } from "@/components/AppSidebar";
+import { DEMO_MODE } from "@/lib/demo";
 import { AdminRoute } from "@/components/AdminRoute";
 
 const CaptacaoDashboard = lazy(() => import("./pages/CaptacaoDashboard"));
@@ -35,7 +36,14 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
     <div className="min-h-screen bg-[#F4F6F8] md:flex">
       <AppSidebar />
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1">
+        {DEMO_MODE && (
+          <div role="status" className="border-b border-[#FEDF89] bg-[#FFFAEB] px-4 py-1.5 text-center text-xs font-medium text-[#93370D]">
+            Modo demonstração · famílias fictícias · nada é salvo nem enviado
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   </ProtectedRoute>
 );

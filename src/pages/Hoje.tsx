@@ -9,6 +9,7 @@ import { attendancePriority } from "@/lib/attendancePriority";
 import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
+import { DEMO_MODE, demo } from "@/lib/demo";
 
 type TodayVisit = {
   id: string; scheduled_at: string; status: string;
@@ -37,6 +38,12 @@ export default function Hoje() {
     queryKey: ["hoje-visitas", todayKey],
     refetchInterval: 60_000,
     queryFn: async () => {
+      if (DEMO_MODE) {
+        const opportunities = await demo.opportunities();
+        return opportunities.flatMap((o) => o.school_visits.map((v) => ({ ...v, enrollment_opportunities: { desired_grade: o.desired_grade, students: o.students, guardians: o.guardians } })))
+          .filter((v) => v.status !== "cancelada" && schoolDateTimeInput(v.scheduled_at).slice(0, 10) === todayKey)
+          .sort((a, b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at));
+      }
       const from = new Date(Date.now() - DAY * 1.5).toISOString();
       const to = new Date(Date.now() + DAY * 1.5).toISOString();
       const { data, error } = await (supabase as any).from("school_visits")
@@ -52,10 +59,12 @@ export default function Hoje() {
     queryKey: ["hoje-sem-retorno"],
     refetchInterval: 120_000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("enrollment_opportunities")
-        .select("id,stage,legacy_lead_id,next_action_at,updated_at,desired_grade,students(full_name),guardians:primary_guardian_id(full_name)")
-        .not("stage", "in", '("matriculado","perdido","nutricao")')
-        .order("updated_at", { ascending: true }).limit(200);
+      const { data, error } = DEMO_MODE
+        ? { data: (await demo.opportunities()).filter((o) => !["matriculado", "perdido", "nutricao"].includes(o.stage)), error: null }
+        : await (supabase as any).from("enrollment_opportunities")
+          .select("id,stage,legacy_lead_id,next_action_at,updated_at,desired_grade,students(full_name),guardians:primary_guardian_id(full_name)")
+          .not("stage", "in", '("matriculado","perdido","nutricao")')
+          .order("updated_at", { ascending: true }).limit(200);
       if (error) throw error;
       const limit = Date.now() - 3 * DAY;
       return (data || []).filter((item: StaleOpportunity) =>
@@ -78,6 +87,7 @@ export default function Hoje() {
     });
   }, [leads, stale.data]);
 
+  const refreshVisits = () => { void qc.invalidateQueries({ queryKey: ["hoje-visitas"] }); void qc.invalidateQueries({ queryKey: ["funil"] }); void qc.invalidateQueries({ queryKey: ["hoje-sem-retorno"] }); };
   const staleCount = (stale.data?.length || 0) + staleLeads.length;
   const todayLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: SCHOOL_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
@@ -112,11 +122,11 @@ export default function Hoje() {
               );
             })}
           </ul>
-          {needsYou.length > 12 && <Link to="/atendimentos" className="mt-2 inline-block text-sm font-medium text-[#0F766E] underline">Ver todas as {needsYou.length} conversas</Link>}
+          {needsYou.length > 12 && <Link to="/atendimentos" className="mt-2 inline-block text-sm font-medium text-[var(--crm-accent)] underline">Ver todas as {needsYou.length} conversas</Link>}
         </Panel>
 
         <div className="flex w-full flex-col gap-5 lg:w-[400px] lg:flex-none">
-          <Panel title="Visitas de hoje" action={<Link to="/visitas" className="text-[13px] font-medium text-[#0F766E] underline">Agenda</Link>}>
+          <Panel title="Visitas de hoje" action={<Link to="/visitas" className="text-[13px] font-medium text-[var(--crm-accent)] underline">Agenda</Link>}>
             {visits.isLoading && <p className="py-3 text-sm text-[#5B6675]">Carregando…</p>}
             {visits.isError && <p className="py-3 text-sm text-[#B42318]">Não foi possível carregar as visitas.</p>}
             {!visits.isLoading && !visits.isError && !visits.data?.length && <Empty>Nenhuma visita marcada para hoje.</Empty>}
@@ -128,7 +138,12 @@ export default function Hoje() {
                   <li key={visit.id} className="flex items-center gap-3 py-3">
                     <b className="w-12 shrink-0 tabular-nums">{schoolDateTimeInput(visit.scheduled_at).slice(11, 16)}</b>
                     <div className="min-w-0 flex-1"><p className="truncate">{family}</p><p className="text-[13px] text-[#5B6675]">{opp?.desired_grade || "Série a confirmar"}</p></div>
-                    {activeVisit.includes(visit.status) ? (
+                    {activeVisit.includes(visit.status) && DEMO_MODE ? (
+                      <span className="flex gap-1.5">
+                        <button type="button" className={btn} onClick={() => void demo.setVisitStatus(visit.id, "realizada").then(refreshVisits)}>Compareceu</button>
+                        <button type="button" className={btn} onClick={() => void demo.setVisitStatus(visit.id, "faltou").then(refreshVisits)}>Faltou</button>
+                      </span>
+                    ) : activeVisit.includes(visit.status) ? (
                       <VisitStatusDialog
                         visit={{ ...visit, studentName: opp?.students?.full_name || family }}
                         onUpdated={() => { void qc.invalidateQueries({ queryKey: ["hoje-visitas"] }); void qc.invalidateQueries({ queryKey: ["school-visits"] }); }}

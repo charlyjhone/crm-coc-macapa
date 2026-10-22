@@ -50,7 +50,7 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 export const btn = "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-medium text-[#1B2430] hover:bg-[#F9FAFB] disabled:opacity-60";
-export const btnPrimary = "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#0F766E] bg-[#0F766E] px-3 text-sm font-medium text-white hover:bg-[#0B615B] disabled:opacity-60";
+export const btnPrimary = "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[var(--crm-accent)] bg-[var(--crm-accent)] px-3 text-sm font-medium text-white hover:bg-[var(--crm-accent-hover)] disabled:opacity-60";
 
 export function timeAgo(value: string | null | undefined, now = Date.now()) {
   if (!value) return "";

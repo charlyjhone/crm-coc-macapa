@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatSchoolDateTime } from "@/lib/schoolDateTime";
 import { timeAgo } from "@/components/crm/ui";
+import { DEMO_MODE, demo } from "@/lib/demo";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
@@ -287,7 +288,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
-            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed md:max-w-[62%] ${outgoing ? "self-end border-[#CDE9E4] bg-[#E6F4F1]" : "self-start border-[#E4E7EC] bg-white"}`}>
+            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed md:max-w-[62%] ${outgoing ? "self-end border-[var(--crm-accent-line)] bg-[var(--crm-accent-soft)]" : "self-start border-[#E4E7EC] bg-white"}`}>
               {outgoing && m.senderName && <p className="mb-0.5 text-xs text-[#5B6675]">{m.senderName}</p>}
               {m.mediaType && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-300/70 bg-white/70 px-2 py-1.5 text-xs font-semibold text-slate-700">
@@ -483,10 +484,12 @@ function useLeadVisit(leadId: string | null) {
     queryKey: ["conversa-visita", leadId],
     enabled: !!leadId,
     queryFn: async (): Promise<{ grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null }> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
-      const { data, error } = await (supabase as any).from("enrollment_opportunities")
-        .select("desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
-        .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
+      const { data, error } = DEMO_MODE
+        ? { data: (await demo.opportunities()).filter((o) => o.legacy_lead_id === leadId), error: null }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
+        : await (supabase as any).from("enrollment_opportunities")
+          .select("desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
+          .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
       if (error || !data?.length) return { grade: null, shift: null, student: null, visit: null };
       const row = data[0];
       const visits = ((row.school_visits || []) as LeadVisit[]).filter((v) => v.status !== "cancelada")
@@ -527,7 +530,7 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
       </div>
-      {lead.phone && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
+      {lead.phone && !DEMO_MODE && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
     </div>
   );
 }
@@ -577,15 +580,15 @@ export default function Atendimentos() {
           {tabs.map((item) => (
             <button key={item.key} type="button" role="tab" aria-selected={!stageFilter && tab === item.key}
               onClick={() => { setSearchParams({ aba: item.key }); setSelectedId(null); }}
-              className={`min-h-9 rounded-lg px-2.5 text-sm font-medium ${!stageFilter && tab === item.key ? "bg-[#E6F4F1] text-[#0F766E]" : "text-[#5B6675] hover:bg-[#F2F4F7]"}`}>
+              className={`min-h-9 rounded-lg px-2.5 text-sm font-medium ${!stageFilter && tab === item.key ? "bg-[var(--crm-accent-soft)] text-[var(--crm-accent)]" : "text-[#5B6675] hover:bg-[#F2F4F7]"}`}>
               {item.label} {item.key !== "resolvidas" && item.key !== "todas" ? counts[item.key] : ""}
             </button>
           ))}
         </div>
         {stageFilter && (
-          <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-[#F0F7F6] px-3 py-2 text-xs">
+          <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-[var(--crm-accent-softer)] px-3 py-2 text-xs">
             <span>Etapa: <strong>{stages.find((item) => item.key === stageFilter)?.label}</strong></span>
-            <button className="font-medium text-[#0F766E] underline" onClick={() => setSearchParams({ aba: "todas" })}>Limpar</button>
+            <button className="font-medium text-[var(--crm-accent)] underline" onClick={() => setSearchParams({ aba: "todas" })}>Limpar</button>
           </div>
         )}
         <div className="flex-1 overflow-y-auto">
@@ -595,12 +598,12 @@ export default function Atendimentos() {
             <div className="px-5 py-8 text-center">
               <p className="text-sm font-semibold">Nenhuma conversa aqui</p>
               <p className="mt-1 text-xs text-[#5B6675]">As mensagens novas aparecem automaticamente.</p>
-              <button type="button" className="mt-3 text-xs font-medium text-[#0F766E] underline" onClick={() => setDemoMode(true)}>Ver conversa de exemplo</button>
+              <button type="button" className="mt-3 text-xs font-medium text-[var(--crm-accent)] underline" onClick={() => setDemoMode(true)}>Ver conversa de exemplo</button>
             </div>
           )}
           {list.map((lead) => (
             <button key={lead.id} type="button" onClick={() => { setDemoMode(false); setSelectedId(lead.id); }}
-              className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[#F0F7F6]" : ""}`}>
+              className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[var(--crm-accent-softer)]" : ""}`}>
               <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{lead.name}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
               <span className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
               {tagFor(lead) && <span>{tagFor(lead)}</span>}
@@ -612,7 +615,7 @@ export default function Atendimentos() {
       <div className="flex min-h-[520px] min-w-0 flex-1 flex-col">
         {demoMode ? <DemoConversation onClose={() => setDemoMode(false)} /> : selected ? <Conversation key={selected.id} lead={selected} /> : (
           <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
-            <MessageCircle className="mb-3 h-8 w-8 text-[#0F766E]" aria-hidden="true" />
+            <MessageCircle className="mb-3 h-8 w-8 text-[var(--crm-accent)]" aria-hidden="true" />
             <h2 className="text-lg font-semibold">Escolha uma conversa</h2>
             <p className="mt-1 max-w-sm text-sm text-[#5B6675]">O histórico, a resposta e a ficha da família aparecem aqui.</p>
           </div>

@@ -6,7 +6,8 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatSchoolDateTime, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { OpportunityProgressDialog } from "@/components/school/OpportunityProgressDialog";
-import { Tag, btnPrimary } from "@/components/crm/ui";
+import { Tag, btn, btnPrimary } from "@/components/crm/ui";
+import { DEMO_MODE, demo } from "@/lib/demo";
 
 type Opportunity = {
   id: string; stage: string; legacy_lead_id: string | null; desired_grade: string; desired_shift: string | null;
@@ -63,6 +64,7 @@ export default function Funil() {
     queryKey: ["funil"],
     refetchInterval: 60_000,
     queryFn: async () => {
+      if (DEMO_MODE) return (await demo.opportunities()).filter((o) => !["matriculado", "perdido", "nutricao"].includes(o.stage));
       const { data, error } = await (supabase as any).from("enrollment_opportunities")
         .select("id,stage,legacy_lead_id,desired_grade,desired_shift,source_channel,next_action,next_action_at,created_at,updated_at,students(full_name),guardians:primary_guardian_id(full_name,phone),school_visits(scheduled_at,status)")
         .not("stage", "in", '("matriculado","perdido","nutricao")')
@@ -105,7 +107,7 @@ export default function Funil() {
                 const visit = column.key === "visita" ? nextVisit(item) : null;
                 return (
                   <button key={item.id} type="button" onClick={() => setParams({ ficha: item.id })}
-                    className={`flex flex-col gap-0.5 rounded-xl bg-white px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(16,24,40,.08)] hover:shadow-md ${isSel ? "ring-1 ring-[#0F766E]" : ""}`}>
+                    className={`flex flex-col gap-0.5 rounded-xl bg-white px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(16,24,40,.08)] hover:shadow-md ${isSel ? "ring-1 ring-[var(--crm-accent)]" : ""}`}>
                     <b className="truncate">{item.guardians?.full_name || item.students?.full_name || "Família"}</b>
                     <span className="truncate text-[13px] text-[#5B6675]">
                       {visit ? `${formatSchoolDateTime(visit.scheduled_at)} · ${item.desired_grade}` : `${item.students?.full_name?.split(" ")[0] || "Aluno"} · ${item.desired_grade}`}
@@ -143,8 +145,22 @@ export default function Funil() {
             </div>
             <div className="mt-auto flex flex-col gap-2 pb-2">
               {selected.legacy_lead_id && <Link to={`/atendimentos?aba=todas&lead=${selected.legacy_lead_id}`} className={btnPrimary}>Abrir conversa</Link>}
-              <OpportunityProgressDialog opportunity={selected} onUpdated={refresh} />
-              <p className="text-xs text-[#5B6675]">Para marcar “sem interesse”, escolha a etapa Perdido ao atualizar.</p>
+              {DEMO_MODE ? (
+                <>
+                  <label className="text-xs font-medium text-[#5B6675]" htmlFor="demo-stage">Mover para</label>
+                  <select id="demo-stage" className="min-h-9 rounded-lg border border-[#D0D5DD] bg-white px-2 text-sm" value={selected.stage}
+                    onChange={(event) => void demo.moveOpportunity(selected.id, event.target.value).then(refresh)}>
+                    {Object.entries(stageLabel).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                    <option value="matriculado">Matriculado</option>
+                  </select>
+                  <button type="button" className={btn} onClick={() => void demo.moveOpportunity(selected.id, "perdido").then(() => { setParams({}); refresh(); })}>Sem interesse</button>
+                </>
+              ) : (
+                <>
+                  <OpportunityProgressDialog opportunity={selected} onUpdated={refresh} />
+                  <p className="text-xs text-[#5B6675]">Para marcar “sem interesse”, escolha a etapa Perdido ao atualizar.</p>
+                </>
+              )}
             </div>
           </div>
         ) : (
