@@ -24,6 +24,14 @@ function lastActivity(userId: string): number | null {
   }
 }
 
+function keepSameUser(current: User | null, next: User | null): User | null {
+  if (current && next && current.id === next.id && current.email === next.email &&
+      JSON.stringify(current.user_metadata ?? {}) === JSON.stringify(next.user_metadata ?? {})) {
+    return current;
+  }
+  return next;
+}
+
 function recordActivity(userId: string, at = Date.now()) {
   localStorage.setItem(LAST_ACTIVITY_KEY, JSON.stringify({ userId, at }));
 }
@@ -69,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(LAST_ACTIVITY_KEY);
         }
         setSession(session);
-        setUser(session?.user ?? null);
+        // Ao voltar para a aba, o Supabase reconfirma a sessão (SIGNED_IN/TOKEN_REFRESHED).
+        // Mantém o mesmo objeto se o usuário não mudou, para as telas não recarregarem.
+        setUser((current) => keepSameUser(current, session?.user ?? null));
         setLoading(false);
       }
     );
@@ -82,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setSession(session);
-      setUser(session?.user ?? null);
+      setUser((current) => keepSameUser(current, session?.user ?? null));
       setLoading(false);
     }).catch(() => setLoading(false));
 
