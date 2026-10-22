@@ -12,6 +12,9 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Logo da escola no topo da barra (escolhido pelo modo do build).
+const schoolLogo = import.meta.env.MODE === "conceito" ? "/brand/colegio-conceito-logo.png" : "/brand/coc-macapa-norte.svg";
+
 type NavItem = { to: string; label: string; icon: typeof Home; match: string[]; badge?: number };
 
 function useNavItems() {
@@ -99,9 +102,8 @@ export function AppSidebar() {
     <>
       {/* Computador: barra lateral fixa */}
       <aside className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col bg-[var(--crm-side)] px-3 py-5 md:flex" aria-label="Navegação principal">
-        <Link to="/hoje" className="mb-6 block px-2" aria-label={`${schoolName} — início`}>
-          <img src="/brand/ae-crm-logo-inverse.svg" alt="AE CRM" className="h-9 w-auto" />
-          <span className="mt-2 block truncate text-[11px] font-medium uppercase tracking-[.12em] text-[var(--crm-side-label)]">{schoolName}</span>
+        <Link to="/hoje" className="mb-6 flex items-center justify-center rounded-xl bg-white px-3 py-3" aria-label={`${schoolName} — início`}>
+          <img src={schoolLogo} alt={schoolName} className="max-h-[112px] w-auto max-w-full object-contain" />
         </Link>
         <nav className="flex flex-col gap-1">
           {main.map((item) => <SideLink key={item.to} item={item} pathname={pathname} />)}
@@ -112,13 +114,14 @@ export function AppSidebar() {
         </nav>
         <div className="mt-auto border-t border-white/10 pt-3">
           <UserMenu dark />
+          <img src="/brand/ae-crm-logo-inverse.svg" alt="AE CRM" className="mx-auto mt-3 h-5 w-auto opacity-60" />
         </div>
       </aside>
 
       {/* Celular: barra superior com abas */}
       <header className="sticky top-0 z-40 bg-[var(--crm-side)] md:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
-          <Link to="/hoje" aria-label={`${schoolName} — início`}><img src="/brand/ae-crm-logo-inverse.svg" alt="AE CRM" className="h-8 w-auto" /></Link>
+          <Link to="/hoje" className="rounded-lg bg-white px-2 py-1" aria-label={`${schoolName} — início`}><img src={schoolLogo} alt={schoolName} className="h-10 w-auto" /></Link>
           <div className="w-auto"><UserMenu dark /></div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2" aria-label="Navegação principal">
