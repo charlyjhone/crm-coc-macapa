@@ -661,3 +661,13 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Supabase Conceito: migration `conceito_generic_agent_signature_handoff` (trigger reconhece `*[Atendente %]*`); publicadas `school-triage` v4 e `zapi-webhook` v5 (entrada curta que importa a fonte versionada em `deployments/conceito/supabase/functions/` no commit fixo `466603a`), `send-school-folder` v2 e `complete-school-attendance` v2. As quatro respondem 401 sem autenticação.
 - `escola_valores_data_divulgacao` do Conceito foi esvaziada (o "1º de novembro" era do COC). Backup do roteiro anterior em `escola_info_backup_2026_10_21`.
 - Pendente: colar o roteiro da Ceci em Configurações → Escola (o conector recusou gravar o texto longo); depois, segredos da OpenAI/Z-API, webhook e testes em modo prévia antes de ativar a Ceci.
+
+## 50. Ceci (Conceito): modo prévia, modo teste e ativação controlada (22/10/2026)
+
+- Roteiro da Ceci gravado em `escola_info` pela tela de Configurações (conferido por hash com o arquivo aprovado).
+- Segredos cadastrados pelo responsável: `OPENAI_API_KEY`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, `REQUIRE_ZAPI_INSTANCE_ID`. Segredo interno `school_triage_webhook_secret` criado no Vault.
+- `school-triage` (Conceito): modo prévia (`action: "preview"`) funciona com a atendente desligada e não envia nem grava; sem telefone no payload, nenhum envio é possível.
+- Modo teste: `system_settings.escola_agente_numeros_teste` (lista separada por vírgula). Com números cadastrados, a atendente ignora qualquer outro contato (`skipped: test_mode_number_not_allowed`), antes de criar lead ou enviar. Para liberar para todos, esvaziar essa configuração.
+- Ajustes de resposta: primeira pergunta sobre valores só convida para a visita (encaminha só se insistir); a oferta "Enquanto isso, posso ajudar em algo mais?" não é anexada quando a resposta já termina em pergunta.
+- Ativação em 22/10/2026 com `escola_agente_ativo=true` e modo teste restrito ao número do responsável; mensagem real de família recebida logo depois foi ignorada corretamente.
+- Pendente: teste ponta a ponta pelo WhatsApp (saudação, visita com agenda, encerramento e pesquisa), depois esvaziar a lista de teste para liberar.
