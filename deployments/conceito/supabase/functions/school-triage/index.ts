@@ -1355,7 +1355,7 @@ serve(async (req) => {
     }
     // Uma pergunta por mensagem: só oferece ajuda extra se a resposta ainda não termina em pergunta.
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta) &&
-        !/\?\s*[\p{Extended_Pictographic}\s]*$/u.test(resposta.trim())) {
+        !resposta.includes("?")) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
     if (deveSaudar && resposta) {

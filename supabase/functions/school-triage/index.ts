@@ -1361,7 +1361,7 @@ serve(async (req) => {
       if (fimOrientacao?.index !== undefined) resposta = resposta.slice(0, fimOrientacao.index + fimOrientacao[0].length);
     }
     if (precisaHumano && !handoffPendente && resposta && !/posso ajudar em algo mais/i.test(resposta) &&
-        !/\?\s*[\p{Extended_Pictographic}\s]*$/u.test(resposta.trim())) {
+        !resposta.includes("?")) {
       resposta += "\n\nEnquanto isso, posso ajudar em algo mais?";
     }
     if (deveSaudar && resposta) resposta = withGreeting(resposta, nomeReal);
