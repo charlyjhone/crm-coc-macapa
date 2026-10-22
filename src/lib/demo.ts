@@ -2,6 +2,7 @@
 // Liga automaticamente no endereço de prévio (host com "preview") ou com ?demo=1.
 // Nada é gravado no Supabase e nenhuma mensagem é enviada ao WhatsApp.
 import type { Atendimento, MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { currentAcademicYear, campaignDays, todayKey } from "@/lib/enrollmentCalendar";
 
 function detectDemo() {
   if (typeof window === "undefined") return false;
@@ -54,6 +55,7 @@ export type DemoOpportunity = {
   id: string; stage: string; legacy_lead_id: string | null; desired_grade: string; desired_shift: string | null;
   source_channel: string | null; next_action: string | null; next_action_at: string | null; created_at: string; updated_at: string;
   status_updated_at: string | null; loss_reason: string | null; lost_at: string | null; probability_score: number;
+  enrolled_at: string | null; academic_year: number;
   students: { full_name: string } | null; guardians: { full_name: string; phone: string | null } | null;
   school_visits: DemoVisit[];
 };
@@ -115,6 +117,7 @@ function build() {
   const opp = (o: Partial<DemoOpportunity> & Pick<DemoOpportunity, "id" | "stage" | "desired_grade">, guardian: string, student: string): DemoOpportunity => ({
     legacy_lead_id: null, desired_shift: "Manhã", source_channel: "indicacao", next_action: null, next_action_at: null, created_at: ago(10 * DAY),
     updated_at: ago(DAY), status_updated_at: ago(DAY), loss_reason: null, lost_at: null, probability_score: 50,
+    enrolled_at: null, academic_year: currentAcademicYear(),
     students: { full_name: student }, guardians: { full_name: guardian, phone: "(96) 99100-0000" }, school_visits: [], ...o,
   });
 
@@ -181,6 +184,7 @@ export function demoDirecaoData() {
 
 // Base mutável enquanto a página estiver aberta.
 const store = DEMO_MODE ? build() : { leads: [], messages: {}, opportunities: [] } as ReturnType<typeof build>;
+let manualEntries: { academic_year: number; day: string; count: number }[] | null = null;
 const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const demo = {
@@ -208,8 +212,20 @@ export const demo = {
   async moveOpportunity(id: string, stage: string) {
     await wait();
     const o = store.opportunities.find((item) => item.id === id);
-    if (o) { o.stage = stage; o.updated_at = new Date().toISOString(); o.status_updated_at = o.updated_at; o.next_action_at = null; if (stage === "perdido") o.lost_at = o.updated_at; }
+    if (o) { o.stage = stage; o.updated_at = new Date().toISOString(); o.status_updated_at = o.updated_at; o.next_action_at = null; if (stage === "perdido") o.lost_at = o.updated_at; o.enrolled_at = stage === "matriculado" ? o.enrolled_at || o.updated_at : null; }
   },
+  /** Matrículas por dia (lançamento manual da secretaria). */
+  enrollmentEntries() { return (manualEntries ||= demoEnrollmentHistory().filter((r) => r.day <= todayKey())).map((r) => ({ ...r })); },
+  async saveEnrollmentEntries(entries: { academic_year: number; day: string; count: number }[]) {
+    await wait();
+    const list = (manualEntries ||= demoEnrollmentHistory().filter((r) => r.day <= todayKey()));
+    for (const e of entries) {
+      const i = list.findIndex((r) => r.day === e.day);
+      if (i >= 0) list[i] = { ...e }; else list.push({ ...e });
+    }
+  },
+  /** Matrículas confirmadas na sessão (somam ao histórico fictício do ano atual). */
+  enrolledThisSession() { return store.opportunities.filter((o) => o.enrolled_at).map((o) => ({ enrolled_at: o.enrolled_at as string, academic_year: o.academic_year })); },
   async setVisitStatus(visitId: string, status: string) {
     await wait();
     for (const o of store.opportunities) {
@@ -218,3 +234,30 @@ export const demo = {
     }
   },
 };
+
+// Histórico fictício de matrículas por dia para três anos letivos (comparativo).
+export function demoEnrollmentHistory(): { academic_year: number; day: string; count: number }[] {
+  const year = currentAcademicYear();
+  const rows: { academic_year: number; day: string; count: number }[] = [];
+  const totals: Record<number, number> = { [year - 2]: 300, [year - 1]: 330, [year]: 360 };
+  for (const ay of [year - 2, year - 1, year]) {
+    const rnd = seeded(ay);
+    const days = campaignDays(ay);
+    // Curva da campanha: devagar em ago/set, sobe em out–dez, pico em jan, cauda em fev/mar.
+    const weights = days.map((d) => {
+      const m = Number(d.slice(5, 7));
+      const base = m === 8 ? 0.3 : m === 9 ? 0.5 : m === 10 ? 1 : m === 11 ? 1.4 : m === 12 ? 1.2 : m === 1 ? 2.2 : m === 2 ? 1.3 : 0.4;
+      const weekday = new Date(`${d}T12:00:00Z`).getUTCDay();
+      return weekday === 0 ? 0 : base * (weekday === 6 ? 0.4 : 1) * (0.6 + rnd() * 0.8);
+    });
+    const sum = weights.reduce((a, b) => a + b, 0);
+    let carry = 0;
+    days.forEach((day, i) => {
+      const exact = (weights[i] / sum) * totals[ay] + carry;
+      const count = Math.floor(exact);
+      carry = exact - count;
+      if (count) rows.push({ academic_year: ay, day, count });
+    });
+  }
+  return rows;
+}

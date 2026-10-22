@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatSchoolDateTime } from "@/lib/schoolDateTime";
 import { timeAgo } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
+import { ConfirmEnrollmentButton } from "@/components/crm/ConfirmEnrollmentButton";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
@@ -273,7 +274,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
-        <Link to="/matriculas" className="text-xs font-medium text-primary underline">Confirmar matrícula no funil do aluno</Link>
+        <Link to="/funil" className="text-xs font-medium text-[var(--crm-accent)] underline">Ver no funil</Link>
       </div>
       <div className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-[#F6F7F9] p-5">
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
@@ -483,18 +484,18 @@ function useLeadVisit(leadId: string | null) {
   return useQuery({
     queryKey: ["conversa-visita", leadId],
     enabled: !!leadId,
-    queryFn: async (): Promise<{ grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null }> => {
+    queryFn: async (): Promise<{ id: string | null; stage: string | null; grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null }> => {
       const { data, error } = DEMO_MODE
         ? { data: (await demo.opportunities()).filter((o) => o.legacy_lead_id === leadId), error: null }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
         : await (supabase as any).from("enrollment_opportunities")
-          .select("desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
+          .select("id,stage,desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
           .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
-      if (error || !data?.length) return { grade: null, shift: null, student: null, visit: null };
+      if (error || !data?.length) return { id: null, stage: null, grade: null, shift: null, student: null, visit: null };
       const row = data[0];
       const visits = ((row.school_visits || []) as LeadVisit[]).filter((v) => v.status !== "cancelada")
         .sort((a, b) => Date.parse(b.scheduled_at) - Date.parse(a.scheduled_at));
-      return { grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null };
+      return { id: row.id, stage: row.stage, grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null };
     },
   });
 }
@@ -530,7 +531,11 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
       </div>
-      {lead.phone && !DEMO_MODE && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
+      {data?.id && data.stage !== "matriculado" && data.stage !== "perdido" && (
+        <ConfirmEnrollmentButton opportunityId={data.id} studentName={data.student} grade={data.grade} />
+      )}
+      {data?.stage === "matriculado" && <p className="rounded-lg bg-[#ECFDF3] px-3 py-2 text-sm font-medium text-[#067647]">Matrícula confirmada</p>}
+      {lead.phone && !DEMO_MODE && !data?.id && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
     </div>
   );
 }

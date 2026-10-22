@@ -18,11 +18,11 @@ export type CrmTheme = {
 };
 
 const themes: Record<string, CrmTheme> = {
-  // Colégio Conceito Bilíngue — verde-azulado e laranja do logo.
+  // Colégio Conceito Bilíngue — turquesa/verde-água e laranja do logo.
   conceito: {
-    side: "#0B3B3A", sideText: "#A9C7C4", sideLabel: "#7FB3AE",
-    accent: "#0F766E", accentHover: "#0B615B", accentSoft: "#E6F4F1", accentSofter: "#F0F7F6", accentLine: "#CDE9E4",
-    accent2: "#14857C", accent3: "#2A9D8F", accentLight: "#5EEAD4", chart2: "#14B8A6",
+    side: "#0E4F4B", sideText: "#B5DCD6", sideLabel: "#46C8B6",
+    accent: "#0B8077", accentHover: "#08706A", accentSoft: "#E3F6F3", accentSofter: "#F0FAF8", accentLine: "#C4EAE4",
+    accent2: "#12B9AE", accent3: "#46C8B6", accentLight: "#A6E6DC", chart2: "#46C8B6",
     warm: "#E27C26", warmText: "#1B2430",
   },
   // Build padrão (COC Macapá Norte) — verde e verde-limão da marca.
@@ -40,4 +40,13 @@ const cssName = (key: string) => `--crm-${key.replace(/[A-Z0-9]/g, (c) => `-${c.
 
 export function applyCrmTheme(root: HTMLElement = document.documentElement) {
   for (const [key, value] of Object.entries(crmTheme)) root.style.setProperty(cssName(key), value);
+}
+
+// Texto legível (branco ou escuro) sobre uma cor de fundo, pelo contraste WCAG.
+export function readableText(bg: string) {
+  const hex = bg.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (lum + 0.05) >= 4.5 ? "#FFFFFF" : "#1B2430";
 }

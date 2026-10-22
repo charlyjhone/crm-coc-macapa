@@ -10,6 +10,7 @@ import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
+import { EnrollmentComparisonCard } from "@/components/crm/EnrollmentComparison";
 
 type TodayVisit = {
   id: string; scheduled_at: string; status: string;
@@ -126,6 +127,7 @@ export default function Hoje() {
         </Panel>
 
         <div className="flex w-full flex-col gap-5 lg:w-[400px] lg:flex-none">
+          <EnrollmentComparisonCard />
           <Panel title="Visitas de hoje" action={<Link to="/visitas" className="text-[13px] font-medium text-[var(--crm-accent)] underline">Agenda</Link>}>
             {visits.isLoading && <p className="py-3 text-sm text-[#5B6675]">Carregando…</p>}
             {visits.isError && <p className="py-3 text-sm text-[#B42318]">Não foi possível carregar as visitas.</p>}

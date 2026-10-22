@@ -6,8 +6,9 @@ import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContaine
 import { supabase } from "@/integrations/supabase/client";
 import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { Empty, Page, PageTitle, Panel } from "@/components/crm/ui";
+import { EnrollmentComparisonPanel } from "@/components/crm/EnrollmentComparison";
 import { DEMO_MODE, demoDirecaoData } from "@/lib/demo";
-import { crmTheme as t } from "@/lib/crmTheme";
+import { crmTheme as t, readableText } from "@/lib/crmTheme";
 
 const DAY = 86_400_000;
 const ratingColors = ["#D92D20", "#F79009", "#98A2B3", t.accentLight, t.accent];
@@ -159,10 +160,10 @@ export default function Direcao() {
 
   const fmt1 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const funnel = view ? [
-    { label: "contatos", value: view.contacts, color: t.accent, text: "#fff" },
-    { label: "visitas agendadas", value: view.scheduled, color: t.accent2, text: "#fff" },
-    { label: "visitaram", value: view.visited, color: t.accent3, text: "#fff" },
-    { label: "querem matricular", value: view.want, color: t.warm, text: t.warmText },
+    { label: "contatos", value: view.contacts, color: t.accent, text: readableText(t.accent) },
+    { label: "visitas agendadas", value: view.scheduled, color: t.accent2, text: readableText(t.accent2) },
+    { label: "visitaram", value: view.visited, color: t.accent3, text: readableText(t.accent3) },
+    { label: "querem matricular", value: view.want, color: t.warm, text: readableText(t.warm) },
   ] : [];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
   const lossMax = Math.max(1, ...(view?.lossRows.map((r) => r.count) || [1]));
@@ -184,6 +185,8 @@ export default function Direcao() {
 
       {isLoading && <p className="text-sm text-[#5B6675]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando indicadores…</p>}
       {isError && <p className="text-sm text-[#B42318]">Não foi possível carregar os indicadores.</p>}
+
+      <EnrollmentComparisonPanel />
 
       {view && (
         <>
