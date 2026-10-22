@@ -8,7 +8,6 @@ import { formatSchoolDateTime, schoolDateTimeInput } from "@/lib/schoolDateTime"
 import { OpportunityProgressDialog } from "@/components/school/OpportunityProgressDialog";
 import { Tag, btn, btnPrimary } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
-import { ConfirmEnrollmentButton } from "@/components/crm/ConfirmEnrollmentButton";
 
 type Opportunity = {
   id: string; stage: string; legacy_lead_id: string | null; desired_grade: string; desired_shift: string | null;
@@ -145,16 +144,13 @@ export default function Funil() {
               {selected.next_action_at && <p className="text-[13px] text-[#5B6675]">{formatSchoolDateTime(selected.next_action_at)}</p>}
             </div>
             <div className="mt-auto flex flex-col gap-2 pb-2">
-              <ConfirmEnrollmentButton opportunityId={selected.id} studentName={selected.students?.full_name} grade={selected.desired_grade}
-                className={["documentacao_pendente", "matricula_em_conclusao"].includes(selected.stage) ? btnPrimary : btn} onDone={() => setParams({})} />
-              {selected.legacy_lead_id && <Link to={`/atendimentos?aba=todas&lead=${selected.legacy_lead_id}`} className={btn}>Abrir conversa</Link>}
+              {selected.legacy_lead_id && <Link to={`/atendimentos?aba=todas&lead=${selected.legacy_lead_id}`} className={btnPrimary}>Abrir conversa</Link>}
               {DEMO_MODE ? (
                 <>
                   <label className="text-xs font-medium text-[#5B6675]" htmlFor="demo-stage">Mover para</label>
                   <select id="demo-stage" className="min-h-9 rounded-lg border border-[#D0D5DD] bg-white px-2 text-sm" value={selected.stage}
                     onChange={(event) => void demo.moveOpportunity(selected.id, event.target.value).then(refresh)}>
                     {Object.entries(stageLabel).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                    <option value="matriculado">Matriculado</option>
                   </select>
                   <button type="button" className={btn} onClick={() => void demo.moveOpportunity(selected.id, "perdido").then(() => { setParams({}); refresh(); })}>Sem interesse</button>
                 </>

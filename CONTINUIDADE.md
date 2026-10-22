@@ -676,9 +676,9 @@ Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-pre
 - Modo demonstração (`src/lib/demo.ts`): liga sozinho em hosts com "preview" (ou `?demo=1`; `?demo=0` desliga). Usa famílias fictícias em memória; enviar, resolver, mover no funil e registrar visita funcionam só na tela. Nada vai ao Supabase nem ao WhatsApp. Botões de cadastro que gravam no banco ficam ocultos.
 - Cores por escola (`src/lib/crmTheme.ts`): um tema por modo de build (Conceito: verde-azulado + laranja; padrão: verde + verde-limão), aplicado como variáveis `--crm-*` no início do app.
 - Cores do Conceito ajustadas pelo logo (turquesa #12B9AE, verde-água #46C8B6, laranja #E27C26; botões em #0B8077 para leitura com texto branco).
-- Confirmar matrícula (`ConfirmEnrollmentButton`): no Funil e na ficha da conversa; usa a RPC existente `update_enrollment_progress` com `matriculado` (grava `enrolled_at`).
+- **Regra do responsável: o CRM não confirma matrícula; é ferramenta de atendimento e análise de dados.** O botão "Confirmar matrícula" criado em 21/10 foi removido em 22/10 (Funil, ficha da conversa e opção "Matriculado" da demonstração). Não reintroduzir.
 - Comparativo de matrículas (`useEnrollmentComparison`, `EnrollmentComparison`, `RecordEnrollmentsDialog`): a secretaria lança data + quantidade de matrículas do dia (ou cola vários dias); o sistema calcula o acumulado do ano letivo (campanha de 1º/08 a 31/03) e compara com a mesma data dos dois anos anteriores. Cartão na tela Hoje e painel na Direção.
-- PENDENTE para usar fora da demonstração: criar a tabela `enrollment_history (academic_year int, day date unique, count int)` com RLS para usuários da equipe. Sem ela o comparativo usa só as matrículas confirmadas no funil e o lançamento mostra aviso. Não criada por decisão do responsável (prévio só para testes).
+- PENDENTE para usar fora da demonstração: criar a tabela `enrollment_history (academic_year int, day date unique, count int)` com RLS para usuários da equipe. O comparativo usa somente os números lançados pela secretaria (não lê matrículas do funil); sem a tabela ele fica vazio e o lançamento mostra aviso. Não criada por decisão do responsável (prévio só para testes).
 - Logo da escola no topo da barra lateral, em cartão branco (`AppSidebar.tsx`): Conceito usa o logo oficial `public/brand/colegio-conceito-logo.png` (o SVG antigo `colegio-conceito.svg` é uma redesenhada aproximada e não deve ser usado); COC usa `coc-macapa-norte.svg`. "AE CRM" fica pequeno no rodapé da barra.
 - Direção → "Caminho das famílias" redesenhado em barras horizontais alinhadas à esquerda (nome, % da etapa anterior, número), sem texto dentro das barras.
 - Branch juntado com o `main` em 21/10 (commit `8b44835`): inclui correções de anexos do WhatsApp e nome da atendente configurável. Conflito só no CONTINUIDADE.md, resolvido mantendo as duas seções.
@@ -699,7 +699,7 @@ Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-pre
 - A Ana não depende do frontend (roda nas funções do Supabase COC `fenqnbzdjnyvgrmjczoi` + Z-API); trocar o link não a afeta. Nenhuma função tem URL do frontend fixa; CORS `*`.
 
 ### Próximos passos
-1. Resolver a página em branco do `crm-coc-macapa` e validar com login real (Hoje, Conversas, Funil, Direção, enviar mensagem, confirmar matrícula).
+1. Resolver a página em branco do `crm-coc-macapa` e validar com login real (Hoje, Conversas, Funil, Direção, enviar mensagem).
 2. Supabase COC → Authentication → URL Configuration: adicionar `https://crm-coc-macapa.onrender.com` em Redirect URLs e como Site URL.
 3. No Render, em cada serviço estático/web: header `Cache-Control: no-cache` para `/*` (evita navegador mostrar versão antiga após deploy).
 4. Suspender `crm-escola` quando o link novo estiver aprovado.

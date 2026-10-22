@@ -224,8 +224,6 @@ export const demo = {
       if (i >= 0) list[i] = { ...e }; else list.push({ ...e });
     }
   },
-  /** Matrículas confirmadas na sessão (somam ao histórico fictício do ano atual). */
-  enrolledThisSession() { return store.opportunities.filter((o) => o.enrolled_at).map((o) => ({ enrolled_at: o.enrolled_at as string, academic_year: o.academic_year })); },
   async setVisitStatus(visitId: string, status: string) {
     await wait();
     for (const o of store.opportunities) {

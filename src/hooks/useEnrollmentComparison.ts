@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados do Supabase. */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { campaignDays, currentAcademicYear, sameDateYearsBack, todayKey } from "@/lib/enrollmentCalendar";
 import { DEMO_MODE, demo } from "@/lib/demo";
 
@@ -27,28 +26,16 @@ export type EnrollmentComparison = {
 };
 
 async function loadRows(year: number): Promise<{ rows: DayRow[]; manual: DayRow[] }> {
+  // O CRM não confirma matrículas: o comparativo usa só os números lançados pela secretaria.
   if (DEMO_MODE) {
-    // Lançamentos manuais têm prioridade; confirmações no funil só contam para anos sem lançamento.
     const manual = demo.enrollmentEntries();
-    const manualYears = new Set(manual.map((r) => r.academic_year));
-    const confirmed = demo.enrolledThisSession().map((o) => ({ academic_year: o.academic_year, day: schoolDateTimeInput(o.enrolled_at).slice(0, 10), count: 1 }))
-      .filter((r) => !manualYears.has(r.academic_year));
-    return { rows: [...manual, ...confirmed], manual };
+    return { rows: manual, manual };
   }
-  const client = supabase as any;
   const years = [year, year - 1, year - 2];
-  const [opps, history] = await Promise.all([
-    client.from("enrollment_opportunities").select("enrolled_at,academic_year")
-      .eq("stage", "matriculado").in("academic_year", years).not("enrolled_at", "is", null).limit(10000),
-    // Matrículas por dia lançadas pela secretaria (a tabela pode ainda não existir).
-    client.from("enrollment_history").select("academic_year,day,count").in("academic_year", years).limit(10000),
-  ]);
-  if (opps.error) throw opps.error;
-  const fromCrm: DayRow[] = (opps.data || []).map((o: any) => ({ academic_year: o.academic_year, day: schoolDateTimeInput(o.enrolled_at).slice(0, 10), count: 1 }));
-  const imported: DayRow[] = history.error ? [] : history.data || [];
-  // Para cada ano, o lançamento manual (quando existe) substitui as confirmações do funil.
-  const importedYears = new Set(imported.map((r) => r.academic_year));
-  return { rows: [...imported, ...fromCrm.filter((r) => !importedYears.has(r.academic_year))], manual: imported };
+  // A tabela pode ainda não existir; nesse caso o comparativo fica vazio.
+  const history = await (supabase as any).from("enrollment_history").select("academic_year,day,count").in("academic_year", years).limit(10000);
+  const manual: DayRow[] = history.error ? [] : history.data || [];
+  return { rows: manual, manual };
 }
 
 export function compute({ rows, manual }: { rows: DayRow[]; manual: DayRow[] }, year: number): EnrollmentComparison {
