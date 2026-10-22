@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE, demo } from "@/lib/demo";
 
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
 export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
@@ -157,6 +158,7 @@ export function useAtendimentos() {
     queryKey: ["atendimentos"],
     refetchInterval: 30_000,
     queryFn: async (): Promise<Atendimento[]> => {
+      if (DEMO_MODE) return demo.leads();
       const { data, error } = await supabase
         .from("leads")
         .select(
@@ -164,7 +166,7 @@ export function useAtendimentos() {
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
-        .limit(500);
+        .limit(3000);
       if (error) throw error;
       return (data || []) as unknown as Atendimento[];
     },
@@ -175,6 +177,7 @@ export function useUpdateTriage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TriageStatus }) => {
+      if (DEMO_MODE) return status === "resolvido" ? demo.resolve(id) : undefined;
       if (status === "resolvido") {
         const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: id } });
         if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
@@ -193,6 +196,7 @@ export function useUpdateLeadStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ lead, status }: { lead: Atendimento; status: LeadStatus }) => {
+      if (DEMO_MODE) { if (status === "resolvido") return demo.resolve(lead.id); await demo.setLeadStatus(lead.id, status); return; }
       if (status === "resolvido") {
         const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: lead.id } });
         if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
@@ -202,6 +206,10 @@ export function useUpdateLeadStatus() {
       if (lead.triage_status === "resolvido") {
         patch.triage_status = status === "novo" ? "novo" : "aguardando_secretaria";
         patch.resolved_at = null;
+      } else if (lead.triage_status === "aguardando_secretaria" && (status === "em_atendimento" || status === "em_negociacao")) {
+        // A secretaria assumiu o atendimento: deixa de aguardar a equipe e sai da urgência.
+        // Uma mensagem nova da família volta a acionar a triagem normalmente.
+        patch.triage_status = "respondido_agente";
       }
       const { data, error } = await supabase.from("leads").update(patch).eq("id", lead.id).select("id").single();
       if (error) throw error;
@@ -218,6 +226,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
     refetchInterval: 15_000,
     queryFn: async (): Promise<MensagemAtendimento[]> => {
       if (!lead) return [];
+      if (DEMO_MODE) return demo.messages(lead.id);
       const whatsappByLead = supabase
         .from("whatsapp_messages")
         .select("id, direction, message, timestamp, created_at, raw_data, is_audio")
@@ -255,8 +264,10 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         const raw = asRecord(m.raw_data) || {};
         const senderType = firstString(raw.sender_type, raw.source) || "";
         const operatorName = firstString(raw.operator_name, raw.attendant_name, raw.agent_name);
+        // O nome da atendente virtual vem da assinatura "*[Atendente Nome]*" da própria mensagem.
+        const agentSignature = /^\*?\[Atendente\s+([^\]\r\n]+)\]/i.exec(m.message || "")?.[1]?.trim();
         const senderName = m.direction === "outbound"
-          ? (senderType === "ana" || /^\\*?\\[Atendente Ana\\]/i.test(m.message || "") ? "Atendente Ana" : operatorName)
+          ? (senderType === "ana" || agentSignature ? `Atendente ${agentSignature || "virtual"}` : operatorName)
           : null;
         return {
           id: m.id,
@@ -302,6 +313,7 @@ export function useEnviarWhatsApp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ lead, message }: { lead: Atendimento; message: string }) => {
+      if (DEMO_MODE) return demo.send(lead.id, message);
       if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
         body: { phone: lead.phone, leadId: lead.id, message, senderType: "human" },
@@ -325,6 +337,7 @@ export function useEnviarAudioWhatsApp() {
       blob: Blob;
       durationSeconds: number;
     }) => {
+      if (DEMO_MODE) return { success: true, warning: "Modo demonstração: o áudio não foi enviado." } as { success: boolean; logged?: boolean; warning?: string };
       if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");

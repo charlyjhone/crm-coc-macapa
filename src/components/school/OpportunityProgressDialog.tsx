@@ -34,7 +34,7 @@ const stages = [
   ["condicoes_apresentadas", "Condições apresentadas"],
   ["documentacao_pendente", "Documentação pendente"],
   ["matricula_em_conclusao", "Matrícula em conclusão"],
-  ["matriculado", "Matriculado"],
+  // Sem "Matriculado": a matrícula é confirmada no sistema da escola, não no CRM.
   ["nutricao", "Nutrição"],
   ["perdido", "Perdido"],
 ] as const;

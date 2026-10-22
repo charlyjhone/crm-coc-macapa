@@ -118,3 +118,535 @@
     @apply inline-block h-2 w-2 rounded-full shrink-0;
   }
 }
+
+
+/* Identidade exclusiva do build Colégio Conceito Bilíngue. */
+:root[data-school="conceito"] {
+  --primary: 171 100% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 171 45% 94%;
+  --secondary-foreground: 171 100% 24%;
+  --accent: 171 45% 94%;
+  --accent-foreground: 171 100% 24%;
+  --ring: 171 100% 30%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 205 54% 18%;
+  --sidebar-primary: 171 100% 30%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 171 45% 94%;
+  --sidebar-accent-foreground: 171 100% 24%;
+  --sidebar-border: 171 20% 88%;
+  --sidebar-ring: 171 100% 30%;
+}
+
+:root[data-school="conceito"] body {
+  background: hsl(210 25% 97%);
+}
+
+:root[data-school="conceito"] .text-emerald-700,
+:root[data-school="conceito"] .text-emerald-800 {
+  color: hsl(171 100% 27%);
+}
+
+:root[data-school="conceito"] .bg-emerald-50 {
+  background-color: hsl(171 45% 94%);
+}
+
+
+
+ 
+/* Conceito: acabamento visual da nova experiência do CRM. */
+:root[data-school="conceito"] {
+  --background: 210 30% 97%;
+  --foreground: 215 32% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 32% 20%;
+  --muted: 210 25% 94%;
+  --muted-foreground: 215 14% 48%;
+  --border: 210 20% 88%;
+  --input: 210 20% 86%;
+  --primary: 174 82% 29%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 174 42% 93%;
+  --secondary-foreground: 174 82% 23%;
+  --accent: 211 75% 95%;
+  --accent-foreground: 213 70% 34%;
+  --ring: 174 82% 29%;
+}
+
+:root[data-school="conceito"] body { background: hsl(var(--background)); }
+:root[data-school="conceito"] main { color: hsl(var(--foreground)); }
+:root[data-school="conceito"] header { border-color: hsl(210 20% 88%); }
+:root[data-school="conceito"] header.bg-card,
+:root[data-school="conceito"] header.bg-background {
+  background: linear-gradient(120deg, #ffffff 0%, #f7fbfc 100%);
+}
+:root[data-school="conceito"] [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] [class*="rounded-2xl"][class*="border"] {
+  border-color: hsl(210 20% 87%);
+}
+:root[data-school="conceito"] [class*="shadow-sm"],
+:root[data-school="conceito"] [class*="shadow-md"] {
+  box-shadow: 0 4px 16px rgb(28 53 69 / 5%);
+}
+:root[data-school="conceito"] button {
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+:root[data-school="conceito"] button:focus-visible,
+:root[data-school="conceito"] a:focus-visible,
+:root[data-school="conceito"] input:focus-visible,
+:root[data-school="conceito"] select:focus-visible,
+:root[data-school="conceito"] textarea:focus-visible {
+  outline: 2px solid hsl(174 82% 29% / 70%);
+  outline-offset: 2px;
+}
+:root[data-school="conceito"] .text-primary { color: hsl(174 82% 27%); }
+:root[data-school="conceito"] .bg-primary { background-color: hsl(174 82% 29%); }
+:root[data-school="conceito"] .border-primary { border-color: hsl(174 82% 29%); }
+:root[data-school="conceito"] .text-emerald-700,
+:root[data-school="conceito"] .text-emerald-800 { color: hsl(174 82% 27%); }
+:root[data-school="conceito"] .bg-emerald-50,
+:root[data-school="conceito"] .bg-emerald-100 { background-color: hsl(174 42% 93%); }
+:root[data-school="conceito"] .text-emerald-900 { color: hsl(174 82% 23%); }
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main { padding-left: 1rem; padding-right: 1rem; }
+}
+
+
+/* Conceito — acabamento global da experiência, isolado do tema COC. */
+:root[data-school="conceito"] {
+  --concept-ink: #173544;
+  --concept-teal: #087f78;
+  --concept-teal-dark: #08665f;
+  --concept-teal-soft: #e6f5f2;
+  --concept-blue-soft: #edf4fb;
+  --concept-line: #dce6e9;
+  --concept-surface: #ffffff;
+  --concept-page: #f4f7f9;
+}
+:root[data-school="conceito"] body {
+  background: var(--concept-page);
+  color: var(--concept-ink);
+}
+:root[data-school="conceito"] header.sticky {
+  background: rgb(255 255 255 / 94%);
+  border-bottom-color: var(--concept-line);
+  box-shadow: 0 3px 16px rgb(23 53 68 / 5%);
+}
+:root[data-school="conceito"] header.sticky > div {
+  max-width: 1680px;
+}
+:root[data-school="conceito"] header.sticky a[aria-label*="COLÉGIO"],
+:root[data-school="conceito"] header.sticky a[aria-label*="Conceito"] {
+  min-height: 48px;
+}
+:root[data-school="conceito"] header.sticky a[aria-label*="início"] > span:first-child {
+  border-radius: 14px;
+  background: linear-gradient(145deg, #0c9188, #086b68);
+  box-shadow: 0 4px 10px rgb(8 127 120 / 18%);
+  color: white;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] {
+  scrollbar-width: thin;
+  scrollbar-color: #cbdadd transparent;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] a,
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] button {
+  border-radius: 10px;
+  font-weight: 600;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] a.bg-primary\/10,
+:root[data-school="conceito"] nav[aria-label="Navegação principal"] button.bg-primary\/10 {
+  background: var(--concept-teal-soft);
+  color: var(--concept-teal-dark);
+}
+:root[data-school="conceito"] main {
+  max-width: 1680px;
+  margin-inline: auto;
+}
+:root[data-school="conceito"] main h1 {
+  color: var(--concept-ink);
+  letter-spacing: -0.035em;
+}
+:root[data-school="conceito"] main h2,
+:root[data-school="conceito"] main h3 {
+  letter-spacing: -0.025em;
+}
+:root[data-school="conceito"] main [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] main [class*="rounded-2xl"][class*="border"] {
+  border-color: var(--concept-line);
+}
+:root[data-school="conceito"] main [class*="bg-card"],
+:root[data-school="conceito"] main [class*="bg-white"] {
+  background-color: var(--concept-surface);
+}
+:root[data-school="conceito"] main button[class*="bg-primary"],
+:root[data-school="conceito"] main a[class*="bg-primary"] {
+  box-shadow: 0 2px 5px rgb(8 127 120 / 12%);
+}
+:root[data-school="conceito"] input,
+:root[data-school="conceito"] textarea,
+:root[data-school="conceito"] select {
+  border-radius: 10px;
+  border-color: #d2dfe3;
+}
+:root[data-school="conceito"] input:focus,
+:root[data-school="conceito"] textarea:focus,
+:root[data-school="conceito"] select:focus {
+  border-color: var(--concept-teal);
+  box-shadow: 0 0 0 3px rgb(8 127 120 / 10%);
+}
+:root[data-school="conceito"] [role="dialog"] {
+  border-color: var(--concept-line);
+  box-shadow: 0 24px 70px rgb(23 53 68 / 18%);
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] header.sticky > div {
+    gap: 0.25rem 0.75rem;
+    padding-inline: 0.75rem;
+  }
+  :root[data-school="conceito"] nav[aria-label="Navegação principal"] {
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
+  }
+  :root[data-school="conceito"] main {
+    padding-inline: 0.75rem;
+  }
+}
+
+
+/* Conceito — central de atendimento: prioriza leitura da conversa e contexto da família. */
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+  min-height: calc(100vh - 184px);
+  border-radius: 16px;
+  border-color: #d8e4e8;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(23 53 68 / 5%);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child {
+  background: #fbfcfd;
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child > div:first-child {
+  padding: 16px;
+  border-color: #e2eaed;
+  background: linear-gradient(180deg, #fff, #fbfdfe);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child h2 {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child input {
+  min-height: 40px;
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child button[class*="border-b"] {
+  border-bottom-color: #e8eef0;
+  padding-block: 14px;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:first-child button[class*="bg-primary\/10"] {
+  background: #e8f6f3;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main {
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main > div > div:first-child {
+  border-color: #e5edef;
+  background: #fff;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child {
+  background: #f7fafb;
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child section {
+  border-color: #e0e9ec;
+  box-shadow: 0 2px 5px rgb(23 53 68 / 2%);
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child [class*="bg-primary\/5"] {
+  background: #eaf7f4;
+}
+:root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > aside:last-child [class*="border-primary\/20"] {
+  border-color: #b8e2d9;
+}
+@media (min-width: 1280px) {
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+    grid-template-columns: minmax(300px, 340px) minmax(420px, 1fr) minmax(290px, 320px);
+  }
+}
+@media (max-width: 1023px) {
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] {
+    min-height: auto;
+  }
+  :root[data-school="conceito"] section[aria-label="Área de trabalho do atendimento"] > main {
+    min-height: 520px;
+  }
+}
+
+
+/* Conceito — acabamento dos painéis executivos e de inteligência de captação. */
+:root[data-school="conceito"] main > header,
+:root[data-school="conceito"] main > div > header {
+  background: linear-gradient(110deg, #ffffff 0%, #f5fbfa 100%);
+}
+:root[data-school="conceito"] main .recharts-cartesian-grid-horizontal line {
+  stroke: #e8eff1;
+}
+:root[data-school="conceito"] main .recharts-text {
+  fill: #657b86;
+  font-size: 11px;
+}
+:root[data-school="conceito"] main .recharts-tooltip-wrapper {
+  outline: none;
+}
+:root[data-school="conceito"] main [class*="shadow-sm"][class*="border"] {
+  box-shadow: 0 3px 12px rgb(23 53 68 / 4%);
+}
+:root[data-school="conceito"] main [class*="rounded-xl"][class*="border"] {
+  border-radius: 14px;
+}
+:root[data-school="conceito"] main [class*="rounded-2xl"][class*="border"] {
+  border-radius: 16px;
+}
+:root[data-school="conceito"] main [class*="text-3xl"][class*="font-bold"],
+:root[data-school="conceito"] main [class*="text-2xl"][class*="font-bold"] {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+:root[data-school="conceito"] main button[class*="bg-emerald-700"] {
+  background: #087f78;
+}
+:root[data-school="conceito"] main button[class*="bg-emerald-700"]:hover {
+  background: #08665f;
+}
+:root[data-school="conceito"] main [class*="border-dashed"] {
+  border-color: #d5e4e8;
+  background-color: #f7fafb;
+}
+@media (max-width: 640px) {
+  :root[data-school="conceito"] main > header {
+    padding-inline: 1rem;
+  }
+  :root[data-school="conceito"] main > header h1 {
+    font-size: 1.55rem;
+    line-height: 1.2;
+  }
+}
+
+
+/* Conceito — listas operacionais: famílias, visitas e tarefas. */
+:root[data-school="conceito"] main > div.min-h-screen,
+:root[data-school="conceito"] main > div.mx-auto {
+  color: #173544;
+}
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-xl"][class*="border"],
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-2xl"][class*="border"] {
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-xl"][class*="border"]:hover,
+:root[data-school="conceito"] main [class*="grid"] > [class*="rounded-2xl"][class*="border"]:hover {
+  border-color: #c4dcd9;
+  box-shadow: 0 6px 18px rgb(23 53 68 / 6%);
+}
+:root[data-school="conceito"] main [class*="text-emerald-700"] {
+  color: #087f78;
+}
+:root[data-school="conceito"] main [class*="bg-emerald-50"] {
+  background-color: #e8f6f3;
+}
+:root[data-school="conceito"] main [class*="border-emerald-950\/10"] {
+  border-color: #dce7e9;
+}
+:root[data-school="conceito"] main table thead {
+  background: #f5f9fa;
+}
+:root[data-school="conceito"] main table th {
+  color: #526b77;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+:root[data-school="conceito"] main table tbody tr {
+  border-color: #e6edef;
+}
+:root[data-school="conceito"] main table tbody tr:hover {
+  background: #f8fbfb;
+}
+:root[data-school="conceito"] main [role="status"] {
+  color: #526b77;
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main .overflow-x-auto table {
+    min-width: 680px;
+  }
+  :root[data-school="conceito"] main [class*="grid-cols-4"],
+  :root[data-school="conceito"] main [class*="grid-cols-5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  :root[data-school="conceito"] main [class*="grid-cols-2"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* Conceito — camada final de layout para páginas administrativas e de conta. */
+:root[data-school="conceito"] body {
+  background: #f4f7f9;
+}
+:root[data-school="conceito"] main > div.min-h-screen > header,
+:root[data-school="conceito"] main > header {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-school="conceito"] main > div.min-h-screen > header::after,
+:root[data-school="conceito"] main > header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, #087f78 0%, #51b6a6 42%, #f0a35b 100%);
+  opacity: .7;
+  pointer-events: none;
+}
+:root[data-school="conceito"] main form label {
+  color: #435e6a;
+  font-weight: 600;
+}
+:root[data-school="conceito"] main [role="tablist"] {
+  padding: 4px;
+  border: 1px solid #e0e9ec;
+  border-radius: 12px;
+  background: #f4f8f9;
+}
+:root[data-school="conceito"] main [role="tab"][data-state="active"] {
+  border-radius: 9px;
+  background: #fff;
+  color: #08665f;
+  box-shadow: 0 1px 3px rgb(23 53 68 / 10%);
+}
+:root[data-school="conceito"] main [role="alert"] {
+  border-radius: 12px;
+}
+:root[data-school="conceito"] main button:not(:disabled),
+:root[data-school="conceito"] main a {
+  -webkit-tap-highlight-color: transparent;
+}
+:root[data-school="conceito"] main button:focus-visible,
+:root[data-school="conceito"] main a:focus-visible,
+:root[data-school="conceito"] nav a:focus-visible,
+:root[data-school="conceito"] nav button:focus-visible {
+  outline: 3px solid rgb(8 127 120 / 35%);
+  outline-offset: 2px;
+}
+:root[data-school="conceito"] main hr {
+  border-color: #e2eaed;
+}
+:root[data-school="conceito"] main [class*="text-muted-foreground"] {
+  color: #637985;
+}
+:root[data-school="conceito"] main [class*="bg-muted"] {
+  background-color: #f4f7f9;
+}
+:root[data-school="conceito"] main [class*="bg-background"] {
+  background-color: #fff;
+}
+:root[data-school="conceito"] [role="dialog"] {
+  max-width: min(calc(100vw - 24px), 720px);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-school="conceito"] *,
+  :root[data-school="conceito"] *::before,
+  :root[data-school="conceito"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (max-width: 768px) {
+  :root[data-school="conceito"] main > div.min-h-screen > header,
+  :root[data-school="conceito"] main > header {
+    padding-top: 1.1rem;
+    padding-bottom: 1.1rem;
+  }
+  :root[data-school="conceito"] main section {
+    min-width: 0;
+  }
+  :root[data-school="conceito"] main [class*="grid-cols-3"],
+  :root[data-school="conceito"] main [class*="grid-cols-4"],
+  :root[data-school="conceito"] main [class*="grid-cols-5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :root[data-school="conceito"] main table {
+    font-size: 12px;
+  }
+  :root[data-school="conceito"] [role="dialog"] {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 420px) {
+  :root[data-school="conceito"] main [class*="grid-cols-2"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root[data-school="conceito"] main h1 {
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* Conceito — pendências e configurações administrativas. */
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen {
+  min-height: calc(100dvh - 68px);
+  height: auto;
+  background: #f4f7f9;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > header {
+  height: auto;
+  min-height: 60px;
+  padding: 14px 20px;
+  background: #fff;
+  border-color: #dfe8eb;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex.items-center.gap-2.px-4 {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fff;
+  border-color: #e3ebee;
+}
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex-1 > button,
+:root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex-1 > a {
+  border-color: #e4ecef;
+  background: #fff;
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl {
+  max-width: 1120px;
+  padding-top: 28px;
+  padding-bottom: 40px;
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl > div.mb-8 {
+  padding: 22px 24px;
+  border: 1px solid #dfe8eb;
+  border-radius: 16px;
+  background: linear-gradient(110deg, #fff, #f5fbfa);
+}
+:root[data-school="conceito"] main > div.mx-auto.max-w-5xl [role="tabpanel"] {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  :root[data-school="conceito"] main > div.mx-auto.max-w-5xl {
+    padding: 16px 12px 28px;
+  }
+  :root[data-school="conceito"] main > div.mx-auto.max-w-5xl > div.mb-8 {
+    gap: 10px;
+    padding: 16px;
+  }
+  :root[data-school="conceito"] main > div.flex.flex-col.h-screen > header,
+  :root[data-school="conceito"] main > div.flex.flex-col.h-screen > div.flex.items-center.gap-2.px-4 {
+    padding-inline: 12px;
+  }
+}

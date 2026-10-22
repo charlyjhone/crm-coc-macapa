@@ -661,3 +661,61 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Supabase Conceito: migration `conceito_generic_agent_signature_handoff` (trigger reconhece `*[Atendente %]*`); publicadas `school-triage` v4 e `zapi-webhook` v5 (entrada curta que importa a fonte versionada em `deployments/conceito/supabase/functions/` no commit fixo `466603a`), `send-school-folder` v2 e `complete-school-attendance` v2. As quatro respondem 401 sem autenticação.
 - `escola_valores_data_divulgacao` do Conceito foi esvaziada (o "1º de novembro" era do COC). Backup do roteiro anterior em `escola_info_backup_2026_10_21`.
 - Pendente: colar o roteiro da Ceci em Configurações → Escola (o conector recusou gravar o texto longo); depois, segredos da OpenAI/Z-API, webhook e testes em modo prévia antes de ativar a Ceci.
+
+## Layout novo no prévio do Conceito (21/10/2026)
+
+Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-preview` (demonstração) e `crm-coc-macapa` (COC, dados reais — ver seção de estado abaixo). `main` ainda não recebeu o layout novo.
+
+- Menu superior trocado por barra lateral (`src/components/AppSidebar.tsx`): Hoje, Conversas, Funil, Direção; em "Mais": Visitas, Famílias e alunos, Tarefas. Equipe, Configurações e Auditoria ficam no menu do usuário.
+- `/` e `/hoje` — nova tela Hoje (`src/pages/Hoje.tsx`): famílias aguardando a secretaria, visitas do dia (registro pelo `VisitStatusDialog`) e oportunidades/conversas sem retorno há 3 dias ou mais.
+- `/atendimentos` — Conversas em três colunas (lista com abas Aguardando/Em conversa/Resolvidas/Todas, conversa, ficha da família com visita e resumo da IA). Envio, áudio, conclusão e pesquisa continuam usando as mesmas funções. Parâmetros antigos `?status=` são aceitos.
+- `/funil` — quadro com quatro colunas (Novo interessado, Visita agendada, Visitou, Quer matricular) agrupando as etapas de `enrollment_opportunities`, com ficha lateral e `OpportunityProgressDialog`. `/matriculas` continua disponível.
+- `/direcao` — indicadores de 7/30/90 dias: novos contatos, visitas realizadas, querem matricular, satisfação (pesquisa), contatos por período, origem (pesquisa; sem respostas usa a origem do funil), caminho das famílias e motivos de desistência.
+- Telas antigas (`/captacao`, `/origem-conversao`, `/pendentes` etc.) seguem acessíveis pela URL.
+- Nenhuma alteração de banco, funções ou permissões.
+- Modo demonstração (`src/lib/demo.ts`): liga sozinho em hosts com "preview" (ou `?demo=1`; `?demo=0` desliga). Usa famílias fictícias em memória; enviar, resolver, mover no funil e registrar visita funcionam só na tela. Nada vai ao Supabase nem ao WhatsApp. Botões de cadastro que gravam no banco ficam ocultos.
+- Cores por escola (`src/lib/crmTheme.ts`): um tema por modo de build (Conceito: verde-azulado + laranja; padrão: verde + verde-limão), aplicado como variáveis `--crm-*` no início do app.
+- Cores do Conceito ajustadas pelo logo (turquesa #12B9AE, verde-água #46C8B6, laranja #E27C26; botões em #0B8077 para leitura com texto branco).
+- **Regra do responsável: o CRM não confirma matrícula; é ferramenta de atendimento e análise de dados.** O botão "Confirmar matrícula" criado em 21/10 foi removido em 22/10 (Funil, ficha da conversa e opção "Matriculado" da demonstração), e a etapa "Matriculado" saiu da lista do `OpportunityProgressDialog`. Motivo: o pai pode não concluir a matrícula e o dado ficaria errado. A matrícula é confirmada no sistema da escola; o CRM vai no máximo até "Quer matricular". Não reintroduzir.
+- Comparativo de matrículas (`useEnrollmentComparison`, `EnrollmentComparison`, `RecordEnrollmentsDialog`): a secretaria lança data + quantidade de matrículas do dia (ou cola vários dias); o sistema calcula o acumulado do ano letivo (campanha de 1º/08 a 31/03) e compara com a mesma data dos dois anos anteriores. Cartão na tela Hoje e painel na Direção.
+- PENDENTE para usar fora da demonstração: criar a tabela `enrollment_history (academic_year int, day date unique, count int)` com RLS para usuários da equipe. O comparativo usa somente os números lançados pela secretaria (não lê matrículas do funil); sem a tabela ele fica vazio e o lançamento mostra aviso. Não criada por decisão do responsável (prévio só para testes).
+- Logo da escola no topo da barra lateral, em cartão branco (`AppSidebar.tsx`): Conceito usa o logo oficial `public/brand/colegio-conceito-logo.png` (o SVG antigo `colegio-conceito.svg` é uma redesenhada aproximada e não deve ser usado); COC usa o logo original `public/brand/coc-macapa-norte-logo.svg` (vetor recortado do PDF oficial, 22/10). "AE CRM" fica pequeno no rodapé da barra.
+- Direção → "Caminho das famílias" redesenhado em barras horizontais alinhadas à esquerda (nome, % da etapa anterior, número), sem texto dentro das barras.
+- Branch juntado com o `main` em 21/10 (commit `8b44835`): inclui correções de anexos do WhatsApp e nome da atendente configurável. Conflito só no CONTINUIDADE.md, resolvido mantendo as duas seções.
+
+## Estado em 21/10/2026, 23h30 — continuar daqui
+
+### Serviços no Render (equipe "CRM COC")
+| Serviço | Tipo | Branch | Uso | Situação |
+|---|---|---|---|---|
+| `crm-conceito-preview` | estático | `feat/novo-visual-crm-escolas` | prévio do Conceito, modo demonstração automático (host com "preview") | no ar |
+| `crm-coc-macapa` (crm-coc-macapa.onrender.com) | web service grátis (`npx serve -s dist`) | `feat/novo-visual-crm-escolas` | COC com layout novo e **dados reais** | reativado em 21/10; ver problema abaixo |
+| `crm-escola` | estático | `main` | produção atual do COC | no ar, sem mudanças |
+| `crm-conceito` | estático | `main` | produção do Conceito | no ar, sem mudanças |
+
+- `crm-coc-macapa`: o responsável trocou o branch e o Build Command para `npm ci && npm run build` (o antigo `npm run build` falhava com `vite: not found`). O build passa.
+- **Problema aberto:** a primeira publicação abriu página em branco. Os logs mostram que o navegador baixa `index-*.js` e o CSS, mas nenhum chunk de rota (nem `/auth`), então o app quebra ao iniciar. Hipótese: variáveis de ambiente antigas do serviço sobrescrevendo o Supabase. Em 21/10 foram definidas no serviço `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` com os valores públicos do COC (iguais ao `.env`) e foi disparado novo deploy (`dep-dbcn9ca9lscs73efotv0`). **Primeiro passo amanhã:** abrir o link; se continuar em branco, pegar o erro do Console (F12) e corrigir.
+- Decisão do responsável: depois de validado, deixar **apenas um** CRM do COC no ar — o `crm-coc-macapa` (pelo link) — e suspender o `crm-escola`.
+- A Ana não depende do frontend (roda nas funções do Supabase COC `fenqnbzdjnyvgrmjczoi` + Z-API); trocar o link não a afeta. Nenhuma função tem URL do frontend fixa; CORS `*`.
+
+### Próximos passos
+1. Resolver a página em branco do `crm-coc-macapa` e validar com login real (Hoje, Conversas, Funil, Direção, enviar mensagem).
+2. Supabase COC → Authentication → URL Configuration: adicionar `https://crm-coc-macapa.onrender.com` em Redirect URLs e como Site URL.
+3. No Render, em cada serviço estático/web: header `Cache-Control: no-cache` para `/*` (evita navegador mostrar versão antiga após deploy).
+4. Suspender `crm-escola` quando o link novo estiver aprovado.
+5. Avaliar plano pago ou site estático para o `crm-coc-macapa` (o web service grátis "dorme" após ~15 min; primeiro acesso demora até ~1 min).
+6. Criar a tabela `enrollment_history` (COC e Conceito) para o lançamento manual de matrículas valer fora da demonstração — só quando o responsável liberar mudanças no banco.
+7. Quando aprovado, levar o branch para o `main` (Conceito e COC sobem o mesmo layout, cada um com seu tema).
+8. Confirmar com o responsável se a campanha de matrículas começa em 1º de agosto (usado no comparativo) e se o número lançado pela secretaria inclui rematrículas.
+9. Conceito: continuam pendentes o roteiro da Ceci, segredos OpenAI/Z-API e webhook antes de ativar a atendente.
+- 22/10: cores do COC ajustadas pelo logo oficial (verde #2EA04F, verde-claro #6EC646; botões #217A39 para leitura com texto branco; destaque âmbar #F2A93B no selo de conversas e em "querem matricular").
+
+## 22/10/2026 — urgência e lembretes
+
+- **Urgência:** ao mudar o andamento para "Em atendimento" ou "Em negociação", o `useUpdateLeadStatus` passa `triage_status` de `aguardando_secretaria` para `respondido_agente` (a secretaria assumiu). Assim a família sai de "Aguardando/urgente"; uma mensagem nova volta a acionar a triagem. Se a última mensagem da família continua sem resposta, ela segue marcada (alguém precisa responder). Em 22/10 havia 9 famílias no COC com andamento em atendimento/negociação ainda em `aguardando_secretaria` (criadas antes da correção); a secretaria pode resolvê-las mudando o andamento, ou fazer um ajuste único no banco se o responsável autorizar.
+- O selo de "Conversas" na barra conta as famílias que aguardam a secretaria pela mesma regra da tela Hoje.
+- **Lembretes** (`useReminders`, `components/crm/Reminders.tsx`): botão "Criar lembrete" na ficha da conversa e na ficha do Funil (tipo: enviar valores, enviar documento, falar sobre matrícula, retornar contato, outro; data com atalhos Amanhã / Próxima segunda / Dia 1º; observação). No dia, o lembrete aparece no painel "Lembretes de hoje" da tela Hoje (com atrasados), gera aviso na abertura do CRM (uma vez por dia) e um selo no item "Hoje" da barra. "Feito" conclui.
+- Tabela `lead_reminders` em `supabase/migrations/20261022150000_lead_reminders.sql` (RLS: equipe admin/user). Testada no COC dentro de transação desfeita (ok). **Ainda não aplicada** — aguardando liberação do responsável. Sem a tabela, a ficha mostra "Lembretes ainda não ativados" e o painel não aparece. Na demonstração funciona em memória.
+- 22/10: ajuste único no COC (autorizado): 6 famílias em atendimento/negociação já respondidas passaram de `aguardando_secretaria` para `respondido_agente` (Evilin, Joisiane, Karolayne, Brenda Vieira, Bianca Lima, Rayra Sampaio). Ficaram como estavam: "Contato 5596981448058" (mensagem sem resposta) e "Contato 5596991376853" (sem mensagens).
+- 22/10: Conversas mostra o total geral ("N recebidas no total") e o número em todas as abas; a lista carrega até 3000 contatos.
+- 22/10: a criação da tabela `lead_reminders` no COC foi autorizada, mas a ferramenta de migration foi cancelada duas vezes na aprovação; tabela ainda NÃO existe. Aplicar o arquivo `supabase/migrations/20261022150000_lead_reminders.sql` no SQL Editor do Supabase COC.
