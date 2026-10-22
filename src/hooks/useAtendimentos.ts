@@ -166,7 +166,7 @@ export function useAtendimentos() {
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
-        .limit(500);
+        .limit(3000);
       if (error) throw error;
       return (data || []) as unknown as Atendimento[];
     },

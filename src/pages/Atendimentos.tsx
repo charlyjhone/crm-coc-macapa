@@ -575,7 +575,10 @@ export default function Atendimentos() {
     <section aria-label="Conversas" className="flex min-h-[calc(100vh-104px)] flex-col bg-[#F6F7F9] md:h-screen md:min-h-0 lg:flex-row">
       <aside className="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-[#E4E7EC] bg-white lg:max-h-none lg:w-[300px] lg:border-b-0 lg:border-r">
         <div className="px-4 pb-2 pt-[18px]">
-          <h1 className="text-base font-semibold">Conversas</h1>
+          <div className="flex items-baseline justify-between gap-2">
+            <h1 className="text-base font-semibold">Conversas</h1>
+            <span className="text-[13px] text-[#5B6675]"><b className="text-[#1B2430]">{counts.todas}</b> recebidas no total</span>
+          </div>
           <Input aria-label="Buscar conversa" placeholder="Buscar nome ou telefone" value={search} onChange={(event) => setSearch(event.target.value)} className="mt-3 h-9" />
         </div>
         <div className="flex flex-wrap gap-1 px-3 pb-2.5" role="tablist" aria-label="Situação das conversas">
@@ -583,7 +586,7 @@ export default function Atendimentos() {
             <button key={item.key} type="button" role="tab" aria-selected={!stageFilter && tab === item.key}
               onClick={() => { setSearchParams({ aba: item.key }); setSelectedId(null); }}
               className={`min-h-9 rounded-lg px-2.5 text-sm font-medium ${!stageFilter && tab === item.key ? "bg-[var(--crm-accent-soft)] text-[var(--crm-accent)]" : "text-[#5B6675] hover:bg-[#F2F4F7]"}`}>
-              {item.label} {item.key !== "resolvidas" && item.key !== "todas" ? counts[item.key] : ""}
+              {item.label} <span className="opacity-75">{counts[item.key]}</span>
             </button>
           ))}
         </div>
