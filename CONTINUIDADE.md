@@ -679,3 +679,10 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Incorporado à função única: proteção contra mensagem duplicada (v108 do COC), tom acolhedor nos textos fixos, histórico só da conversa atual, apresentação garantida, "quero conhecer a escola" sem abrir visita, nome pedido só quando necessário, modo prévia e modo teste.
 - Referência para reverter a Ana: commit `d57bfa7` (cópia exata da v109 de produção).
 - Roteiros reescritos com a mesma estrutura e as mesmas regras de comportamento: Ana versão 3 e Ceci versão 2 (colar em Configurações → Escola). Backup do roteiro anterior da Ana em `escola_info_backup_2026_10_22`.
+
+## 52. Ceci em produção (22/10/2026, 13:50)
+
+- Modo teste desligado (`escola_agente_numeros_teste` vazio): a Ceci responde a todos os contatos do Conceito.
+- Conversa de teste do responsável arquivada (não apagada; o conector bloqueia exclusões): mensagens com telefone prefixado `teste-arquivado-`, lead arquivado e follow-up cancelado.
+- Lista de documentos passou a ser resposta geral (sem encaminhar à secretaria).
+- Pendências do Conceito: colar roteiro Ceci v3; funções `transcribe-audio` e `process-whatsapp-attachment`, bucket `whatsapp-attachments` e pg_cron de follow-up ainda não instalados (áudio recebe pedido para escrever a dúvida).
