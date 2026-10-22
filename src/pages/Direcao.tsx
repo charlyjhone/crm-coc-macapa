@@ -238,16 +238,28 @@ export default function Direcao() {
 
           <div className="grid gap-[18px] xl:grid-cols-3">
             <Panel title="Caminho das famílias">
-              <div className="mt-3 flex flex-col gap-2">
-                {funnel.map((step) => (
-                  <div key={step.label} className="mx-auto flex h-[30px] items-center justify-center rounded-lg px-2 text-[13px] font-semibold"
-                    style={{ width: `${Math.max(38, (step.value / funnelMax) * 100)}%`, background: step.color, color: step.text }}>
-                    {step.value} {step.label}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2.5 text-[13px] text-[#5B6675]">
-                Conversão de contato até querer matricular: {view.contacts ? `${Math.round((view.want / view.contacts) * 100)}%` : "—"}
+              <ol className="mt-3 flex flex-col gap-3">
+                {funnel.map((step, i) => {
+                  const prev = i > 0 ? funnel[i - 1].value : null;
+                  const pass = prev ? Math.round((step.value / prev) * 100) : null;
+                  return (
+                    <li key={step.label}>
+                      <div className="mb-1 flex items-baseline justify-between gap-2 text-[13px]">
+                        <span className="text-[#344054]">{step.label.charAt(0).toUpperCase() + step.label.slice(1)}</span>
+                        <span className="flex items-baseline gap-2">
+                          {pass !== null && <span className="text-xs text-[#5B6675]">{pass}% da etapa anterior</span>}
+                          <b className="w-8 text-right tabular-nums text-[#1B2430]">{step.value}</b>
+                        </span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-[#EEF0F3]">
+                        <div className="h-full rounded-full" style={{ width: `${step.value ? Math.max(2, (step.value / funnelMax) * 100) : 0}%`, background: step.color }} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="mt-4 border-t border-[#EEF0F3] pt-3 text-[13px] text-[#5B6675]">
+                Do contato até querer matricular: <b className="text-[#1B2430]">{view.contacts ? `${Math.round((view.want / view.contacts) * 100)}%` : "—"}</b>
               </p>
             </Panel>
 
