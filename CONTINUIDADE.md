@@ -671,3 +671,11 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Ajustes de resposta: primeira pergunta sobre valores só convida para a visita (encaminha só se insistir); a oferta "Enquanto isso, posso ajudar em algo mais?" não é anexada quando a resposta já termina em pergunta.
 - Ativação em 22/10/2026 com `escola_agente_ativo=true` e modo teste restrito ao número do responsável; mensagem real de família recebida logo depois foi ignorada corretamente.
 - Pendente: teste ponta a ponta pelo WhatsApp (saudação, visita com agenda, encerramento e pesquisa), depois esvaziar a lista de teste para liberar.
+
+## 51. Ana e Ceci com função única (22/10/2026)
+
+- `supabase/functions/school-triage/index.ts` é a função ÚNICA das duas escolas. COC (`fenqnbzdjnyvgrmjczoi`) e Conceito (`xkcxvbagzxwwauofvlin`) publicam uma entrada curta que importa esse arquivo num commit fixo. Cada projeto só lê o próprio banco; nada de escola fica no código.
+- Configurações por escola em `system_settings`: `escola_nome`, `escola_agente_nome`, `escola_info` (roteiro), `escola_endereco_visita` (novo, usado na confirmação da visita), `escola_valores`, `escola_valores_data_divulgacao`, `escola_folder_ativo`, `escola_pesquisa_ativa`, `escola_agente_numeros_teste` (modo teste; vazio = todos).
+- Incorporado à função única: proteção contra mensagem duplicada (v108 do COC), tom acolhedor nos textos fixos, histórico só da conversa atual, apresentação garantida, "quero conhecer a escola" sem abrir visita, nome pedido só quando necessário, modo prévia e modo teste.
+- Referência para reverter a Ana: commit `d57bfa7` (cópia exata da v109 de produção).
+- Roteiros reescritos com a mesma estrutura e as mesmas regras de comportamento: Ana versão 3 e Ceci versão 2 (colar em Configurações → Escola). Backup do roteiro anterior da Ana em `escola_info_backup_2026_10_22`.
