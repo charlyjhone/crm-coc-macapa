@@ -202,6 +202,10 @@ export function useUpdateLeadStatus() {
       if (lead.triage_status === "resolvido") {
         patch.triage_status = status === "novo" ? "novo" : "aguardando_secretaria";
         patch.resolved_at = null;
+      } else if (lead.triage_status === "aguardando_secretaria" && (status === "em_atendimento" || status === "em_negociacao")) {
+        // A secretaria assumiu o atendimento: deixa de aguardar a equipe e sai da urgência.
+        // Uma mensagem nova da família volta a acionar a triagem normalmente.
+        patch.triage_status = "respondido_agente";
       }
       const { data, error } = await supabase.from("leads").update(patch).eq("id", lead.id).select("id").single();
       if (error) throw error;
