@@ -738,7 +738,8 @@ serve(async (req) => {
     (settingsRows || []).forEach((r: any) => { if (r.value) settings[r.key] = r.value; });
 
     if (settingsError) throw new Error("school_settings_unavailable");
-    if (settings.escola_agente_ativo !== "true") {
+    // O modo prévia não envia nem grava nada, então pode rodar com a atendente desligada.
+    if (settings.escola_agente_ativo !== "true" && !previewOnly) {
       return json({ skipped: "agent_disabled" });
     }
 
