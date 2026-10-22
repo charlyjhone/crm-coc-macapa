@@ -1166,7 +1166,7 @@ serve(async (req) => {
     const saudacaoInstrucao = nomeReal
       ? `O nome desta pessoa é "${nomeReal}". Use o primeiro nome com naturalidade quando fizer sentido, sem repeti-lo em cada frase.`
       : devePerguntar
-      ? `Você ainda não sabe o nome desta pessoa. Pergunte o nome de forma natural enquanto responde a dúvida que ela já trouxe. Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
+      ? `Você ainda não sabe o nome desta pessoa. Não pergunte o nome só para cumprimentar nem junto com outra pergunta; peça o nome apenas quando for necessário para o próximo passo (cadastro, visita ou encaminhamento). Coloque o nome extraído em "nome_extraido" caso a pessoa tenha se apresentado nesta mensagem; caso contrário, deixe null.`
       : `Você ainda não sabe o nome desta pessoa. Não invente um nome.`;
 
     const secretaryStyleExamples = channel === "whatsapp"
