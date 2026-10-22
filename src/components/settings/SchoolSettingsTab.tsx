@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
+import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 
 const SETTINGS_KEYS = ["escola_nome", "escola_info", "escola_valores"] as const;
 
 export default function SchoolSettingsTab() {
   const queryClient = useQueryClient();
+  const { agentName } = useSchoolIdentity();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nome, setNome] = useState("");
@@ -63,7 +65,7 @@ export default function SchoolSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle>Identificação da escola</CardTitle>
-          <CardDescription>Informações oficiais usadas como referência nas respostas da Ana.</CardDescription>
+          <CardDescription>Informações oficiais usadas como referência nas respostas da {agentName}.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -73,12 +75,12 @@ export default function SchoolSettingsTab() {
           <div className="space-y-2">
             <Label htmlFor="school-info">Informações oficiais, endereço, funcionamento e currículo</Label>
             <Textarea id="school-info" rows={8} value={info} onChange={(e) => setInfo(e.target.value)} placeholder="Endereço, etapas de ensino, horário de atendimento e outras informações confirmadas." />
-            <p className="text-xs text-muted-foreground">Mantenha aqui os dias de atendimento, endereço e demais informações oficiais. A Ana não deve inventar informações que não estejam cadastradas.</p>
+            <p className="text-xs text-muted-foreground">Mantenha aqui os dias de atendimento, endereço e demais informações oficiais. A {agentName} não deve inventar informações que não estejam cadastradas.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="school-values">Valores de matrícula e mensalidade</Label>
             <Textarea id="school-values" rows={6} value={valores} onChange={(e) => setValores(e.target.value)} placeholder={"Ex.:\nEducação Infantil: ...\nEnsino Fundamental: ..."} />
-            <p className="text-xs text-muted-foreground">Enquanto estiver vazio, a Ana não informa preços específicos e encaminha a dúvida à secretaria.</p>
+            <p className="text-xs text-muted-foreground">Enquanto estiver vazio, a {agentName} não informa preços específicos e encaminha a dúvida à secretaria.</p>
           </div>
         </CardContent>
       </Card>

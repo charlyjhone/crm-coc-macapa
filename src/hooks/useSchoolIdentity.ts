@@ -16,6 +16,6 @@ export function useSchoolIdentity() {
   });
   return {
     schoolName: data?.escola_nome || schoolDisplayName,
-    agentName: data?.escola_agente_nome || "Ana",
+    agentName: data?.escola_agente_nome || "Assistente",
   };
 }
