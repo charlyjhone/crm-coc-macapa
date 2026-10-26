@@ -189,7 +189,7 @@ export default function Relatorios() {
                           <tbody className="divide-y divide-slate-100">
                             {data.rows.slice(0, PREVIEW_ROWS).map((row, i) => (
                               <tr key={i} className="align-top">
-                                {data.columns.map((c) => <td key={c.key} className="px-3 py-2 text-slate-800">{row[c.key] ?? ""}</td>)}
+                                {data.columns.map((c) => <td key={c.key} className={`px-3 py-2 text-slate-800 ${c.nowrap ? "whitespace-nowrap" : ""}`}>{row[c.key] ?? ""}</td>)}
                               </tr>
                             ))}
                           </tbody>

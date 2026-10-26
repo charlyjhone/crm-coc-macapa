@@ -1,7 +1,7 @@
 // Exportação de relatórios: CSV (abre direto no Excel em português) e PDF pela impressão do navegador.
 
 export type ReportCell = string | number | null | undefined;
-export type ReportColumn = { key: string; label: string };
+export type ReportColumn = { key: string; label: string; nowrap?: boolean };
 export type ReportTable = {
   title: string;
   subtitle?: string;
@@ -52,7 +52,7 @@ export function printReport(table: ReportTable, opts: { schoolName: string; file
     : "";
   const body = table.rows.length
     ? `<table><thead><tr>${table.columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("")}</tr></thead><tbody>${table.rows
-        .map((r) => `<tr>${table.columns.map((c) => `<td>${escapeHtml(r[c.key])}</td>`).join("")}</tr>`)
+        .map((r) => `<tr>${table.columns.map((c) => `<td${c.nowrap ? ' class="nw"' : ""}>${escapeHtml(r[c.key])}</td>`).join("")}</tr>`)
         .join("")}</tbody></table>`
     : `<p class="empty">Nenhum registro neste período.</p>`;
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(opts.fileName)}</title>
@@ -73,6 +73,7 @@ table { width: 100%; border-collapse: collapse; }
 th { background: #ECFDF3; color: #054F31; text-align: left; font-size: 9px; padding: 4px 5px; border-bottom: 1px solid #A6F4C5; }
 td { padding: 3px 5px; border-bottom: 1px solid #EAECF0; vertical-align: top; }
 tr { break-inside: avoid; }
+td.nw { white-space: nowrap; }
 thead { display: table-header-group; }
 .empty { color: #475467; }
 footer { margin-top: 10px; color: #667085; font-size: 9px; }

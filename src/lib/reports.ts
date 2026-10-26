@@ -74,6 +74,10 @@ const ORIGIN_LABELS: Record<string, string> = {
 const RELATION_LABELS: Record<string, string> = {
   mae: "Mãe", pai: "Pai", responsavel: "Responsável", avo: "Avó/Avô", tio: "Tia/Tio", outro: "Outro",
 };
+const SUBJECT_LABELS: Record<string, string> = {
+  matricula: "Matrícula", rematricula: "Rematrícula", boletim: "Boletim e notas", financeiro: "Financeiro", uniforme: "Uniforme",
+  transporte: "Transporte", vaga_emprego: "Vaga de emprego", visita: "Visita", outros: "Outros",
+};
 const yesNo = (v: unknown) => (v ? "Sim" : "");
 
 // ---------------------------------------------------------------------------------------------
@@ -138,7 +142,7 @@ const contatos: ReportDefinition = {
       counts.set(c.tipo, (counts.get(c.tipo) || 0) + 1);
       return {
         nome: l.name, telefone: formatPhone(l.phone || l.phones?.[0]), primeiro: fmtDateTime(l.created_at), tipo: c.tipo,
-        alunos: c.students.join(", "), assunto: label({}, l.assunto), interesse: label(INTEREST_LABELS, l.interesse),
+        alunos: c.students.join(", "), assunto: label(SUBJECT_LABELS, l.assunto), interesse: label(INTEREST_LABELS, l.interesse),
         situacao: label(TRIAGE_LABELS, l.triage_status), ultima: fmtDateTime(l.last_inbound_message_at),
       };
     });
@@ -146,9 +150,9 @@ const contatos: ReportDefinition = {
     return {
       title: "Contatos do WhatsApp", subtitle: periodLabel(range),
       columns: [
-        { key: "nome", label: "Nome no WhatsApp" }, { key: "telefone", label: "Telefone" }, { key: "primeiro", label: "Primeiro contato" },
+        { key: "nome", label: "Nome no WhatsApp" }, { key: "telefone", label: "Telefone", nowrap: true }, { key: "primeiro", label: "Primeiro contato", nowrap: true },
         { key: "tipo", label: "Classificação" }, { key: "alunos", label: "Aluno(s) da família" }, { key: "assunto", label: "Assunto" },
-        { key: "interesse", label: "Interesse" }, { key: "situacao", label: "Situação" }, { key: "ultima", label: "Última mensagem" },
+        { key: "interesse", label: "Interesse" }, { key: "situacao", label: "Situação" }, { key: "ultima", label: "Última mensagem", nowrap: true },
       ],
       rows,
       summary: [
@@ -195,9 +199,9 @@ const familias: ReportDefinition = {
       title: "Famílias e alunos", subtitle: "Cadastro geral (não depende do período)",
       columns: [
         { key: "aluno", label: "Aluno" }, { key: "situacao", label: "Situação" }, { key: "turma", label: "Turma" },
-        { key: "nascimento", label: "Nascimento" }, { key: "responsavel", label: "Responsável" }, { key: "vinculo", label: "Vínculo" },
+        { key: "nascimento", label: "Nascimento", nowrap: true }, { key: "responsavel", label: "Responsável" }, { key: "vinculo", label: "Vínculo" },
         { key: "principal", label: "Principal" }, { key: "financeiro", label: "Financeiro" },
-        { key: "telefone", label: "Telefone" }, { key: "email", label: "E-mail" },
+        { key: "telefone", label: "Telefone", nowrap: true }, { key: "email", label: "E-mail" },
       ],
       rows,
       summary: [
@@ -235,10 +239,10 @@ const funil: ReportDefinition = {
     return {
       title: "Funil de matrículas", subtitle: periodLabel(range),
       columns: [
-        { key: "familia", label: "Responsável" }, { key: "telefone", label: "Telefone" }, { key: "aluno", label: "Aluno" },
+        { key: "familia", label: "Responsável" }, { key: "telefone", label: "Telefone", nowrap: true }, { key: "aluno", label: "Aluno" },
         { key: "serie", label: "Série desejada" }, { key: "turno", label: "Turno" }, { key: "etapa", label: "Etapa" },
-        { key: "origem", label: "Origem" }, { key: "proxima", label: "Próxima ação" }, { key: "quando", label: "Data da ação" },
-        { key: "entrada", label: "Entrou em" }, { key: "atualizado", label: "Atualizado em" }, { key: "perda", label: "Motivo da perda" },
+        { key: "origem", label: "Origem" }, { key: "proxima", label: "Próxima ação" }, { key: "quando", label: "Data da ação", nowrap: true },
+        { key: "entrada", label: "Entrou em", nowrap: true }, { key: "atualizado", label: "Atualizado em", nowrap: true }, { key: "perda", label: "Motivo da perda" },
       ],
       rows: out,
       summary: [
@@ -265,8 +269,8 @@ const visitas: ReportDefinition = {
     return {
       title: "Visitas à escola", subtitle: periodLabel(range),
       columns: [
-        { key: "data", label: "Data e hora" }, { key: "status", label: "Situação" }, { key: "familia", label: "Responsável" },
-        { key: "telefone", label: "Telefone" }, { key: "aluno", label: "Aluno" }, { key: "serie", label: "Série desejada" },
+        { key: "data", label: "Data e hora", nowrap: true }, { key: "status", label: "Situação" }, { key: "familia", label: "Responsável" },
+        { key: "telefone", label: "Telefone", nowrap: true }, { key: "aluno", label: "Aluno" }, { key: "serie", label: "Série desejada" },
         { key: "impressao", label: "Impressão da família" }, { key: "objecoes", label: "Objeções" }, { key: "proximos", label: "Próximos passos" },
       ],
       rows: (rows as any[]).map((v) => {
@@ -324,7 +328,7 @@ const pesquisas: ReportDefinition = {
     return {
       title: "Pesquisa de origem e satisfação", subtitle: periodLabel(range),
       columns: [
-        { key: "familia", label: "Família" }, { key: "telefone", label: "Telefone" }, { key: "data", label: "Respondeu em" },
+        { key: "familia", label: "Família" }, { key: "telefone", label: "Telefone", nowrap: true }, { key: "data", label: "Respondeu em", nowrap: true },
         { key: "origem", label: "Como conheceu a escola" }, { key: "nota", label: "Nota (1 a 5)" },
       ],
       rows: out,
@@ -351,7 +355,7 @@ const matriculas: ReportDefinition = {
     const rows = (data || []).map((r: any) => ({ dia: fmtDay(r.day), ano: r.academic_year, quantidade: r.count }));
     return {
       title: "Matrículas lançadas", subtitle: periodLabel(range),
-      columns: [{ key: "dia", label: "Dia" }, { key: "ano", label: "Ano letivo" }, { key: "quantidade", label: "Matrículas no dia" }],
+      columns: [{ key: "dia", label: "Dia", nowrap: true }, { key: "ano", label: "Ano letivo" }, { key: "quantidade", label: "Matrículas no dia" }],
       rows,
       summary: [{ label: "Total no período", value: rows.reduce((n: number, r: any) => n + (Number(r.quantidade) || 0), 0) }],
       notice: missing ? "O lançamento de matrículas ainda não está ativado no banco desta escola." : undefined,
