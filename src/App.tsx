@@ -23,6 +23,7 @@ const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 const Pendentes = lazy(() => import("./pages/Pendentes"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Perfil = lazy(() => import("./pages/Perfil"));
+const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
             <Route path="/auditoria" element={<ProtectedLayout><AdminRoute><Auditoria /></AdminRoute></ProtectedLayout>} />
             <Route path="/perfil" element={<ProtectedLayout><Perfil /></ProtectedLayout>} />
+            <Route path="/relatorios" element={<ProtectedLayout><Relatorios /></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
