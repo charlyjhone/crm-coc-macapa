@@ -92,6 +92,9 @@ function normalizeGrade(value: string | null | undefined): string | null {
   if (normalized === "maternal") return "Maternal";
   const jardim = normalized.match(/^jardim\s*(i{1,2}|[12])$/);
   if (jardim) return jardim[1] === "ii" || jardim[1] === "2" ? "Jardim II" : "Jardim I";
+  // "1º ano do Ensino Médio" é a 1ª série; nunca confundir com o 1º ano do Fundamental.
+  const medio = normalized.match(/^([1-3])\s*(?:o|a)?\s*(?:ano|serie)\s*(?:do\s+)?(?:ensino\s+medio|em)$/);
+  if (medio) return medio[1] + "ª série";
   const ano = normalized.match(/^([1-9])\s*(?:o\s*)?(?:ano)?$/);
   if (ano) return ano[1] + "º ano";
   const anoPorExtenso = normalized.match(/^(primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|setimo|setima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano$/);
@@ -143,10 +146,13 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
   let grade: string | null = null;
   let shift: string | null = null;
   let lastAskedField: "responsavel" | "aluno" | "serie" | null = null;
+  // Segmento citado na conversa: "1º ano" dito no contexto do Ensino Médio é a 1ª série.
+  let ensinoMedio = false;
 
   for (const line of lines.slice(-24)) {
     if (line.startsWith("Escola:")) {
       const question = normalizedStyleText(line.replace(/^Escola:\s*/, "").replace(/^\*\[Atendente [^\]]+\]\*\s*/, ""));
+      if (/\b(?:serie|ano)s? do ensino medio\b[^?]*\?/.test(question)) ensinoMedio = true;
       if (/\b(nome completo do responsavel|nome do responsavel)\b/.test(question)) lastAskedField = "responsavel";
       else if (/\b(nome do aluno|nome da aluna)\b/.test(question)) lastAskedField = "aluno";
       else if (/\b(serie pretendida|qual e a serie|qual serie|qual ano)\b/.test(question)) lastAskedField = "serie";
@@ -155,6 +161,9 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
     }
     if (!line.startsWith("Família:")) continue;
     const answer = line.replace(/^Família:\s*/, "").trim();
+    const answerNormalized = normalizedStyleText(answer);
+    if (/\bmedio\b/.test(answerNormalized)) ensinoMedio = true;
+    else if (/\b(?:fundamental|infantil|maternal|jardim)\b/.test(answerNormalized)) ensinoMedio = false;
     const facts = extractGradeAndShift(answer);
     if (facts.grade) grade = facts.grade;
     if (facts.shift) shift = facts.shift;
@@ -177,6 +186,10 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
     lastAskedField = null;
   }
 
+  if (ensinoMedio) {
+    const emAno = (grade || normalizeGrade(triagem.cadastro.serie) || "").match(/^([1-3])º ano$/);
+    if (emAno) grade = emAno[1] + "ª série";
+  }
   if (grade) triagem.cadastro.serie = grade;
   if (shift) triagem.cadastro.turno = shift;
   // Remove série e turno do nome caso tenham sido escritos na mesma frase.
@@ -204,15 +217,20 @@ function enrollmentDraft(c: Triagem["cadastro"]) {
   return { responsible, student, year, grade, shift };
 }
 
+// Séries do Ensino Médio aparecem com o segmento para a família não confundir com o Fundamental.
+function gradeLabel(grade: string) {
+  return /ª série$/.test(grade) ? `${grade} do Ensino Médio` : grade;
+}
+
 function confirmationText(c: NonNullable<ReturnType<typeof enrollmentDraft>>) {
-  return `Só para conferir antes de anotar o interesse de vocês:\nResponsável: ${c.responsible}\nAluno: ${c.student}\nAno letivo: ${c.year}\nSérie: ${c.grade}\nTurno: ${c.shift || "não informado"}\nEstá tudo certinho? Se estiver, é só responder SIM; se precisar ajustar algo, me conta o que corrigir. 😊`;
+  return `Só para conferir antes de anotar o interesse de vocês:\nResponsável: ${c.responsible}\nAluno: ${c.student}\nAno letivo: ${c.year}\nSérie: ${gradeLabel(c.grade)}\nTurno: ${c.shift || "não informado"}\nEstá tudo certinho? Se estiver, é só responder SIM; se precisar ajustar algo, me conta o que corrigir. 😊`;
 }
 
 function confirmedDraftFromReply(message: string) {
   const match = message.match(/Só para conferir antes de anotar o interesse de vocês:\nResponsável: ([^\r\n]+)\nAluno: ([^\r\n]+)\nAno letivo: (\d{4})\nSérie: ([^\r\n]+)\nTurno: ([^\r\n]+)\nEstá tudo certinho\?/);
   if (!match) return null;
   const draft = enrollmentDraft({ responsavel: match[1], aluno: match[2],
-    ano: Number(match[3]), serie: match[4], turno: match[5] === "não informado" ? null : match[5] });
+    ano: Number(match[3]), serie: match[4].replace(/ do Ensino Médio$/, ""), turno: match[5] === "não informado" ? null : match[5] });
   return draft && confirmationText(draft).startsWith(match[0]) ? draft : null;
 }
 
@@ -225,6 +243,19 @@ function missingEnrollmentQuestion(c: Triagem["cadastro"]) {
   const first = c.responsavel.trim().split(/\s+/)[0];
   if (!c.aluno?.trim()) return `Obrigada, ${first}! E qual é o nome da criança?`;
   return "Perfeito! Para qual série vocês procuram vaga?";
+}
+
+// Aceita "15h", "15 hs", "15hrs", "16h30", "15:30" e "15 horas" (texto já normalizado).
+// A unidade não pode ser início de palavra ("dia 15 hoje" não é horário).
+const VISIT_TIME_PATTERN = /\b(?:as\s*)?([01]?\d|2[0-3])(?:\s*(?:horas?|hrs?|hs|h)(?![a-z])(?:\s*([0-5]\d)(?!\d))?|:([0-5]\d)(?!\d)(?:\s*(?:horas?|hrs?|hs|h)(?![a-z]))?)/;
+
+function matchVisitTime(normalized: string): { hour: number; minute: number } | null {
+  const match = normalized.match(VISIT_TIME_PATTERN);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || match[3] || "0");
+  if (/\b(?:tarde|noite)\b/.test(normalized) && hour >= 1 && hour <= 11) hour += 12;
+  return { hour, minute };
 }
 
 function extractExplicitVisitFacts(text: string): { date: string | null; time: string | null } {
@@ -245,11 +276,9 @@ function extractExplicitVisitFacts(text: string): { date: string | null; time: s
     const today = new Date(Date.UTC(currentYear, currentMonth, currentDay));
     const currentWeekday = today.getUTCDay();
     let delta = (weekday - currentWeekday + 7) % 7;
-    const timeForDay = normalized.match(/\b(?:as\s*)?([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h|horas?)\b/);
+    const timeForDay = matchVisitTime(normalized);
     if (delta === 0 && timeForDay) {
-      let hour = Number(timeForDay[1]);
-      const minute = Number(timeForDay[2] || "0");
-      if (/\b(?:tarde|noite)\b/.test(normalized) && hour >= 1 && hour <= 11) hour += 12;
+      const { hour, minute } = timeForDay;
       const currentHour = localNow.getUTCHours();
       if (hour * 60 + minute <= currentHour * 60 + localNow.getUTCMinutes()) delta = 7;
     } else if (delta === 0 && !timeForDay) {
@@ -275,12 +304,9 @@ function extractExplicitVisitFacts(text: string): { date: string | null; time: s
     }
   }
 
-  const timeMatch = normalized.match(/\b(?:as\s*)?([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h|horas?)\b/);
+  const timeMatch = matchVisitTime(normalized);
   if (timeMatch) {
-    let hour = Number(timeMatch[1]);
-    const minute = Number(timeMatch[2] || "0");
-    if (/\b(?:tarde|noite)\b/.test(normalized) && hour >= 1 && hour <= 11) hour += 12;
-    time = String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+    time = String(timeMatch.hour).padStart(2, "0") + ":" + String(timeMatch.minute).padStart(2, "0");
   }
   return { date, time };
 }
@@ -959,7 +985,7 @@ serve(async (req) => {
       anaAcabouDeOferecerAjuda = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
         /posso ajudar em algo mais/i.test(ultimaSaida.message || "");
       anaAcabouDeConfirmar = !!ultimaSaida && isAnaOutbound(ultimaSaida) &&
-        /Para cadastrar o interesse, confirme estes dados|Só para conferir antes de anotar o interesse|Para registrar sua visita em|Anotei seu pedido de visita|Seu pedido de visita.{0,100}(?:já está registrado|foi registrado|está registrado)|A secretaria vai (?:conferir|confirmar) a disponibilidade|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado|Sua visita .{0,80} está agendada|Sua visita foi reagendada/i.test(ultimaSaida.message || "");
+        /Para cadastrar o interesse, confirme estes dados|Só para conferir antes de anotar o interesse|Para registrar sua visita em|Anotei seu pedido de visita|Seu pedido de visita.{0,100}(?:já está registrado|foi registrado|está registrado)|A secretaria vai (?:conferir|confirmar) a disponibilidade|cadastro de interesse.{0,30}(?:registrado|cadastrado|concluído)|cadastrei seu interesse|seu interesse.{0,30}(?:está registrado|foi registrado)|interesse.{0,30}registrado|Anotei o interesse|interesse de vocês já (?:estava|está) anotado|Sua visita .{0,80} está agendada|Sua visita foi reagendada/i.test(ultimaSaida.message || "");
       const agradecimentoCurto = isPoliteThanks(text) ||
         /^(?:entendi|certo|ok|okay|ta bom|tá bom|beleza|perfeito)[.!\s🙏😊👍]*$/i.test(text.trim());
       if (anaAcabouDeConfirmar && agradecimentoCurto) {
@@ -1093,6 +1119,28 @@ serve(async (req) => {
       return json({ skipped: "employee_already_replied", lead_id: leadId });
     }
 
+    // A família mandou outra mensagem enquanto esta era processada ("Posso agendar" + "?").
+    // Só a mais recente responde, já com as duas no histórico; antes saíam duas respostas
+    // quase iguais. Não contam: mensagem vazia (mídia sem legenda), texto idêntico em até
+    // 10 s (ignorado como duplicado) e agradecimento/despedida (respondidos à parte).
+    const newerInboundWillAnswer = async () => {
+      if (channel !== "whatsapp" || !phone || !inboundCreatedAt || !messageId) return false;
+      const { data: newer, error } = await daConversa(supabase
+        .from("whatsapp_messages")
+        .select("id, message, created_at"))
+        .eq("direction", "inbound")
+        .gt("created_at", inboundCreatedAt)
+        .limit(10);
+      if (error) return false;
+      const thisTime = new Date(inboundCreatedAt).getTime();
+      return (newer || []).some((m: { id: string; message: string | null; created_at: string }) => {
+        const body = (m.message || "").trim();
+        if (m.id === messageId || !body) return false;
+        if (body === text && new Date(m.created_at).getTime() - thisTime <= 10000) return false;
+        return !isPoliteThanks(body) && !isConversationClosing(body, true);
+      });
+    };
+
     // Falha de transcrição não deve ser interpretada pela IA nem gerar handoff.
     if (/^\[(Mensagem de )?[ÁA]udio (não transcrito|[-–] erro (na transcrição|ao processar))\]$/i.test(text)) {
       if (channel === "whatsapp" && phone) {
@@ -1127,8 +1175,10 @@ serve(async (req) => {
         const gap = new Date(ordered[i].created_at).getTime() - new Date(ordered[i - 1].created_at).getTime();
         if (gap >= GREETING_GAP_MS) sessionStart = i;
       }
+      // Uma mensagem por linha: quebras internas ("Bom dia!\nQuero agendar visita")
+      // criavam linhas sem o prefixo "Família:" e o pedido de visita se perdia.
       historico = ordered.slice(sessionStart)
-        .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").slice(0, 400)}`)
+        .map((m: any) => `${m.direction === "inbound" ? "Família" : "Escola"}: ${(m.message || "").replace(/\s*[\r\n]+\s*/g, " ").slice(0, 400)}`)
         .join("\n");
     } else if (leadId) {
       const { data: msgs } = await supabase
@@ -1146,10 +1196,24 @@ serve(async (req) => {
 
     // ---- NOVO v103: visita ativa desta família (evita duplicar e permite reagendar) ----
     let activeVisit: { id: string; scheduled_at: string; opportunity_id: string } | null = null;
+    // Interesses já anotados desta família: evitam reenviar o resumo "Só para conferir..."
+    // a cada nova mensagem depois que a família já confirmou.
+    let interessesAnotados: { student: string; grade: string; year: number | null }[] = [];
     if (channel === "whatsapp" && leadId) {
       const { data: openOpps } = await supabase.from("enrollment_opportunities")
-        .select("id").eq("legacy_lead_id", leadId).not("stage", "in", '("matriculado","perdido")');
+        .select("id, student_id, desired_grade, academic_year").eq("legacy_lead_id", leadId).not("stage", "in", '("matriculado","perdido")');
       const oppIds = (openOpps || []).map((o: { id: string }) => o.id);
+      const studentIds = (openOpps || []).map((o: { student_id?: string | null }) => o.student_id).filter(Boolean);
+      if (studentIds.length) {
+        const { data: studentRows, error: studentError } = await supabase.from("students")
+          .select("id, full_name").in("id", studentIds);
+        if (!studentError) {
+          const nomes = new Map((studentRows || []).map((s: { id: string; full_name: string | null }) => [s.id, s.full_name || ""]));
+          interessesAnotados = (openOpps || [])
+            .map((o: any) => ({ student: String(nomes.get(o.student_id) || ""), grade: String(o.desired_grade || ""), year: o.academic_year ?? null }))
+            .filter((i: { student: string; grade: string }) => i.student && i.grade);
+        }
+      }
       if (oppIds.length) {
         const { data: visitRow } = await supabase.from("school_visits")
           .select("id, scheduled_at, opportunity_id").in("opportunity_id", oppIds)
@@ -1160,9 +1224,12 @@ serve(async (req) => {
       }
     }
     const activeVisitLabel = activeVisit ? formatVisitLabel(activeVisit.scheduled_at) : null;
-    const visitaAtivaInstrucao = activeVisitLabel
-      ? `VISITA JÁ AGENDADA: esta família já tem uma visita agendada para ${activeVisitLabel.date} às ${activeVisitLabel.time}. Não ofereça nem registre outro horário e não peça de novo dados que a família já informou. Se perguntarem sobre a visita, confirme esse dia e horário. Se a família quiser alterar, pergunte qual novo dia e horário prefere e marque visita.solicitada=true. Nunca informe a duração da visita.`
+    const interesseAnotadoInstrucao = interessesAnotados.length
+      ? `INTERESSE JÁ ANOTADO: o interesse desta família já está registrado para ${interessesAnotados.map((i) => `${i.student} (${gradeLabel(i.grade)})`).join(", ")}. Não reapresente o resumo, não peça SIM de novo e não pergunte outra vez nome, aluno ou série; responda diretamente à dúvida atual. Só colete dados de novo se a família corrigir algo ou quiser cadastrar outro aluno.`
       : "";
+    const visitaAtivaInstrucao = [activeVisitLabel
+      ? `VISITA JÁ AGENDADA: esta família já tem uma visita agendada para ${activeVisitLabel.date} às ${activeVisitLabel.time}. Não ofereça nem registre outro horário e não peça de novo dados que a família já informou. Se perguntarem sobre a visita, confirme esse dia e horário. Se a família quiser alterar, pergunte qual novo dia e horário prefere e marque visita.solicitada=true. Nunca informe a duração da visita.`
+      : "", interesseAnotadoInstrucao].filter(Boolean).join("\n\n");
 
     // ---- Contexto do contato para personalização ----
     const nomeReal = !isPlaceholderName(lead?.name) ? lead!.name : null;
@@ -1293,8 +1360,18 @@ serve(async (req) => {
     const wantsReschedule = !!activeVisit && RESCHEDULE_INTENT.test(`${visitFamilyMessages}\n${text}`);
     // "Quero conhecer a escola" é pedido de informação (apresentação + folder).
     // "Conhecer" só vira visita quando indica ida presencial (dia, horário, pessoalmente).
-    let visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|visita|visitar)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b|\bconhecer\b[\s\S]{0,40}\b(?:pessoalmente|presencialmente|ir at[eé]|passar a[ií]|amanh[ãa]|hoje|segunda|ter[çc]a|quarta|quinta|sexta|dia \d|[àa]s? \d)/i
+    let visitIntentInConversation = /\b(?:quero|gostaria|vamos|podemos|pretendo)\b[\s\S]{0,60}\b(?:agendar|marcar|visita|visitar)\b|\b(?:agendar|marcar|registrar)\b[\s\S]{0,40}\bvisita\b|\b(?:posso|pode|queria|queremos|tem como|d[aá] pra|d[aá] para)\b[\s\S]{0,30}\b(?:agendar|marcar)\b|\bconhecer\b[\s\S]{0,40}\b(?:pessoalmente|presencialmente|ir at[eé]|passar a[ií]|amanh[ãa]|hoje|segunda|ter[çc]a|quarta|quinta|sexta|dia \d|[àa]s? \d)/i
       .test(`${visitFamilyMessages}\n${text}`);
+    // A atendente já perguntou o dia/horário da visita (ou ofereceu agendar) e a IA
+    // entendeu que a família quer a visita: continuar o agendamento em vez de cair no
+    // resumo de cadastro. Ex.: "Qual dia vocês gostariam para a visita?" → "amanhã às 15 hs".
+    const anaPerguntouSobreVisita = visitHistorico.split("\n")
+      .filter((line) => line.startsWith("Escola:"))
+      .some((line) => (line.match(/[^.!?]*\?/g) || [])
+        .some((pergunta) => /\b(?:agendar|marcar|agendamento|visita)\b|\b(?:qual|que) (?:dia|hor[aá]rio)\b/i.test(pergunta)));
+    if (!visitIntentInConversation && anaPerguntouSobreVisita && triagem.visita?.solicitada === true) {
+      visitIntentInConversation = true;
+    }
     if (activeVisit) visitIntentInConversation = wantsReschedule;
 
     if (explicitRegistrationIntent && channel === "whatsapp") {
@@ -1348,6 +1425,7 @@ serve(async (req) => {
     // Dados completos geram um resumo; somente a resposta ao resumo autoriza gravar.
     let shouldRegister = false;
     let enrollmentConfirmed = false;
+    let anteriorEraResumo = false;
     if (phone && channel === "whatsapp") {
       let previousQuery = supabase.from("whatsapp_messages")
         .select("message, raw_data, created_at").eq("phone", phone).eq("direction", "outbound");
@@ -1357,6 +1435,7 @@ serve(async (req) => {
       if (previousError) throw new Error("visit_confirmation_lookup_failed");
       const confirmedDraft = previous && isAnaOutbound(previous)
         ? confirmedDraftFromReply(previous.message || "") : null;
+      anteriorEraResumo = !!confirmedDraft;
       if (confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
@@ -1364,14 +1443,31 @@ serve(async (req) => {
         assunto = "matricula";
       }
     }
-    if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano && !defersDetailsUntilVisit) {
+    // Família pediu para corrigir o resumo sem dizer o quê ("corrigir", "não"):
+    // perguntar o que ajustar em vez de reenviar o mesmo resumo.
+    const pedidoDeCorrecao = anteriorEraResumo && !shouldRegister &&
+      (/^(?:(?:quero|preciso|vou|tem que|precisa)\s+)?(?:corrigir|ajustar|alterar|mudar|trocar)[.!\s]*$/i.test(text.trim()) ||
+        /^(?:n[aã]o|n[aã]o est[aá] (?:cert[oa]|corret[oa]|certinho)|(?:t[aá]|est[aá]) errad[oa]|errad[oa])[.!,\s]*$/i.test(text.trim()));
+    // Interesse já gravado para este aluno e série: a próxima mensagem é uma dúvida nova,
+    // não um pedido de novo cadastro. Antes, qualquer "ok"/pergunta reenviava o resumo.
+    const mesmoTexto = (value: string | null | undefined) => normalizedStyleText(value || "");
+    const draftJaAnotado = (d: ReturnType<typeof enrollmentDraft>) => !!d && interessesAnotados.some((i) =>
+      mesmoTexto(i.student) === mesmoTexto(d.student) && mesmoTexto(i.grade) === mesmoTexto(d.grade) &&
+      (i.year == null || i.year === d.year));
+    const alunoJaAnotado = !triagem.cadastro?.aluno?.trim() ||
+      interessesAnotados.some((i) => mesmoTexto(i.student) === mesmoTexto(triagem.cadastro.aluno));
+    const familiaJaAnotada = interessesAnotados.length > 0 && alunoJaAnotado;
+    if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano && !defersDetailsUntilVisit &&
+        !(familiaJaAnotada && !visitRequested)) {
       const cadastro = triagem.cadastro;
       const missing = missingEnrollmentQuestion(cadastro);
       const primeiraPergunta = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2;
-      resposta = primeiraPergunta
+      // A frase de boas-vindas aparece uma vez só; se a pergunta voltar, vai direto ao ponto.
+      const jaDeuBoasVindas = /Que bom ter vocês com a gente!|Vai ser um prazer receber vocês aqui!/.test(historico);
+      resposta = primeiraPergunta && !jaDeuBoasVindas
         ? (visitRequested ? `Vai ser um prazer receber vocês aqui! ${missing}` : `Que bom ter vocês com a gente! ${missing}`)
         : missing;
-    } else if (assunto === "matricula" && !shouldRegister && !draft &&
+    } else if (assunto === "matricula" && !shouldRegister && !draft && !familiaJaAnotada &&
         /\b(?:(?:j[aá]\s+)?(?:registrei|cadastrei|anotei|salvei|inclu[ií]|criei)\b[\s\S]{0,100}\b(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b|(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b[\s\S]{0,60}\b(?:registrado|cadastrado|anotado|salvo|inclu[ií]do|criado)\b)/i.test(resposta)) {
       resposta = "Entendi! Ainda não concluí o cadastro por aqui, mas nossa secretaria vai conferir os dados com você e continuar o atendimento. 😊";
     }
@@ -1379,8 +1475,17 @@ serve(async (req) => {
       // Solicitar visita autoriza o cadastro de interesse e elimina a confirmação duplicada do resumo.
       shouldRegister = true;
     }
-    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !precisaHumano && !visitRequested;
+    const interesseJaAnotado = !shouldRegister && !visitRequested && draftJaAnotado(draft);
+    const awaitingEnrollmentConfirmation = !!draft && !shouldRegister && !precisaHumano && !visitRequested &&
+      !pedidoDeCorrecao && !interesseJaAnotado;
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
+    if (pedidoDeCorrecao && !precisaHumano && !visitRequested) {
+      resposta = "Claro! O que precisa ajustar: o nome do responsável, o nome do aluno, a série ou o turno? 😊";
+    }
+    if (interesseJaAnotado && /Só para conferir antes de anotar|Está tudo certinho\?/i.test(resposta)) {
+      // Rede de segurança: a IA não deve reenviar o resumo de um interesse já gravado.
+      resposta = "O interesse de vocês já está anotado e nossa secretaria está acompanhando de pertinho. 😊";
+    }
     if (handoffPendente) resposta = removeRepeatedHelpOffer(resposta);
     const proposedVisit = visitRequested
       ? visitDateTime(triagem.visita.data, triagem.visita.horario, antecedenciaVisitaMin) : null;
@@ -1427,6 +1532,10 @@ serve(async (req) => {
         visita_proposta: !!proposedVisit,
         visita_com_horario_valido: !!proposedVisit,
       });
+    }
+
+    if (await newerInboundWillAnswer()) {
+      return json({ skipped: "newer_inbound_will_answer", lead_id: leadId });
     }
 
     // ---- Salvar nome extraído pela IA ----
@@ -1569,6 +1678,10 @@ serve(async (req) => {
         if (channel === "whatsapp" && phone) {
           if (await employeeAlreadyReplied()) {
             return json({ skipped: "employee_replied_during_generation", lead_id: leadId });
+          }
+          // Sem cadastro ou visita gravados nesta rodada, a mensagem mais nova responde por esta.
+          if (!registration && !visitId && await newerInboundWillAnswer()) {
+            return json({ skipped: "newer_inbound_will_answer", lead_id: leadId });
           }
           const respostaComIdentificacao = `*[Atendente ${agentName}]*\n${resposta.replace(/^\*\[Atendente [^\]\r\n]+\]\*\s*/, "")}`;
           const r = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-message`, {

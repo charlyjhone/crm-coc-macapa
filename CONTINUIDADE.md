@@ -687,3 +687,16 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - Lista de documentos passou a ser resposta geral (sem encaminhar à secretaria).
 - Pendências do Conceito: colar roteiro Ceci v3; funções `transcribe-audio` e `process-whatsapp-attachment`, bucket `whatsapp-attachments` e pg_cron de follow-up ainda não instalados (áudio recebe pedido para escrever a dúvida).
 - 22/10 14:00: primeira mensagem real mostrou a Ceci entrando numa conversa que a secretaria já atendia pelo celular. Causa: respostas do aparelho chegam só com o LID do chat (`@lid`) e ficavam órfãs, sem o número. Correção na função única (commit `526c771`): checagem de atendimento humano, histórico e resposta concorrente consideram número OU `chatLid`. Testado no caso real (retornou `human_conversation_active`). Ceci de volta em produção. Pendente: mensagens órfãs `@lid` antigas ainda não aparecem na conversa do CRM.
+
+## 53. Ana: resumo repetido, visitas perdidas, série do Ensino Médio e resposta dupla (27/10/2026)
+
+Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue no commit fixo `0557cb8`). Problemas vistos em conversas reais de 26–27/10:
+
+- **Resumo "Só para conferir..." reenviado** a cada nova mensagem depois do SIM (98136-4080, 99156-5550, 99130-9148); a pergunta da família (valores, horário) ficava sem resposta. Agora a função carrega os interesses já gravados da família (`enrollment_opportunities` + `students`), avisa a IA (`INTERESSE JÁ ANOTADO`) e não reenvia o resumo para o mesmo aluno/série; outro aluno continua recebendo resumo. "Ok/obrigada" depois de "Anotei o interesse" recebe a resposta curta.
+- **"corrigir"/"não" após o resumo** reenviava o mesmo resumo; agora pergunta o que ajustar.
+- **Visitas não agendadas**: (1) mensagens com quebra de linha viravam linhas sem "Família:" no histórico e o pedido de visita sumia — histórico agora tem uma mensagem por linha; (2) "Posso agendar" não era reconhecido — regex ampliada; (3) quando a própria Ana perguntou dia/horário da visita e a IA marcou `visita.solicitada`, o agendamento continua; (4) horários "15 hs", "16h30", "15:30", "9hrs" agora são entendidos ("dia 15 hoje" não vira horário).
+- **Série do Ensino Médio**: "1º ano" no contexto do Ensino Médio virava "1º ano" (Fundamental). Agora vira "1ª série", e o resumo mostra "1ª série do Ensino Médio" (o texto é reconvertido na confirmação).
+- **Resposta dupla** a mensagens seguidas: se chegou outra mensagem da família durante o processamento, só a mais recente responde (exceto agradecimento/despedida, mídia sem legenda e duplicata idêntica em 10 s). Não vale se cadastro ou visita já foram gravados na rodada.
+- Testes: `scripts/test-ana-conversas-reais.mjs` (15 casos; 11 falham na versão de produção e passam na nova). `scripts/test-ana-visits.mjs` ganhou `gte`, `or` e a tabela `students` no simulador: 19/27 passam, as mesmas 8 falhas antigas por textos desatualizados, antes e depois.
+- Para publicar no COC: trocar o commit da entrada curta de `school-triage` para o commit desta branch (depois do merge). A Ceci (Conceito) só muda quando a entrada dela for atualizada.
+- Dados a corrigir com autorização: oportunidade de Pedro Costa França gravada como "1º ano" (deveria ser "1ª série"); contato do 98136-4080 ficou com o nome do aluno.

@@ -28,7 +28,7 @@ function harness() {
     onAi: null, queryError: null,
     rows: {
       system_settings: [{ key: 'escola_agente_ativo', value: 'true' }],
-      crm_survey_claims: [], guardians: [],
+      crm_survey_claims: [], guardians: [], students: [],
       leads: [{ id: 'lead-1', name: 'Responsável de Teste', phone: '00000000000', status: 'novo', triage_status: 'novo', handoff_at: null }],
       whatsapp_messages: [], activity_log: [], enrollment_opportunities: [], ana_followups: [], school_visits: [],
     },
@@ -49,6 +49,8 @@ function harness() {
       select() { return q; },
       eq(key, value) { filters.push(row => field(row, key) === value); return q; },
       gt(key, value) { filters.push(row => field(row, key) > value); return q; },
+      gte(key, value) { filters.push(row => field(row, key) >= value); return q; },
+      or() { return q; },
       lt(key, value) { filters.push(row => field(row, key) < value); return q; },
       lte(key, value) { filters.push(row => field(row, key) <= value); return q; },
       in(key, values) { filters.push(row => values.includes(field(row, key))); return q; },
