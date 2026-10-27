@@ -78,6 +78,14 @@ const SUBJECT_LABELS: Record<string, string> = {
   matricula: "Matrícula", rematricula: "Rematrícula", boletim: "Boletim e notas", financeiro: "Financeiro", uniforme: "Uniforme",
   transporte: "Transporte", vaga_emprego: "Vaga de emprego", visita: "Visita", outros: "Outros",
 };
+/** A turma do aluno importado fica nas observações, numa linha padronizada: "Turma 2026: FUN6AB — Ensino Fundamental II, 6º Ano". */
+export function turmaFromNotes(notes?: string | null) {
+  const lines = (notes || "").split(/\r?\n/).map((l) => l.match(/^\s*Turma\s+(\d{4})\s*:\s*(.+?)\s*$/i)).filter(Boolean) as RegExpMatchArray[];
+  if (!lines.length) return "";
+  const latest = lines.sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+  return latest[2].split(/\s+[—-]\s+/)[0];
+}
+
 const yesNo = (v: unknown) => (v ? "Sim" : "");
 
 // ---------------------------------------------------------------------------------------------
@@ -187,7 +195,7 @@ const familias: ReportDefinition = {
         students.add(l.student_id);
         return {
           aluno: s.full_name || "", situacao: prospect.has(l.student_id) ? "Interessado (captação)" : "Aluno da escola",
-          turma: s.current_class || s.turma || s.class_name || "", nascimento: fmtDay(s.birth_date),
+          turma: s.current_class || s.turma || turmaFromNotes(s.notes), nascimento: fmtDay(s.birth_date),
           responsavel: l.guardians?.full_name || "", vinculo: label(RELATION_LABELS, l.relationship),
           principal: yesNo(l.is_primary), financeiro: yesNo(l.is_financially_responsible),
           telefone: formatPhone(l.guardians?.phone), email: l.guardians?.email || "",
