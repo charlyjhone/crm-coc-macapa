@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { AlertCircle, GraduationCap, Home, Loader2, Mail, Phone, Search, UserRound, Users } from "lucide-react";
 import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
 import { EditFamilyDialog, type EditableFamily } from "@/components/school/EditFamilyDialog";
+import { DeleteFamilyDialog } from "@/components/school/DeleteFamilyDialog";
 import { turmaFromNotes } from "@/lib/reports";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type GuardianRow = EditableFamily & {
   student_guardians?: Array<{
@@ -129,6 +131,7 @@ const Families = () => {
   const [visible, setVisible] = useState(VISIBLE_STEP);
   const [foundationPending, setFoundationPending] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     let cancelled = false;
@@ -284,6 +287,19 @@ const Families = () => {
                       ))}
                     </div>
                   </div>
+
+                  {isAdmin && (
+                    <div className="mt-3 flex justify-end border-t pt-3">
+                      <DeleteFamilyDialog
+                        guardianIds={family.guardians.map(({ guardian }) => guardian.id)}
+                        studentIds={family.students.map((s) => s.id)}
+                        familyName={family.students[0]?.name || family.guardians[0]?.guardian.full_name || "esta família"}
+                        studentNames={family.students.map((s) => s.name)}
+                        guardianNames={family.guardians.map(({ guardian }) => guardian.preferred_name || guardian.full_name)}
+                        onDeleted={refresh}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
