@@ -96,7 +96,7 @@ function harness() {
         let opp = state.rows.enrollment_opportunities.find(o => o.student_id === student.id && o.desired_grade === args.p_desired_grade);
         const created = !opp;
         if (!opp) opp = append('enrollment_opportunities', { legacy_lead_id: args.p_lead_id, student_id: student.id, desired_grade: args.p_desired_grade, academic_year: args.p_academic_year, stage: 'novo_interessado' });
-        return { data: { opportunity_id: opp.id, created }, error: null };
+        return { data: { opportunity_id: opp.id, student_id: student.id, created }, error: null };
       }
       if (name === 'get_ana_available_visit_slots') {
         const weekday = new Date(args.p_date + 'T12:00:00-03:00').getUTCDay();
@@ -294,4 +294,88 @@ test('horários escritos de vários jeitos são entendidos; "dia 15 hoje" não �
   assert.equal(t('as 4 horas da tarde'), '16:00');
   assert.equal(t('dia 15 hoje'), null);
   assert.equal(t('meu filho tem 2 anos'), null);
+});
+
+// ---- Checagem da série pela idade (tabela oficial do COC) ----
+const TABELA_COC = 'Maternal 2=2; Maternal 3=3; 1º Período=4; 2º Período=5; 1º ano=6; 2º ano=7; 3º ano=8; 4º ano=9; 5º ano=10; 6º ano=11; 7º ano=12; 8º ano=13; 9º ano=14; 1ª série=15; 2ª série=16; 3ª série=17';
+function coc() {
+  const h = harness();
+  h.state.rows.system_settings.push({ key: 'escola_series_idades', value: TABELA_COC });
+  return h;
+}
+const cad = (serie, extra = {}) => triagem({ cadastro: { responsavel: 'Vivian Renata da Silva França', aluno: 'Pedro Costa França', ano: 2027, serie, turno: null, idade: null, ...extra } });
+
+test('"1º ano" sem segmento: Ana pergunta a idade; 15 anos vira 1ª série do Ensino Médio', async () => {
+  const h = coc();
+  await h.send('1º ano', cad('1º ano'));
+  assert.match(h.lastSent(), /qual é a idade de Pedro\?.*1º ano do Ensino Fundamental ou a 1ª série do Ensino Médio/);
+  assert.equal(h.state.sent.filter(m => /Só para conferir/.test(m.message)).length, 0);
+  await h.send('15', cad('1º ano'));
+  assert.match(h.lastSent(), /Idade: 15 anos\nAno letivo: 2027\nSérie: 1ª série do Ensino Médio/);
+  assert.doesNotMatch(h.lastSent(), /Obs\./);
+  await h.send('Sim', cad('1º ano'));
+  assert.equal(h.state.rows.enrollment_opportunities[0].desired_grade, '1ª série');
+  assert.match(h.state.rows.students[0].notes, /Idade informada pela família em .*: 15 anos/);
+});
+
+test('"1º ano" com 6 anos é 1º ano do Ensino Fundamental, sem pergunta extra', async () => {
+  const h = coc();
+  await h.send('1º ano, ele tem 6 anos', cad('1º ano'));
+  assert.match(h.lastSent(), /Idade: 6 anos\nAno letivo: 2027\nSérie: 1º ano do Ensino Fundamental/);
+  assert.doesNotMatch(h.lastSent(), /Obs\./);
+});
+
+test('idade intermediária (11 anos) faz a Ana perguntar o segmento', async () => {
+  const h = coc();
+  await h.send('2º ano', cad('2º ano'));
+  await h.send('11 anos', cad('2º ano'));
+  assert.match(h.lastSent(), /é o 2º ano do Ensino Fundamental ou a 2ª série do Ensino Médio\?/);
+  await h.send('Fundamental', cad('2º ano'));
+  assert.match(h.lastSent(), /Série: 2º ano do Ensino Fundamental/);
+  assert.match(h.lastSent(), /Obs\.: pela idade informada, a série mais comum seria 6º ano do Ensino Fundamental ou 7º ano do Ensino Fundamental\./);
+});
+
+test('pai disse "Fundamental": não pergunta idade nem converte', async () => {
+  const h = coc();
+  await h.send('3º ano do fundamental', cad('3º ano'));
+  assert.match(h.lastSent(), /Série: 3º ano do Ensino Fundamental/);
+});
+
+test('série e idade que não combinam: resumo avisa e o SIM ainda grava', async () => {
+  const h = coc();
+  await h.send('1ª série do ensino médio, ele tem 6 anos', cad('1ª série'));
+  assert.match(h.lastSent(), /Série: 1ª série do Ensino Médio/);
+  assert.match(h.lastSent(), /Obs\.: pela idade informada, a série mais comum seria 1º ano do Ensino Fundamental ou 2º ano do Ensino Fundamental\./);
+  await h.send('Sim', cad('1ª série'));
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+  assert.equal(h.state.rows.enrollment_opportunities[0].desired_grade, '1ª série');
+});
+
+test('Maternal sem número: com 2 anos pergunta Maternal 2 ou 3; com 3 anos já define', async () => {
+  const h = coc();
+  await h.send('Maternal, ele tem 2 anos', cad('Maternal'));
+  assert.match(h.lastSent(), /é o Maternal 2 ou o Maternal 3\?/);
+  await h.send('Maternal 3', cad('Maternal'));
+  assert.match(h.lastSent(), /Série: Maternal 3\n/);
+  const h2 = coc();
+  await h2.send('Maternal, ela tem 3 anos', cad('Maternal'));
+  assert.match(h2.lastSent(), /Série: Maternal 3\n/);
+});
+
+test('"primeiro período" e "1º período" usam o nome da escola', async () => {
+  const h = coc();
+  await h.send('primeiro período, ela tem 4 anos', cad('primeiro período'));
+  assert.match(h.lastSent(), /Série: 1º Período\n/);
+  assert.doesNotMatch(h.lastSent(), /Obs\./);
+  const h2 = coc();
+  await h2.send('2º período', cad('2º Período'));
+  assert.match(h2.lastSent(), /Série: 2º Período\n/);
+});
+
+test('idade só conta quando é idade: "uns 2 anos atrás" e "1 ano" são ignorados', () => {
+  const { context } = harness();
+  assert.equal(context.extractAge('nosso filho já estudou aí a uns 2 anos atrás'), null);
+  assert.equal(context.extractAge('quero o 1 ano'), null);
+  assert.equal(context.extractAge('ele tem 6 anos'), 6);
+  assert.equal(context.extractAge('minha filha de 15 anos'), 15);
 });

@@ -700,3 +700,13 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Testes: `scripts/test-ana-conversas-reais.mjs` (15 casos; 11 falham na versão de produção e passam na nova). `scripts/test-ana-visits.mjs` ganhou `gte`, `or` e a tabela `students` no simulador: 19/27 passam, as mesmas 8 falhas antigas por textos desatualizados, antes e depois.
 - Para publicar no COC: trocar o commit da entrada curta de `school-triage` para o commit desta branch (depois do merge). A Ceci (Conceito) só muda quando a entrada dela for atualizada.
 - Dados a corrigir com autorização: oportunidade de Pedro Costa França gravada como "1º ano" (deveria ser "1ª série"); contato do 98136-4080 ficou com o nome do aluno.
+
+### 53.1 Série conferida pela idade (27/10/2026)
+
+- Nova configuração por escola `system_settings.escola_series_idades` (tabela série=idade). Sem ela, nada muda (Ceci segue igual). Valor do COC, informado pelo responsável: `Maternal 2=2; Maternal 3=3; 1º Período=4; 2º Período=5; 1º ano=6; 2º ano=7; 3º ano=8; 4º ano=9; 5º ano=10; 6º ano=11; 7º ano=12; 8º ano=13; 9º ano=14; 1ª série=15; 2ª série=16; 3ª série=17` (Infantil: Maternal 2 ao 2º Período; Fundamental I: 1º ao 5º ano; Fundamental II: 6º ao 9º; Médio: 1ª à 3ª série).
+- "1º/2º/3º ano" sem segmento: a Ana pergunta a idade; até 10 anos = Fundamental, 13 ou mais = Médio, 11–12 ou sem resposta clara = pergunta "Fundamental ou Médio?". "Maternal" sem número: 1 ano = Maternal 2, 3 anos = Maternal 3, 2 anos = pergunta qual. "Fundamental"/"Médio" ditos pela família decidem sem perguntar idade.
+- Nomes da escola reconhecidos: Maternal 2/3, 1º/2º Período (antes viravam "Maternal" ou nada).
+- Resumo mostra "Idade: N anos" e a série com segmento ("1º ano do Ensino Fundamental"). Idade fora do esperado (aceita a idade da série ou um ano a menos, porque o cadastro é para o ano seguinte) gera uma linha "Obs.:" com a série mais comum; o SIM continua gravando como a família escolheu. A idade vai para `students.notes` ("Idade informada pela família em DD/MM/AAAA: N anos").
+- IA devolve `cadastro.idade`. Testes: 23 em `scripts/test-ana-conversas-reais.mjs`.
+- Ao publicar: gravar `escola_series_idades` no COC. O formulário manual de família no CRM (`NewFamilyDialog`) ainda lista "Maternal / Jardim I / Jardim II" — ajustar à parte (o frontend é compartilhado com o Conceito).
+- Ponto em aberto: a Ana aceitou "1ª série, tarde" no 98136-4080, mas o roteiro diz que do 8º ano à 3ª série só há turno da manhã.
