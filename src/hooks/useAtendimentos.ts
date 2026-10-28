@@ -304,6 +304,17 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
   });
 }
 
+// Avisa o WhatsApp da escola que a conversa foi lida (tiques azuis para a família).
+// Falhas não atrapalham o atendimento: no pior caso a conversa fica como não lida no aparelho.
+export async function marcarWhatsAppComoLido(leadId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("mark-whatsapp-read", { body: { leadId } });
+    return !error && data?.success === true;
+  } catch {
+    return false;
+  }
+}
+
 export function useEnviarWhatsApp() {
   const qc = useQueryClient();
   return useMutation({

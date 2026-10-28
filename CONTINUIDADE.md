@@ -717,3 +717,11 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Dados corrigidos com autorização: oportunidade de Pedro Costa França → `1ª série`, turno `manhã`; contato do 98136-4080 → Vivian Renata da Silva França; Miguel Brito Souto → `1º Período`. Registrado em `activity_log`. Obs.: o gatilho de pontuação exige sessão; correções por SQL usam `request.jwt.claims` com `role=service_role` na transação.
 - Exclusão de família: RPC `delete_school_family(guardian_ids, student_ids)` (migration `20261027220000_delete_school_family.sql`), aplicada no COC e no Conceito. Só administrador; exige família fechada (mesmo grupo do cartão); apaga responsáveis, alunos, vínculos, interesses e, em cascata, visitas, tarefas e histórico; mantém leads e conversas. Auditoria pelos gatilhos existentes. Testada no COC em transação desfeita (secretaria recusada, família aberta recusada, exclusão completa sem tocar outra família).
 - Tela Famílias: botão "Excluir família" no cartão, só para administradores, com confirmação digitando EXCLUIR (`src/components/school/DeleteFamilyDialog.tsx`).
+
+## 55. Conversa aberta no CRM = lida no WhatsApp (27/10/2026)
+
+- Decisão do responsável: marcar como lida ao ABRIR a conversa (não só ao responder).
+- Edge Function `mark-whatsapp-read` (COC e Conceito, `verify_jwt=true`, v1): recebe só `leadId`, busca número/LID no banco, valida papel admin/user e chama Z-API `modify-chat` com `action: "read"` (tenta número, depois LID).
+- Atendimentos (`Conversation`): chama ao abrir e a cada nova mensagem recebida, só com a aba visível; falha não interrompe o atendimento.
+- Efeitos conhecidos: família vê tiques azuis (se a confirmação de leitura estiver ativa no WhatsApp da escola) e a conversa deixa de aparecer como não lida no celular/WhatsApp Web.
+- Pendente: validar com uma conversa real logo após a publicação (logs da função).

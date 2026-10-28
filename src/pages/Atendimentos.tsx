@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { marcarWhatsAppComoLido, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -89,6 +89,26 @@ function Conversation({ lead }: { lead: Atendimento }) {
       if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
     };
   }, [audioPreviewUrl]);
+
+  // Conversa aberta = lida no WhatsApp da escola. Marca ao abrir e a cada mensagem nova
+  // da família, só com a aba do CRM visível (uma aba esquecida não marca nada).
+  const ultimaRecebida = useMemo(
+    () => [...(messages || [])].reverse().find((m) => m.channel === "whatsapp" && m.direction === "inbound")?.id || null,
+    [messages],
+  );
+  const marcadaRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!lead.phone || !ultimaRecebida) return;
+    const chave = `${lead.id}:${ultimaRecebida}`;
+    const marcar = () => {
+      if (document.visibilityState !== "visible" || marcadaRef.current === chave) return;
+      marcadaRef.current = chave;
+      void marcarWhatsAppComoLido(lead.id).then((ok) => { if (!ok && marcadaRef.current === chave) marcadaRef.current = null; });
+    };
+    marcar();
+    document.addEventListener("visibilitychange", marcar);
+    return () => document.removeEventListener("visibilitychange", marcar);
+  }, [lead.id, lead.phone, ultimaRecebida]);
 
   const stopRecordingTimer = () => {
     if (recordingTimerRef.current !== null) {
