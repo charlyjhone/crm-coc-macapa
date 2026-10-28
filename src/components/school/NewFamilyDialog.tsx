@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,18 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const grades = [
+// Lista padrão; quando a escola tem a tabela série=idade (escola_series_idades), usa os nomes dela.
+const defaultGrades = [
   "Maternal", "Jardim I", "Jardim II", "1º ano", "2º ano", "3º ano",
   "4º ano", "5º ano", "6º ano", "7º ano", "8º ano", "9º ano",
   "1ª série", "2ª série", "3ª série",
 ];
+
+function gradesFromSetting(raw: string | null | undefined): string[] {
+  return (raw || "").split(/[;\n]+/)
+    .map((part) => part.match(/^\s*(.{2,40}?)\s*=\s*\d{1,2}\s*$/)?.[1]?.trim())
+    .filter((name): name is string => !!name);
+}
 
 export function NewFamilyDialog({ onCreated }: { onCreated?: () => void }) {
   const { toast } = useToast();
@@ -42,6 +49,18 @@ export function NewFamilyDialog({ onCreated }: { onCreated?: () => void }) {
   const [grade, setGrade] = useState("");
   const [shift, setShift] = useState("");
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [grades, setGrades] = useState<string[]>(defaultGrades);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (supabase as any).from("system_settings").select("value").eq("key", "escola_series_idades").maybeSingle()
+      .then(({ data }: { data: { value?: string } | null }) => {
+        const fromSchool = gradesFromSetting(data?.value);
+        if (!cancelled && fromSchool.length) setGrades(fromSchool);
+      });
+    return () => { cancelled = true; };
+  }, [open]);
 
   const reset = () => {
     setGuardianName("");

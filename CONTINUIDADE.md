@@ -725,3 +725,11 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Atendimentos (`Conversation`): chama ao abrir e a cada nova mensagem recebida, só com a aba visível; falha não interrompe o atendimento.
 - Efeitos conhecidos: família vê tiques azuis (se a confirmação de leitura estiver ativa no WhatsApp da escola) e a conversa deixa de aparecer como não lida no celular/WhatsApp Web.
 - Pendente: validar com uma conversa real logo após a publicação (logs da função).
+
+## 56. Visita já realizada (família veio sem agendar) — 28/10/2026
+
+- Verificação da agenda: 1 visita ativa (Gustavo, 30/10 9h, criada pela Ana); nenhum pedido de visita perdido desde a v118.
+- Antes, tela e RPCs (`schedule_school_visit`, `update_school_visit_status`) só aceitavam data futura.
+- RPC nova `register_past_school_visit(opportunity, visited_at, participantes, impressão, objeções, notas)` (migration `20261028120000_register_past_school_visit.sql`, aplicada no COC e no Conceito): cria a visita já como `realizada` na data passada (até 12 meses), etapa → `visita_realizada` quando antes dela (inclui `nutricao`), próxima ação "Realizar retorno após a visita", histórico de etapa. Repetição devolve a mesma visita; se houver visita futura em aberto, recusa e orienta a usar "Registrar" nela. Testada em transação desfeita (5 cenários).
+- Tela Visitas: botão "Registrar visita já feita" (`PastVisitDialog`), data + horário aproximado, quem veio, impressão, objeções, notas; link para Famílias quando a família ainda não existe. Lista: próximas primeiro, depois as demais da mais recente para a mais antiga.
+- Cadastro manual de família (`NewFamilyDialog`): séries vêm de `escola_series_idades` quando configurada (COC: Maternal 2/3, 1º/2º Período...); senão, lista padrão (Conceito sem mudança).
