@@ -710,3 +710,10 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - IA devolve `cadastro.idade`. Testes: 23 em `scripts/test-ana-conversas-reais.mjs`.
 - Ao publicar: gravar `escola_series_idades` no COC. O formulário manual de família no CRM (`NewFamilyDialog`) ainda lista "Maternal / Jardim I / Jardim II" — ajustar à parte (o frontend é compartilhado com o Conceito).
 - Ponto em aberto: a Ana aceitou "1ª série, tarde" no 98136-4080, mas o roteiro diz que do 8º ano à 3ª série só há turno da manhã.
+
+## 54. Publicação da nova Ana e exclusão de família (27/10/2026)
+
+- Ana no COC publicada como `school-triage` v118, entrada curta importando o commit `fc36ad6` (seções 53 e 53.1). Responde 401 sem segredo (conferido). `escola_series_idades` gravada no COC. Para voltar, importar `0557cb8`. A Ceci não mudou (continua no commit dela).
+- Dados corrigidos com autorização: oportunidade de Pedro Costa França → `1ª série`, turno `manhã`; contato do 98136-4080 → Vivian Renata da Silva França; Miguel Brito Souto → `1º Período`. Registrado em `activity_log`. Obs.: o gatilho de pontuação exige sessão; correções por SQL usam `request.jwt.claims` com `role=service_role` na transação.
+- Exclusão de família: RPC `delete_school_family(guardian_ids, student_ids)` (migration `20261027220000_delete_school_family.sql`), aplicada no COC e no Conceito. Só administrador; exige família fechada (mesmo grupo do cartão); apaga responsáveis, alunos, vínculos, interesses e, em cascata, visitas, tarefas e histórico; mantém leads e conversas. Auditoria pelos gatilhos existentes. Testada no COC em transação desfeita (secretaria recusada, família aberta recusada, exclusão completa sem tocar outra família).
+- Tela Famílias: botão "Excluir família" no cartão, só para administradores, com confirmação digitando EXCLUIR (`src/components/school/DeleteFamilyDialog.tsx`).
