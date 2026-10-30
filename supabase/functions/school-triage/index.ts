@@ -35,6 +35,9 @@ const AUTO_RESOLVE: Assunto[] = ["financeiro", "curriculo", "horario", "localiza
 // Handoff esfria após 4 horas sem resposta humana → a atendente retoma.
 const HANDOFF_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const GREETING_GAP_MS = 8 * 60 * 60 * 1000;
+// Pedido explícito de falar com uma pessoa ("falar com atendente", "quero a secretaria",
+// "atendimento humano"). Sempre encaminha, mesmo no meio de um agendamento.
+const HUMAN_REQUEST = /\b(?:(?:quero|queria|gostaria de|preciso|posso|pode)\s+)?falar com (?:o |a |um |uma |alguma? )?(?:pessoa|atendente|secretaria|secretária|humano|humana|algu[eé]m|funcion[aá]ri[oa])\b|\batendimento humano\b|\batendente humano\b|\b(?:quero|preciso de|chama|chame)\s+(?:um |uma |a |o )?(?:atendente|secretaria|secretária|pessoa)\b/i;
 
 function requestedSchoolFolder(text: string) {
   const normalized = text.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -399,18 +402,39 @@ function extractExplicitVisitFacts(text: string): { date: string | null; time: s
     date = new Date(Date.UTC(currentYear, currentMonth, currentDay + 1)).toISOString().slice(0, 10);
   } else if (/\bhoje\b/.test(normalized)) {
     date = new Date(Date.UTC(currentYear, currentMonth, currentDay)).toISOString().slice(0, 10);
-  } else {
-    const numericDate = normalized.match(/\b(?:dia\s*)?([0-3]?\d)[\/.-]([01]?\d)(?:[\/.-](\d{4}))?\b/);
+  } else if (!/\b(?:nascimento|nasceu|nascido|nascida|aniversario|idade|dn)\b/.test(normalized)) {
+    // Data de nascimento ("Data de Nascimento: 06/05/2022") nunca é dia de visita.
+    const todayUtc = Date.UTC(currentYear, currentMonth, currentDay);
+    const meses: Record<string, number> = {
+      janeiro: 0, fevereiro: 1, marco: 2, abril: 3, maio: 4, junho: 5, julho: 6,
+      agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11,
+    };
+    const numericDate = normalized.match(/\b(?:dia\s*)?([0-3]?\d)[\/.-]([01]?\d)(?:[\/.-](\d{2}|\d{4}))?\b/);
+    const textDate = normalized.match(/\b(?:dia\s*)?([0-3]?\d)\s*(?:de\s+)?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/);
+    // "dia 3", "dia 03", "no dia 10" sem mês: próxima vez que esse dia acontece.
+    const dayOnly = normalized.match(/\b(?:dia|no dia|para o dia|pro dia)\s*([0-3]?\d)\b(?!\s*[\/.:-]|\s*(?:de\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b|\s*(?:h|hs|hrs?|horas?)\b)/);
+    let day: number | null = null;
+    let month: number | null = null;
+    let year: number | null = null;
     if (numericDate) {
-      const day = Number(numericDate[1]);
-      const month = Number(numericDate[2]) - 1;
-      let year = numericDate[3] ? Number(numericDate[3]) : currentYear;
-      let candidate = new Date(Date.UTC(year, month, day));
-      if (!numericDate[3] && candidate.getTime() < Date.UTC(currentYear, currentMonth, currentDay)) {
-        year += 1;
-        candidate = new Date(Date.UTC(year, month, day));
-      }
-      if (candidate.getUTCDate() === day && candidate.getUTCMonth() === month) date = candidate.toISOString().slice(0, 10);
+      day = Number(numericDate[1]);
+      month = Number(numericDate[2]) - 1;
+      if (numericDate[3]) year = Number(numericDate[3].length === 2 ? "20" + numericDate[3] : numericDate[3]);
+    } else if (textDate) {
+      day = Number(textDate[1]);
+      month = meses[textDate[2]];
+    } else if (dayOnly) {
+      day = Number(dayOnly[1]);
+      month = currentMonth;
+      if (day < currentDay) month += 1; // Date.UTC ajusta a virada de ano.
+    }
+    if (day && month != null && day >= 1 && day <= 31) {
+      let candidate = new Date(Date.UTC(year ?? currentYear, month, day));
+      if (year == null && candidate.getTime() < todayUtc) candidate = new Date(Date.UTC(currentYear + 1, month, day));
+      const valid = candidate.getUTCDate() === day;
+      const daysAhead = (candidate.getTime() - todayUtc) / 86400000;
+      // Só datas de hoje até ~6 meses: passado ou muito longe não é visita.
+      if (valid && daysAhead >= 0 && daysAhead <= 190) date = candidate.toISOString().slice(0, 10);
     }
   }
 
@@ -435,6 +459,20 @@ function mergeExplicitVisitFacts(triagem: Triagem, historico: string, currentTex
   }
   if (date) triagem.visita.data = date;
   if (time) triagem.visita.horario = time;
+  triagem.visita.data = sanitizeVisitDate(triagem.visita.data);
+}
+
+// Rejeita data de visita no passado, inválida ou a mais de ~6 meses (ex.: nascimento).
+function sanitizeVisitDate(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  const candidate = Date.UTC(y, m - 1, d);
+  const check = new Date(candidate);
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
+  const localNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const todayUtc = Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate());
+  const daysAhead = (candidate - todayUtc) / 86400000;
+  return daysAhead >= 0 && daysAhead <= 190 ? value : null;
 }
 
 function visitDateTime(date: string | null, time: string | null, minimumNoticeMinutes = 60) {
@@ -1504,10 +1542,11 @@ serve(async (req) => {
     const apenasColetandoNome = devePerguntar && assunto === "outros" && !triagem.precisa_humano;
     const mediaNeedsHuman = /\[MÍDIA_PARA_SECRETARIA:/i.test(text);
     let precisaHumano = triagem.prioridade === "urgente" || (!apenasColetandoNome && !!triagem.precisa_humano) || mediaNeedsHuman;
-    const explicitHumanRequest = /\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text);
+    const explicitHumanRequest = HUMAN_REQUEST.test(text);
     if (visitIntentInConversation && channel === "whatsapp" && triagem.prioridade !== "urgente" && !explicitHumanRequest) {
       precisaHumano = false;
     }
+    if (explicitHumanRequest) precisaHumano = true;
     let resposta = (triagem.resposta || "").trim();
     let draft = assunto === "matricula" && triagem.cadastro_interesse && channel === "whatsapp"
       ? enrollmentDraft(triagem.cadastro) : null;
@@ -1523,7 +1562,7 @@ serve(async (req) => {
       /\b(?:verifico|confiro|pergunto|vejo|resolvo|esclareço|esclareco|tiro as dúvidas|tiro as duvidas|converso)\b/i.test(text);
     if (defersDetailsUntilVisit &&
         triagem.prioridade !== "urgente" &&
-        !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text)) {
+        !HUMAN_REQUEST.test(text)) {
       assunto = "matricula";
       triagem.cadastro_interesse = true;
       triagem.visita = { ...triagem.visita, solicitada: true, data: triagem.visita?.data || null, horario: triagem.visita?.horario || null };
@@ -1711,7 +1750,7 @@ serve(async (req) => {
     }
     let visitId: string | null = null;
     if (visitRequested && !precisaHumano && !defersDetailsUntilVisit &&
-        !/\b(?:quero falar com (?:uma )?pessoa|atendente humano|falar com a secretaria)\b/i.test(text) &&
+        !HUMAN_REQUEST.test(text) &&
         channel === "whatsapp" && leadId) {
       // NOVO v103: não reaproveita mais um cadastro antigo sem os dados da família.
       // O cadastro vem desta conversa (registration) ou da visita ativa que está sendo reagendada.

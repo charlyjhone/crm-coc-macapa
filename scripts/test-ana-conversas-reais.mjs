@@ -379,3 +379,72 @@ test('idade só conta quando é idade: "uns 2 anos atrás" e "1 ano" são ignora
   assert.equal(context.extractAge('ele tem 6 anos'), 6);
   assert.equal(context.extractAge('minha filha de 15 anos'), 15);
 });
+
+// ---- Datas de visita (30/10/2026: "Dia 03" virou 03/10; data de nascimento virou visita) ----
+const isoLocal = (y, m, d) => new Date(Date.UTC(y, m, d)).toISOString().slice(0, 10);
+const hojeLocal = new Date(Date.now() - 3 * 3600000);
+const [hy, hm, hd] = [hojeLocal.getUTCFullYear(), hojeLocal.getUTCMonth(), hojeLocal.getUTCDate()];
+
+test('"dia N" sem mês vai para a próxima vez que esse dia acontece', () => {
+  const { context } = harness();
+  const d = s => context.extractExplicitVisitFacts(s).date;
+  const passado = hd > 1 ? hd - 1 : null;
+  if (passado) assert.equal(d(`Dia ${String(passado).padStart(2, '0')}`), isoLocal(hy, hm + 1, passado));
+  if (hd < 28) assert.equal(d(`dia ${hd + 1}`), isoLocal(hy, hm, hd + 1));
+  assert.equal(d('pode ser no dia 3 às 16h'), hd > 3 ? isoLocal(hy, hm + 1, 3) : isoLocal(hy, hm, 3));
+  assert.equal(context.extractExplicitVisitFacts('pode ser no dia 3 às 16h').time, '16:00');
+});
+
+test('mês por extenso: "3 de novembro" e "dia 10 de dezembro"', () => {
+  const { context } = harness();
+  const d = s => context.extractExplicitVisitFacts(s).date;
+  const prox = (m, day) => { const c = Date.UTC(hy, m, day); return c >= Date.UTC(hy, hm, hd) ? isoLocal(hy, m, day) : isoLocal(hy + 1, m, day); };
+  assert.equal(d('3 de novembro'), prox(10, 3));
+  assert.equal(d('dia 10 de dezembro às 9h'), prox(11, 10));
+});
+
+test('data de nascimento ou data passada nunca vira dia de visita (caso 98422-7757)', () => {
+  const { context } = harness();
+  const d = s => context.extractExplicitVisitFacts(s).date;
+  assert.equal(d('Data de Nascimento: 06/05/2022'), null);
+  assert.equal(d('ela nasceu em 06/05/2022'), null);
+  assert.equal(d('06/05/2022'), null);
+  assert.equal(context.sanitizeVisitDate(isoLocal(hy, hm, hd - 2)), null);
+  assert.equal(context.sanitizeVisitDate(isoLocal(hy, hm, hd + 3)), isoLocal(hy, hm, hd + 3));
+  assert.equal(context.sanitizeVisitDate('2027-02-30'), null);
+});
+
+test('IA sugerindo data no passado não gera "não encontrei horários" — pergunta o dia', async () => {
+  const h = harness();
+  const c = { responsavel: 'Evilianinny Gomes da Silva', aluno: 'Gael Gomes Martins', ano: 2027, serie: '3º ano', turno: null };
+  const passado = isoLocal(hy, hm, hd - 3);
+  await h.send('Quero agendar uma visita', triagem({ visita: { solicitada: true, data: passado, horario: null }, cadastro: c }));
+  assert.doesNotMatch(h.lastSent(), /Não encontrei horários livres/);
+  assert.match(h.lastSent(), /Qual dia fica melhor/);
+});
+
+test('"Dia 03" depois do pedido de visita oferece horários do próximo dia 3', async () => {
+  const h = harness();
+  const c = { responsavel: 'Evilianinny Gomes da Silva', aluno: 'Gael Gomes Martins', ano: 2027, serie: '3º ano', turno: null };
+  await h.send('Gostaria de agendar uma visita na escola.', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  const alvo = hd > 3 ? isoLocal(hy, hm + 1, 3) : isoLocal(hy, hm, 3);
+  const weekday = new Date(alvo + 'T12:00:00Z').getUTCDay();
+  await h.send('Dia 03', triagem({ visita: { solicitada: true, data: isoLocal(hy, hm, 3), horario: null }, cadastro: c }));
+  const br = alvo.slice(8, 10) + '/' + alvo.slice(5, 7) + '/' + alvo.slice(0, 4);
+  if (weekday === 0 || weekday === 6) assert.match(h.lastSent(), new RegExp(`Não encontrei horários livres para ${br}`));
+  else assert.match(h.lastSent(), new RegExp(`Para ${br}, estes são os horários`));
+});
+
+test('"Falar com atendente" no meio do agendamento encaminha para a secretaria', async () => {
+  const h = harness();
+  const c = { responsavel: 'Emileide Grazielly Ramos Duarte', aluno: 'Eva Sophia Ramos Duarte', ano: 2027, serie: '1º Período', turno: null };
+  await h.send('Quero agendar uma visita', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  await h.send('Falar com atendente', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c, resposta: 'Claro! Nossa secretaria vai continuar o atendimento por aqui.' }));
+  assert.doesNotMatch(h.lastSent(), /horários disponíveis|Qual dia fica melhor/);
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
+  const HUMAN_REQUEST = vm.runInContext('HUMAN_REQUEST', h.context);
+  for (const t of ['Falar com atendente', 'quero falar com a secretaria', 'atendimento humano', 'posso falar com alguém?', 'Chama uma atendente'])
+    assert.equal(HUMAN_REQUEST.test(t), true, t);
+  for (const t of ['a atendente foi ótima', 'quero agendar visita', 'falar com meu esposo'])
+    assert.equal(HUMAN_REQUEST.test(t), false, t);
+});

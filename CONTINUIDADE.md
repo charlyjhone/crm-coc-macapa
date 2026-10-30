@@ -733,3 +733,10 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - RPC nova `register_past_school_visit(opportunity, visited_at, participantes, impressão, objeções, notas)` (migration `20261028120000_register_past_school_visit.sql`, aplicada no COC e no Conceito): cria a visita já como `realizada` na data passada (até 12 meses), etapa → `visita_realizada` quando antes dela (inclui `nutricao`), próxima ação "Realizar retorno após a visita", histórico de etapa. Repetição devolve a mesma visita; se houver visita futura em aberto, recusa e orienta a usar "Registrar" nela. Testada em transação desfeita (5 cenários).
 - Tela Visitas: botão "Registrar visita já feita" (`PastVisitDialog`), data + horário aproximado, quem veio, impressão, objeções, notas; link para Famílias quando a família ainda não existe. Lista: próximas primeiro, depois as demais da mais recente para a mais antiga.
 - Cadastro manual de família (`NewFamilyDialog`): séries vêm de `escola_series_idades` quando configurada (COC: Maternal 2/3, 1º/2º Período...); senão, lista padrão (Conceito sem mudança).
+
+## 57. Ana: datas de visita e "falar com atendente" (30/10/2026)
+
+- Casos reais: 98127-7856 pediu reagendar para "Dia 03" e a Ana procurou 03/10/2026 (passado) → "não encontrei horários"; 98422-7757 enviou "Data de Nascimento: 06/05/2022" e a Ana procurou visita em 06/05/2022, repetindo a resposta 4x; "Falar com atendente" não era reconhecido.
+- Correções: "dia N" sem mês = próxima ocorrência; mês por extenso ("3 de novembro"); ano com 2 dígitos; linhas com nascimento/aniversário/idade ignoradas; data só aceita de hoje até ~190 dias; `sanitizeVisitDate` também filtra a data sugerida pela IA. `HUMAN_REQUEST` único (falar com atendente/secretaria/alguém, atendimento humano, chama uma atendente) e pedido explícito sempre encaminha à secretaria.
+- Testes: 29 em `scripts/test-ana-conversas-reais.mjs` (6 novos falham na v118 e passam na nova).
+- Pendente de decisão: visita do Gael (98127-7856) foi remarcada pela secretaria no WhatsApp para 03/11 16h, mas no CRM continua 30/10 16h.
