@@ -448,3 +448,50 @@ test('"Falar com atendente" no meio do agendamento encaminha para a secretaria',
   for (const t of ['a atendente foi ótima', 'quero agendar visita', 'falar com meu esposo'])
     assert.equal(HUMAN_REQUEST.test(t), false, t);
 });
+
+// ---- Dias sem expediente (30/10/2026: "amanhã pela manhã" num sábado foi aceito) ----
+const proxDiaSemana = (wd) => { const base = Date.UTC(hy, hm, hd); for (let i = 1; i <= 7; i++) { const t = new Date(base + i * 86400000); if (t.getUTCDay() === wd) return t.toISOString().slice(0, 10); } };
+const brDia = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+
+test('"Tem como eu visitar a escola" é pedido de visita', async () => {
+  const h = harness();
+  const c = { responsavel: 'Responsável Teste', aluno: 'Aluno Teste', ano: 2027, serie: '5º ano', turno: null };
+  await h.send('Tem como eu visitar a escola?', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c, resposta: 'Será um prazer receber você!' }));
+  // Pedido de visita reconhecido: cadastra e pergunta o dia (não manda o resumo de conferência).
+  assert.doesNotMatch(h.lastSent(), /Só para conferir/);
+  assert.match(h.lastSent(), /Qual dia fica melhor/);
+  assert.equal(h.state.rows.enrollment_opportunities.length, 1);
+});
+
+test('sábado pedido: Ana avisa que não abre e oferece o próximo dia útil', async () => {
+  const h = coc();
+  const sabado = proxDiaSemana(6);
+  const c = { responsavel: 'Responsável Teste', aluno: 'Aluno Teste', ano: 2027, serie: '5º ano', turno: null };
+  await h.send('Quero agendar uma visita', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  await h.send(`pode ser dia ${brDia(sabado)}`, triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  assert.match(h.lastSent(), /sábado e a escola não abre aos fins de semana/);
+  assert.match(h.lastSent(), /O próximo dia para visita é segunda-feira/);
+  assert.equal(h.state.rpcCalls.filter(c => c.name === 'get_ana_available_visit_slots' && c.args.p_date === sabado).length, 0);
+});
+
+test('feriado configurado: Ana não oferece o dia e pula para o seguinte', async () => {
+  const h = coc();
+  const segunda = proxDiaSemana(1);
+  const terca = proxDiaSemana(2);
+  h.state.rows.system_settings.push({ key: 'escola_dias_sem_visita', value: `${segunda.slice(8, 10)}/${segunda.slice(5, 7)}/${segunda.slice(0, 4)}` });
+  const c = { responsavel: 'Responsável Teste', aluno: 'Aluno Teste', ano: 2027, serie: '5º ano', turno: null };
+  await h.send('Quero agendar uma visita', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  await h.send(`pode ser dia ${brDia(segunda)}`, triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
+  assert.match(h.lastSent(), new RegExp(`a escola não terá expediente\\. O próximo dia para visita é terça-feira, ${brDia(terca)}`));
+  assert.match(h.state.aiPayload.messages[0].content, new RegExp(`nem em segunda-feira, ${brDia(segunda)}`));
+});
+
+test('o prompt informa hoje, amanhã e os próximos dias de visita', async () => {
+  const h = coc();
+  await h.send('Olá', triagem({ assunto: 'outros', cadastro_interesse: false }));
+  const prompt = h.state.aiPayload.messages[0].content;
+  assert.match(prompt, /CALENDÁRIO: hoje é [a-zçá-]+, \d{2}\/\d{2}\/\d{4}; amanhã é/);
+  assert.match(prompt, /Próximos dias para visita: /);
+  const amanhaWd = new Date(Date.UTC(hy, hm, hd + 1)).getUTCDay();
+  if (amanhaWd === 0 || amanhaWd === 6) assert.match(prompt, /a escola NÃO abre amanhã/);
+});

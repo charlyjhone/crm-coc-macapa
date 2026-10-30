@@ -740,3 +740,11 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Correções: "dia N" sem mês = próxima ocorrência; mês por extenso ("3 de novembro"); ano com 2 dígitos; linhas com nascimento/aniversário/idade ignoradas; data só aceita de hoje até ~190 dias; `sanitizeVisitDate` também filtra a data sugerida pela IA. `HUMAN_REQUEST` único (falar com atendente/secretaria/alguém, atendimento humano, chama uma atendente) e pedido explícito sempre encaminha à secretaria.
 - Testes: 29 em `scripts/test-ana-conversas-reais.mjs` (6 novos falham na v118 e passam na nova).
 - Pendente de decisão: visita do Gael (98127-7856) foi remarcada pela secretaria no WhatsApp para 03/11 16h, mas no CRM continua 30/10 16h.
+
+## 58. Ana: fins de semana e dias sem expediente (30/10/2026)
+
+- Caso real 99136-6993 (sexta 30/10 15:18): "Tem como eu visitar a escola amanhã pela manhã?" → Ana respondeu "Será um prazer receber você amanhã" (sábado). "Tem como eu visitar" não era reconhecido como pedido de visita, então a resposta livre da IA saiu sem checagem; a IA também não sabia o dia da semana.
+- Correções: pedido de visita reconhece "tem como/posso/dá pra/consigo ... visitar/ir aí"; prompt ganhou CALENDÁRIO (hoje, amanhã, se a escola abre amanhã, próximos dias de visita, dias fechados nos próximos 30 dias); dia fechado não consulta a agenda e responde "a escola não abre... O próximo dia para visita é ...".
+- Configuração nova `system_settings.escola_dias_sem_visita` (DD/MM/AAAA ou AAAA-MM-DD, separados por vírgula). COC: `02/11/2026` (Finados; a secretaria informou retorno na terça 03/11). Migration `20261030190000_visit_closed_days.sql` (COC e Conceito): `is_school_closed_for_visit(date)` e `get_ana_available_visit_slots` sem horários em fim de semana e dias sem expediente.
+- Testes: 33 em `scripts/test-ana-conversas-reais.mjs` (4 novos falham na v119).
+- Pendente: tela em Configurações para editar os dias sem expediente (hoje só via banco).
