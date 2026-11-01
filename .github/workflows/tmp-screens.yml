@@ -1,5 +1,7 @@
 name: TMP screens (layout check)
-on: workflow_dispatch
+on:
+  push:
+    branches: [feat/proposta-2-funil-escolar]
 permissions:
   contents: read
 jobs:
