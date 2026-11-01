@@ -18,7 +18,7 @@ jobs:
         run: |
           npx vite preview --port 4173 --strictPort &
           sleep 4
-          cat > /tmp/shots.mjs <<'JS'
+          cat > ./tmp-shots.mjs <<'JS'
           import { chromium } from "playwright";
           const b = await chromium.launch();
           const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
@@ -47,4 +47,4 @@ jobs:
           console.log("@@ERRORS " + JSON.stringify(errors.slice(0, 20)));
           await b.close();
           JS
-          node /tmp/shots.mjs
+          node ./tmp-shots.mjs
