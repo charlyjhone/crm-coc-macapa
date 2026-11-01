@@ -10,7 +10,7 @@ export type WhatsAppMediaType = "audio" | "image" | "video" | "document" | "stic
 
 export interface MensagemAtendimento {
   id: string;
-  channel: "whatsapp" | "email";
+  channel: "whatsapp" | "email" | "instagram" | "facebook";
   direction: string;
   message: string;
   at: string;
@@ -252,7 +252,12 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(50);
-      const [byLead, byPhone, emails] = await Promise.all([whatsappByLead, whatsappByPhone, emailByLead]);
+      // Instagram Direct / Facebook Messenger (tabela nova; se ainda não existir, ignora).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela fora dos tipos gerados.
+      const socialByLead = (supabase as any).from("social_messages")
+        .select("id, channel, direction, message, attachments, operator_name, sent_at")
+        .eq("lead_id", lead.id).order("sent_at", { ascending: false }).limit(100);
+      const [byLead, byPhone, emails, socialRes] = await Promise.all([whatsappByLead, whatsappByPhone, emailByLead, socialByLead]);
       if (byLead.error) throw byLead.error;
       if (byPhone.error) throw byPhone.error;
       if (emails.error) throw emails.error;
@@ -304,7 +309,20 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         isAudio: false,
         senderName: null,
       }));
-      return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+      type SocialRow = { id: string; channel: "instagram" | "facebook"; direction: string; message: string | null; attachments: { type?: string; url?: string | null }[] | null; operator_name: string | null; sent_at: string };
+      const social: MensagemAtendimento[] = ((socialRes?.error ? [] : socialRes?.data || []) as SocialRow[]).map((m) => {
+        const att = (m.attachments || [])[0];
+        const kind = att?.type === "image" ? "image" : att?.type === "video" ? "video" : att?.type === "audio" ? "audio" : att ? "file" : null;
+        return {
+          id: m.id, channel: m.channel, direction: m.direction,
+          message: m.message || (kind === "image" ? "[imagem]" : kind ? "[anexo]" : ""),
+          at: m.sent_at,
+          mediaType: kind as WhatsAppMediaType | null, mediaName: null, mediaCaption: null, mediaDurationSeconds: null,
+          mediaUrl: att?.url || null, mediaStoragePath: null, mediaMimeType: null, isAudio: false,
+          senderName: m.direction === "outbound" ? m.operator_name : null,
+        };
+      });
+      return [...whatsapp, ...email, ...social].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     },
   });
 }
@@ -318,6 +336,34 @@ export async function marcarWhatsAppComoLido(leadId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Contatos que chegaram pelo Instagram Direct ou Facebook Messenger (gravados pelo meta-webhook). */
+export function socialChannelOf(lead: Pick<Atendimento, "source"> | null | undefined): "instagram" | "facebook" | null {
+  if (lead?.source === "Instagram Direct") return "instagram";
+  if (lead?.source === "Facebook Messenger") return "facebook";
+  return null;
+}
+
+export function useEnviarMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, message }: { lead: Atendimento; message: string }) => {
+      if (DEMO_MODE) return demo.send(lead.id, message);
+      const { data, error } = await supabase.functions.invoke("send-meta-message", { body: { leadId: lead.id, message } });
+      if (error) {
+        let detail = error.message;
+        try { const body = await (error as { context?: Response }).context?.json(); if (body?.error) detail = body.error; } catch { /* corpo sem JSON */ }
+        throw new Error(detail || "Falha ao enviar.");
+      }
+      if (!data?.success) throw new Error(data?.error || "Falha ao enviar.");
+      return data;
+    },
+    onSuccess: (_data, { lead }) => {
+      void qc.invalidateQueries({ queryKey: ["mensagens-atendimento", lead.id] });
+      void qc.invalidateQueries({ queryKey: ["atendimentos"] });
+    },
+  });
 }
 
 export function useEnviarWhatsApp() {

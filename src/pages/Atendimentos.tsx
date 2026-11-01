@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { marcarWhatsAppComoLido, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { marcarWhatsAppComoLido, socialChannelOf, useEnviarMeta, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -65,6 +65,12 @@ function Conversation({ lead }: { lead: Atendimento }) {
   const priority = attendancePriority(lead);
   const { data: messages, isLoading, isError } = useMensagensAtendimento(lead);
   const send = useEnviarWhatsApp();
+  const sendMeta = useEnviarMeta();
+  const social = socialChannelOf(lead);
+  const socialLabel = social === "instagram" ? "Instagram" : social === "facebook" ? "Facebook" : null;
+  // Janela da Meta: 24 h desde a última mensagem da família nesse canal.
+  const lastSocialInbound = social ? [...(messages || [])].reverse().find((m) => m.channel === social && m.direction === "inbound")?.at || lead.last_inbound_message_at : null;
+  const windowLeftMs = lastSocialInbound ? Date.parse(lastSocialInbound) + 24 * 3_600_000 - Date.now() : -1;
   const sendAudio = useEnviarAudioWhatsApp();
   const update = useUpdateTriage();
   const updateStatus = useUpdateLeadStatus();
@@ -218,6 +224,18 @@ function Conversation({ lead }: { lead: Atendimento }) {
     }
   };
 
+  const sendSocial = async () => {
+    const message = draft.trim();
+    if (!message || sendMeta.isPending) return;
+    try {
+      await sendMeta.mutateAsync({ lead, message });
+      setDraft("");
+      toast.success(`Mensagem enviada pelo ${socialLabel}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao enviar a mensagem.");
+    }
+  };
+
   const sendMessage = async () => {
     const message = draft.trim();
     if (!lead.phone || !message || send.isPending) return;
@@ -256,7 +274,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E7EC] bg-white px-5 py-3.5">
         <div>
           <h2 className="font-semibold">{lead.name}</h2>
-          <p className="text-xs text-slate-600">{lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
+          <p className="text-xs text-slate-600">{socialLabel ? `${socialLabel} ${social === "instagram" ? "Direct" : "Messenger"}` : lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
           {priority.level >= 3 && (
             <p className="mt-1 text-sm font-semibold text-red-700">URGENTE · {priority.reason}</p>
           )}
@@ -365,14 +383,33 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos e imprimir a documentação da família, use o atalho WhatsApp Web no cabeçalho.</p>
               )}
               <p className="mt-1 text-[11px] text-slate-500">
-                {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela escola" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
+                {{ whatsapp: "WhatsApp", email: "E-mail", instagram: "Instagram", facebook: "Facebook" }[m.channel]} · {outgoing ? (m.senderName && m.channel !== "whatsapp" ? `Enviada por ${m.senderName}` : "Enviada pela escola") : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
               </p>
             </div>
           );
         })}
       </div>
       <div className="border-t border-[#E4E7EC] bg-white px-5 py-3.5">
-        {lead.phone ? (
+        {social ? (
+          <>
+            <p className={`mb-2 text-xs font-medium ${windowLeftMs > 3 * 3_600_000 ? "text-[#5B6675]" : windowLeftMs > 0 ? "text-[#93370D]" : "text-[#B42318]"}`}>
+              {windowLeftMs > 0
+                ? `Janela do ${socialLabel}: pode responder por mais ${windowLeftMs >= 3_600_000 ? `${Math.floor(windowLeftMs / 3_600_000)} h` : `${Math.max(1, Math.floor(windowLeftMs / 60_000))} min`}.`
+                : `A janela de 24 h do ${socialLabel} fechou. A resposta só vai se a família mandar uma nova mensagem (ou com a permissão "atendimento humano" da Meta, até 7 dias).`}
+            </p>
+            <div className="flex gap-2">
+              <Input aria-label={`Mensagem pelo ${socialLabel}`} placeholder="Escreva uma resposta para a família" value={draft} maxLength={950}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendSocial(); } }}
+                disabled={sendMeta.isPending} />
+              <Button onClick={() => void sendSocial()} disabled={!draft.trim() || sendMeta.isPending}>
+                {sendMeta.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <span className="ml-2">Enviar</span>
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">A mensagem sai pelo {socialLabel} da escola com o seu nome. Áudio ainda não é enviado por aqui.</p>
+          </>
+        ) : lead.phone ? (
           <>
             {isRecording && (
               <div className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -688,7 +725,7 @@ export default function Atendimentos() {
               className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[var(--crm-accent-softer)]" : ""}`}>
               <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{lead.name}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
               <span className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
-              {tagFor(lead) && <span>{tagFor(lead)}</span>}
+              {(tagFor(lead) || socialChannelOf(lead)) && <span className="flex flex-wrap gap-1">{tagFor(lead)}{socialChannelOf(lead) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${socialChannelOf(lead) === "instagram" ? "bg-[#FBEAF2] text-[#9B1C5A]" : "bg-[#E8F0FE] text-[#1D4E9E]"}`}>{socialChannelOf(lead) === "instagram" ? "Instagram" : "Facebook"}</span>}</span>}
             </button>
           ))}
         </div>
