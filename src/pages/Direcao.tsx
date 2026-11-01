@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados do Supabase. */
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Check, Loader2, Star, Users } from "lucide-react";
+import { CalendarDays, Check, Download, Loader2, Megaphone, Printer, Star, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
@@ -9,27 +9,35 @@ import { Empty, Page, PageTitle, Panel } from "@/components/crm/ui";
 import { EnrollmentComparisonPanel } from "@/components/crm/EnrollmentComparison";
 import { DEMO_MODE, demoDirecaoData } from "@/lib/demo";
 import { crmTheme as t, readableText } from "@/lib/crmTheme";
+import { SOURCE_CATEGORIES, isPaidSource, sourceCategory } from "@/lib/funnel";
+import { btn } from "@/components/crm/ui";
 
 const DAY = 86_400_000;
 const ratingColors = ["#D92D20", "#F79009", "#98A2B3", t.accentLight, t.accent];
 const periods = [7, 30, 90] as const;
 type Period = (typeof periods)[number];
 const wantStages = new Set(["documentacao_pendente", "matricula_em_conclusao", "matriculado"]);
-const originColors: Record<string, string> = { indicacao: t.accent, redes_sociais: t.chart2, panfletagem_outdoor: t.warm, outros: "#98A2B3" };
-const originLabels: Record<string, string> = { indicacao: "Indicação", redes_sociais: "Redes sociais", panfletagem_outdoor: "Panfletagem", outros: "Outros" };
+const visitedStages = new Set(["visita_realizada", "condicoes_apresentadas", "documentacao_pendente", "matricula_em_conclusao", "matriculado"]);
+const originCategory = sourceCategory;
 
-const originCategory = (value: string | null | undefined) => {
-  const v = (value || "").toLowerCase();
-  if (["instagram", "facebook", "redes_sociais"].includes(v)) return "redes_sociais";
-  if (v === "indicacao") return "indicacao";
-  if (v === "panfletagem_outdoor") return "panfletagem_outdoor";
-  return "outros";
-};
+const investmentKey = () => `crm-investimento-anuncios-${import.meta.env.MODE}-${schoolDateTimeInput(new Date()).slice(0, 7)}`;
+function readInvestment() { try { return localStorage.getItem(investmentKey()) || ""; } catch { return ""; } }
+function saveInvestment(value: string) { try { localStorage.setItem(investmentKey(), value); } catch { /* sem storage */ } }
+const parseMoney = (value: string) => { const n = Number(value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+const money = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function downloadCsv(name: string, rows: (string | number)[][]) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 type Data = {
   leads: { created_at: string }[];
   visits: { status: string; scheduled_at: string; completed_at: string | null; created_at: string }[];
-  opportunities: { stage: string; source_channel: string | null; loss_reason: string | null; lost_at: string | null; status_updated_at: string | null; updated_at: string }[];
+  opportunities: { stage: string; source_channel: string | null; source_campaign?: string | null; loss_reason: string | null; lost_at: string | null; status_updated_at: string | null; updated_at: string; created_at?: string }[];
+  created: { stage: string; source_channel: string | null; source_campaign: string | null; created_at: string }[];
   origins: { lead_id: string; metadata: any; created_at: string }[];
   ratings: { lead_id: string; metadata: any; created_at: string }[];
 };
@@ -39,21 +47,22 @@ function useDirecaoData(period: Period) {
     queryKey: ["direcao", period],
     refetchInterval: 300_000,
     queryFn: async () => {
-      if (DEMO_MODE) return demoDirecaoData() as Data;
+      if (DEMO_MODE) { const d = demoDirecaoData(); return { ...d, created: d.opportunities.map((o) => ({ stage: o.stage, source_channel: o.source_channel, source_campaign: o.source_campaign, created_at: o.created_at })) } as Data; }
       const client = supabase as any;
       const since = new Date(Date.now() - 2 * period * DAY).toISOString();
-      const [leads, visits, opportunities, origins, ratings] = await Promise.all([
+      const [leads, visits, opportunities, origins, ratings, created] = await Promise.all([
         client.from("leads").select("created_at").eq("archived", false).gte("created_at", since).limit(5000),
         client.from("school_visits").select("status,scheduled_at,completed_at,created_at").gte("scheduled_at", since).limit(5000),
         client.from("enrollment_opportunities").select("stage,source_channel,loss_reason,lost_at,status_updated_at,updated_at").gte("updated_at", since).limit(5000),
         client.from("activity_log").select("lead_id,metadata,created_at").eq("source", "school-triage").eq("metadata->>survey", "origin").gte("created_at", since).limit(2000),
         client.from("activity_log").select("lead_id,metadata,created_at").eq("source", "school-triage").eq("metadata->>survey", "rating").gte("created_at", since).limit(2000),
+        client.from("enrollment_opportunities").select("stage,source_channel,source_campaign,created_at").gte("created_at", since).limit(5000),
       ]);
-      const failed = [leads, visits, opportunities].find((r) => r.error);
+      const failed = [leads, visits, opportunities, created].find((r) => r.error);
       if (failed) throw failed.error;
       return {
         leads: leads.data || [], visits: visits.data || [], opportunities: opportunities.data || [],
-        origins: origins.error ? [] : origins.data || [], ratings: ratings.error ? [] : ratings.data || [],
+        origins: origins.error ? [] : origins.data || [], ratings: ratings.error ? [] : ratings.data || [], created: created.data || [],
       };
     },
   });
@@ -80,6 +89,7 @@ function delta(current: number, previous: number) {
 
 export default function Direcao() {
   const [period, setPeriod] = useState<Period>(30);
+  const [investment, setInvestment] = useState(readInvestment);
   const { data, isLoading, isError } = useDirecaoData(period);
 
   const view = useMemo(() => {
@@ -129,9 +139,32 @@ export default function Direcao() {
         const key = originCategory(o.source_channel); originCounts.set(key, (originCounts.get(key) || 0) + 1);
       }
     }
-    const origins = ["indicacao", "redes_sociais", "panfletagem_outdoor", "outros"]
-      .map((key) => ({ key, name: originLabels[key], value: originCounts.get(key) || 0, color: originColors[key] }))
+    const origins = SOURCE_CATEGORIES
+      .map((c) => ({ key: c.key, name: c.label, value: originCounts.get(c.key) || 0, color: c.color }))
       .filter((item) => item.value > 0);
+
+    // Resultado por origem: famílias que entraram no funil no período.
+    const createdNow = data.created.filter((o) => inCur(o.created_at));
+    const byOrigin = new Map<string, { families: number; visited: number; want: number }>();
+    for (const o of createdNow) {
+      const key = originCategory(o.source_channel === "cadastro_manual" ? null : o.source_channel);
+      const row = byOrigin.get(key) || { families: 0, visited: 0, want: 0 };
+      row.families++; if (visitedStages.has(o.stage)) row.visited++; if (wantStages.has(o.stage)) row.want++;
+      byOrigin.set(key, row);
+    }
+    const originRows = SOURCE_CATEGORIES.filter((c) => byOrigin.has(c.key)).map((c) => ({ ...c, ...byOrigin.get(c.key)! }))
+      .sort((a, b) => b.families - a.families);
+    const paidFamilies = createdNow.filter((o) => isPaidSource(o.source_channel));
+    const campaigns = new Map<string, { campaign: string; where: string; families: number; visited: number; want: number }>();
+    for (const o of paidFamilies) {
+      const campaign = o.source_campaign?.trim() || "Campanha não informada";
+      const where = o.source_channel === "anuncio_facebook" ? "Facebook" : "Instagram";
+      const key = `${campaign}|${where}`;
+      const row = campaigns.get(key) || { campaign, where, families: 0, visited: 0, want: 0 };
+      row.families++; if (visitedStages.has(o.stage)) row.visited++; if (wantStages.has(o.stage)) row.want++;
+      campaigns.set(key, row);
+    }
+    const campaignRows = Array.from(campaigns.values()).sort((a, b) => b.families - a.families);
     const originTotal = origins.reduce((a, b) => a + b.value, 0);
 
     // Contatos ao longo do período: por dia (7 dias) ou por semana.
@@ -155,7 +188,8 @@ export default function Direcao() {
     }
     const lossRows = Array.from(losses, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
 
-    return { contacts, contactsPrev, visited, visitedPrev, scheduled, want, wantPrev, ratingCounts, ratingTotal, ratingAvg, origins, originTotal, originFrom, series, lossRows };
+    return { contacts, contactsPrev, visited, visitedPrev, scheduled, want, wantPrev, ratingCounts, ratingTotal, ratingAvg, origins, originTotal, originFrom, series, lossRows,
+      originRows, paidCount: paidFamilies.length, familiesInPeriod: createdNow.length, campaignRows };
   }, [data, period]);
 
   const fmt1 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -171,15 +205,24 @@ export default function Direcao() {
   return (
     <Page>
       <PageTitle
-        title="Direção"
+        title="Relatórios"
         subtitle={`Últimos ${period} dias, comparado aos ${period} dias anteriores`}
         actions={
+          <>
+          <button type="button" className={`${btn} print:hidden`} disabled={!view} onClick={() => view && downloadCsv(`relatorio-origens-${period}d.csv`, [
+            ["Origem", "Famílias no funil", "Visitaram", "Querem matricular", "Conversão"],
+            ...view.originRows.map((r) => [r.label, r.families, r.visited, r.want, r.families ? `${Math.round((r.want / r.families) * 100)}%` : "—"]),
+            [], ["Campanha", "Onde", "Famílias", "Visitaram", "Querem matricular"],
+            ...view.campaignRows.map((r) => [r.campaign, r.where, r.families, r.visited, r.want]),
+          ])}><Download className="h-4 w-4" aria-hidden="true" />CSV</button>
+          <button type="button" className={`${btn} print:hidden`} onClick={() => window.print()}><Printer className="h-4 w-4" aria-hidden="true" />PDF</button>
           <div className="flex rounded-[10px] bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,.06)]" role="group" aria-label="Período">
             {periods.map((p) => (
               <button key={p} type="button" aria-pressed={period === p} onClick={() => setPeriod(p)}
                 className={`min-h-[34px] rounded-lg px-3 text-sm font-medium ${period === p ? "bg-[var(--crm-accent)] text-white" : "text-[#5B6675]"}`}>{p} dias</button>
             ))}
           </div>
+          </>
         }
       />
 
@@ -190,8 +233,10 @@ export default function Direcao() {
 
       {view && (
         <>
-          <div className="grid gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-[18px] sm:grid-cols-2 xl:grid-cols-5">
             <Kpi icon={<Users className="h-[18px] w-[18px]" />} value={view.contacts} label="Novos contatos" chip={delta(view.contacts, view.contactsPrev)} />
+            <Kpi icon={<Megaphone className="h-[18px] w-[18px]" />} value={view.paidCount} label="Famílias vindas de anúncios"
+              chip={view.familiesInPeriod ? `${Math.round((view.paidCount / view.familiesInPeriod) * 100)}% do funil` : null} />
             <Kpi icon={<CalendarDays className="h-[18px] w-[18px]" />} value={view.visited} label="Visitas realizadas" chip={delta(view.visited, view.visitedPrev)} />
             <Kpi icon={<Check className="h-[18px] w-[18px]" />} value={view.want} label="Querem matricular" chip={delta(view.want, view.wantPrev)} />
             <Kpi icon={<Star className="h-[18px] w-[18px]" />} value={view.ratingAvg ? fmt1(view.ratingAvg) : "—"} label="Satisfação média, de 5"
@@ -235,6 +280,67 @@ export default function Direcao() {
               )}
             </Panel>
           </div>
+
+          <Panel title="Qual origem traz famílias que querem matricular?">
+            <p className="-mt-1 text-[13px] text-[#5B6675]">Famílias que entraram no funil no período, comparando anúncios pagos com os canais sem custo.</p>
+            {!view.originRows.length ? <div className="mt-3"><Empty>Nenhuma família entrou no funil neste período.</Empty></div> : (
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full min-w-[560px] text-[13.5px]">
+                  <thead><tr className="border-b border-[#E6E8EC] text-left text-[11.5px] uppercase tracking-[.05em] text-[#5B6675]">
+                    <th className="px-2 py-2 font-bold">Origem</th><th className="px-2 py-2 text-right font-bold">Famílias</th><th className="px-2 py-2 text-right font-bold">Visitaram</th><th className="px-2 py-2 text-right font-bold">Querem matricular</th><th className="px-2 py-2 text-right font-bold">Conversão</th>
+                  </tr></thead>
+                  <tbody>
+                    {view.originRows.map((r) => {
+                      const conv = r.families ? Math.round((r.want / r.families) * 100) : 0;
+                      return (
+                        <tr key={r.key} className="border-b border-[#EEF0F3]">
+                          <td className="px-2 py-2.5"><span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: r.color }} />{r.label}</span></td>
+                          <td className="px-2 py-2.5 text-right tabular-nums">{r.families}</td>
+                          <td className="px-2 py-2.5 text-right tabular-nums">{r.visited}</td>
+                          <td className="px-2 py-2.5 text-right tabular-nums">{r.want}</td>
+                          <td className="px-2 py-2.5"><span className="flex items-center justify-end gap-2 tabular-nums">{conv}%<span className="h-2 w-16 overflow-hidden rounded bg-[#EEF0F3]"><i className="block h-full bg-[var(--crm-accent)]" style={{ width: `${conv}%` }} /></span></span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Campanhas de anúncio">
+            {!view.campaignRows.length ? <Empty>Nenhuma família de anúncio neste período. Marque a origem “Anúncio no Instagram/Facebook” ao classificar o contato.</Empty> : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-[13.5px]">
+                  <thead><tr className="border-b border-[#E6E8EC] text-left text-[11.5px] uppercase tracking-[.05em] text-[#5B6675]">
+                    <th className="px-2 py-2 font-bold">Campanha</th><th className="px-2 py-2 font-bold">Onde</th><th className="px-2 py-2 text-right font-bold">Famílias</th><th className="px-2 py-2 text-right font-bold">Visitaram</th><th className="px-2 py-2 text-right font-bold">Querem matricular</th>
+                  </tr></thead>
+                  <tbody>
+                    {view.campaignRows.map((r) => (
+                      <tr key={`${r.campaign}-${r.where}`} className="border-b border-[#EEF0F3]">
+                        <td className="px-2 py-2.5">{r.campaign}</td><td className="px-2 py-2.5">{r.where}</td>
+                        <td className="px-2 py-2.5 text-right tabular-nums">{r.families}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.visited}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.want}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-[#EEF0F3] pt-4">
+              <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-[13px] font-semibold text-[#344054]">Investido em anúncios neste mês
+                <input className="min-h-10 rounded-[10px] border border-[#D3D7DE] px-3 font-normal" inputMode="decimal" placeholder="R$ 0,00" value={investment}
+                  onChange={(e) => { setInvestment(e.target.value); saveInvestment(e.target.value); }} />
+              </label>
+              <div className="min-w-[200px] flex-1">
+                <p className="text-[13px] text-[#5B6675]">Custo por família vinda de anúncio</p>
+                <b className="text-xl">{parseMoney(investment) && view.paidCount ? money(parseMoney(investment)! / view.paidCount) : "—"}</b>
+                {parseMoney(investment) && view.campaignRows.reduce((a, r) => a + r.want, 0) > 0 && (
+                  <p className="text-[12px] text-[#5B6675]">{money(parseMoney(investment)! / view.campaignRows.reduce((a, r) => a + r.want, 0))} por família que quer matricular</p>
+                )}
+              </div>
+              <p className="w-full text-[11.5px] text-[#5B6675]">O valor fica guardado só neste navegador e vale para o período selecionado.</p>
+            </div>
+          </Panel>
 
           <div className="grid gap-[18px] xl:grid-cols-3">
             <Panel title="Caminho das famílias">

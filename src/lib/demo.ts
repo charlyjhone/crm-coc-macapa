@@ -53,7 +53,7 @@ type DemoVisit = { id: string; scheduled_at: string; status: string; created_at:
   family_impression: string | null; objections: string | null; follow_up_notes: string | null };
 export type DemoOpportunity = {
   id: string; stage: string; legacy_lead_id: string | null; desired_grade: string; desired_shift: string | null;
-  source_channel: string | null; next_action: string | null; next_action_at: string | null; created_at: string; updated_at: string;
+  source_channel: string | null; source_campaign?: string | null; next_action: string | null; next_action_at: string | null; created_at: string; updated_at: string;
   status_updated_at: string | null; loss_reason: string | null; lost_at: string | null; probability_score: number;
   enrolled_at: string | null; academic_year: number;
   students: { full_name: string } | null; guardians: { full_name: string; phone: string | null } | null;
@@ -87,6 +87,15 @@ function build() {
     lead({ id: "demo-8", name: "Beatriz Oliveira", phone: "(96) 99100-0008", source: "Instagram", interesse: "4º ano", triage_status: "novo", status: "novo", created_at: ago(20 * MIN),
       last_inbound_message: "Boa noite! Vocês têm período integral?", last_inbound_message_at: ago(20 * MIN), last_outbound_message_at: ago(19 * MIN),
       triage_summary: "Novo contato perguntando sobre período integral." }),
+    lead({ id: "demo-9", name: "Rafael Pinheiro", phone: "(96) 99100-0009", source: "Anúncio Facebook", interesse: null, triage_status: "respondido_agente", status: "novo", created_at: ago(40 * MIN),
+      last_inbound_message: "Vi o anúncio, queria saber sobre matrícula para 2027.", last_inbound_message_at: ago(40 * MIN), last_outbound_message_at: ago(39 * MIN),
+      triage_summary: "Chegou pelo anúncio de matrículas 2027; série ainda não informada." }),
+    lead({ id: "demo-10", name: "Larissa Costa", phone: "(96) 99100-0010", source: "Instagram", interesse: "Maternal 3", triage_status: "respondido_agente", status: "novo", created_at: ago(70 * MIN),
+      last_inbound_message: "Vocês têm vaga no Maternal 3?", last_inbound_message_at: ago(70 * MIN), last_outbound_message_at: ago(69 * MIN),
+      triage_summary: "Mãe pergunta sobre vaga no Maternal 3." }),
+    lead({ id: "demo-11", name: "Jorge Matos", phone: "(96) 99100-0011", source: null, interesse: null, triage_status: "respondido_agente", status: "novo", created_at: ago(2 * HOUR),
+      assunto: "outros", last_inbound_message: "Meu filho estuda aí, preciso de uma declaração.", last_inbound_message_at: ago(2 * HOUR), last_outbound_message_at: ago(2 * HOUR - MIN),
+      triage_summary: "Família da escola pedindo declaração escolar." }),
   ];
 
   const messages: Record<string, MensagemAtendimento[]> = {};
@@ -111,34 +120,38 @@ function build() {
     ["inbound", "Certo, aguardo a proposta.", 4 * DAY - HOUR]]);
   add("demo-7", [["inbound", "Onde compro o uniforme?", DAY + 20 * MIN], ["outbound", "Na loja parceira, no centro. Te mando o endereço.", DAY + 10 * MIN, STAFF], ["inbound", "Perfeito, muito obrigado!", DAY]]);
   add("demo-8", [["inbound", "Boa noite! Vocês têm período integral?", 20 * MIN], ["outbound", "Boa noite! Temos sim. Para qual série seria?", 19 * MIN]]);
+  add("demo-9", [["inbound", "Oi! Vi o anúncio de vocês no Facebook, queria saber sobre matrícula para 2027.", 40 * MIN], ["outbound", "Olá, Rafael! Para qual série seria a matrícula?", 39 * MIN]]);
+  add("demo-10", [["inbound", "Vocês têm vaga no Maternal 3?", 70 * MIN], ["outbound", "Olá! Temos sim. Quer agendar uma visita para conhecer a escola?", 69 * MIN]]);
+  add("demo-11", [["inbound", "Meu filho estuda aí, preciso de uma declaração.", 2 * HOUR], ["outbound", "Claro! Vou pedir para a secretaria preparar.", 2 * HOUR - MIN]]);
 
   const visit = (id: string, scheduled_at: string, status = "agendada"): DemoVisit => ({ id, scheduled_at, status, created_at: ago(5 * DAY),
     completed_at: status === "realizada" ? scheduled_at : null, family_impression: null, objections: null, follow_up_notes: null });
   const opp = (o: Partial<DemoOpportunity> & Pick<DemoOpportunity, "id" | "stage" | "desired_grade">, guardian: string, student: string): DemoOpportunity => ({
-    legacy_lead_id: null, desired_shift: "Manhã", source_channel: "indicacao", next_action: null, next_action_at: null, created_at: ago(10 * DAY),
+    legacy_lead_id: null, desired_shift: "Manhã", source_channel: "indicacao", source_campaign: null, next_action: null, next_action_at: null, created_at: ago(10 * DAY),
     updated_at: ago(DAY), status_updated_at: ago(DAY), loss_reason: null, lost_at: null, probability_score: 50,
     enrolled_at: null, academic_year: currentAcademicYear(),
     students: { full_name: student }, guardians: { full_name: guardian, phone: "(96) 99100-0000" }, school_visits: [], ...o,
   });
 
   const opportunities: DemoOpportunity[] = [
-    opp({ id: "op-1", stage: "novo_interessado", desired_grade: "6º ano", legacy_lead_id: "demo-1", next_action: "Retornar sobre documento", next_action_at: ago(2 * DAY) }, "Mariana Souza", "Pedro Souza"),
-    opp({ id: "op-2", stage: "contato_realizado", desired_grade: "8º ano", legacy_lead_id: "demo-2", source_channel: "instagram", next_action: "Confirmar vaga", next_action_at: todayAt(17) }, "Carlos Lima", "Lia Lima"),
-    opp({ id: "op-3", stage: "novo_interessado", desired_grade: "Maternal", legacy_lead_id: "demo-3", source_channel: "redes_sociais", updated_at: ago(2 * HOUR) }, "Paula Reis", "Teo Reis"),
-    opp({ id: "op-4", stage: "visita_agendada", desired_grade: "1º ano", legacy_lead_id: "demo-4", next_action: "Receber a família", next_action_at: todayAt(9),
+    opp({ id: "op-1", stage: "novo_interessado", desired_grade: "6º ano", legacy_lead_id: "demo-1", source_channel: "whatsapp", probability_score: 25, next_action: "Retornar sobre documento", next_action_at: ago(2 * DAY) }, "Mariana Souza", "Pedro Souza"),
+    opp({ id: "op-2", stage: "contato_realizado", desired_grade: "8º ano", legacy_lead_id: "demo-2", source_channel: "anuncio_instagram", source_campaign: "Matrículas 2027 · Fundamental II", probability_score: 45, next_action: "Confirmar vaga", next_action_at: todayAt(17) }, "Carlos Lima", "Lia Lima"),
+    opp({ id: "op-3", stage: "novo_interessado", desired_grade: "Maternal", legacy_lead_id: "demo-3", source_channel: "instagram", probability_score: 20, updated_at: ago(2 * HOUR) }, "Paula Reis", "Teo Reis"),
+    opp({ id: "op-4", stage: "visita_agendada", desired_grade: "1º ano", legacy_lead_id: "demo-4", source_channel: "anuncio_facebook", source_campaign: "Matrículas 2027 · Formulário", probability_score: 55, next_action: "Receber a família", next_action_at: todayAt(9),
       school_visits: [visit("v-1", todayAt(9))] }, "Roberto Alves", "Lara Alves"),
     opp({ id: "op-5", stage: "visita_agendada", desired_grade: "6º ano", source_channel: "site", next_action: "Visita", next_action_at: todayAt(10, 30),
       school_visits: [visit("v-2", todayAt(10, 30), "confirmada")] }, "Família Lima", "Davi Lima"),
     opp({ id: "op-6", stage: "visita_agendada", desired_grade: "Maternal", source_channel: "panfletagem_outdoor", next_action: "Visita", next_action_at: todayAt(15),
       school_visits: [visit("v-3", todayAt(15))] }, "Família Barros", "Nina Barros"),
-    opp({ id: "op-7", stage: "visita_realizada", desired_grade: "5º ano", legacy_lead_id: "demo-6", source_channel: "panfletagem_outdoor", updated_at: ago(4 * DAY),
+    opp({ id: "op-7", stage: "visita_realizada", desired_grade: "5º ano", legacy_lead_id: "demo-6", source_channel: "anuncio_instagram", source_campaign: "Matrículas 2027 · Fundamental I", probability_score: 72, updated_at: ago(4 * DAY),
       next_action: "Enviar condições", next_action_at: ago(4 * DAY), school_visits: [visit("v-4", ago(4 * DAY), "realizada")] }, "Júlia Moreira", "Caio Moreira"),
-    opp({ id: "op-8", stage: "condicoes_apresentadas", desired_grade: "3º ano", legacy_lead_id: "demo-5", source_channel: "site", next_action: "Retorno da família", next_action_at: ahead(2 * DAY),
+    opp({ id: "op-8", stage: "condicoes_apresentadas", desired_grade: "3º ano", legacy_lead_id: "demo-5", source_channel: "indicacao", probability_score: 50, next_action: "Retorno da família", next_action_at: ahead(2 * DAY),
       school_visits: [visit("v-5", ago(6 * DAY), "realizada")] }, "Fernanda Castro", "Bento Castro"),
-    opp({ id: "op-9", stage: "documentacao_pendente", desired_grade: "2º ano", source_channel: "indicacao", next_action: "Receber documentos", next_action_at: ahead(DAY),
+    opp({ id: "op-9", stage: "documentacao_pendente", desired_grade: "2º ano", source_channel: "indicacao", probability_score: 85, next_action: "Receber documentos", next_action_at: ahead(DAY),
       school_visits: [visit("v-6", ago(8 * DAY), "realizada")] }, "Eduardo Nunes", "Alice Nunes"),
-    opp({ id: "op-10", stage: "matricula_em_conclusao", desired_grade: "4º ano", source_channel: "redes_sociais", next_action: "Assinar contrato", next_action_at: ahead(3 * DAY),
+    opp({ id: "op-10", stage: "matricula_em_conclusao", desired_grade: "4º ano", source_channel: "anuncio_instagram", source_campaign: "Matrículas 2027 · Fundamental I", probability_score: 90, next_action: "Assinar contrato", next_action_at: ahead(3 * DAY),
       school_visits: [visit("v-7", ago(9 * DAY), "realizada")] }, "Família Prado", "Luísa Prado"),
+    opp({ id: "op-11", stage: "perdido", desired_grade: "7º ano", source_channel: "anuncio_facebook", loss_reason: "Valor", lost_at: ago(3 * DAY), probability_score: 0 }, "Família Duarte", "Igor Duarte"),
   ];
 
   return { leads, messages, opportunities };
@@ -154,10 +167,11 @@ export function demoDirecaoData() {
   const rnd = seeded(42);
   const leads: { created_at: string }[] = [];
   const visits: { status: string; scheduled_at: string; completed_at: string | null; created_at: string }[] = [];
-  const opportunities: { stage: string; source_channel: string | null; loss_reason: string | null; lost_at: string | null; status_updated_at: string | null; updated_at: string }[] = [];
+  const opportunities: { stage: string; source_channel: string | null; source_campaign: string | null; loss_reason: string | null; lost_at: string | null; status_updated_at: string | null; updated_at: string; created_at: string }[] = [];
   const origins: { lead_id: string; metadata: unknown; created_at: string }[] = [];
   const ratings: { lead_id: string; metadata: unknown; created_at: string }[] = [];
-  const channels = ["indicacao", "indicacao", "indicacao", "instagram", "redes_sociais", "instagram", "panfletagem_outdoor", "panfletagem_outdoor", "site", "outro"];
+  const channels = ["indicacao", "indicacao", "anuncio_instagram", "anuncio_instagram", "anuncio_instagram", "anuncio_facebook", "anuncio_facebook", "instagram", "whatsapp", "panfletagem_outdoor"];
+  const campaigns: Record<string, string[]> = { anuncio_instagram: ["Matrículas 2027 · Educação Infantil", "Matrículas 2027 · Ensino Médio"], anuncio_facebook: ["Matrículas 2027 · Formulário"] };
   const reasons = ["Valor", "Valor", "Valor", "Outra escola", "Outra escola", "Localização", "Horário", "Outro"];
   for (let d = 180; d >= 0; d--) {
     const count = Math.round(rnd() * 2.6 + (d < 60 ? 0.6 : 0));
@@ -175,7 +189,8 @@ export function demoDirecaoData() {
       }
       const stage = r < 0.2 ? "documentacao_pendente" : r < 0.27 ? "matriculado" : r < 0.4 ? "perdido" : r < 0.6 ? "visita_realizada" : "novo_interessado";
       const upd = ago(Math.max(0, d - 4) * DAY);
-      opportunities.push({ stage, source_channel: ch, loss_reason: stage === "perdido" ? reasons[Math.floor(rnd() * reasons.length)] : null,
+      const camp = campaigns[ch] ? campaigns[ch][Math.floor(rnd() * campaigns[ch].length)] : null;
+      opportunities.push({ stage, source_channel: ch, source_campaign: camp, created_at: created, loss_reason: stage === "perdido" ? reasons[Math.floor(rnd() * reasons.length)] : null,
         lost_at: stage === "perdido" ? upd : null, status_updated_at: upd, updated_at: upd });
     }
   }
@@ -231,10 +246,38 @@ export const demo = {
     if (l) { l.status = status; if (l.triage_status === "resolvido" && status !== "resolvido") l.triage_status = "aguardando_secretaria"; else if (l.triage_status === "aguardando_secretaria" && (status === "em_atendimento" || status === "em_negociacao")) l.triage_status = "respondido_agente"; }
   },
   async opportunities() { await wait(150); return store.opportunities.map((o) => ({ ...o, school_visits: o.school_visits.map((v) => ({ ...v })) })); },
-  async moveOpportunity(id: string, stage: string) {
+  async moveOpportunity(id: string, stage: string, lossReason?: string) {
     await wait();
     const o = store.opportunities.find((item) => item.id === id);
-    if (o) { o.stage = stage; o.updated_at = new Date().toISOString(); o.status_updated_at = o.updated_at; o.next_action_at = null; if (stage === "perdido") o.lost_at = o.updated_at; o.enrolled_at = stage === "matriculado" ? o.enrolled_at || o.updated_at : null; }
+    if (o) { o.loss_reason = stage === "perdido" ? lossReason || "Outro" : null; o.stage = stage; o.updated_at = new Date().toISOString(); o.status_updated_at = o.updated_at; o.next_action_at = null; if (stage === "perdido") o.lost_at = o.updated_at; o.enrolled_at = stage === "matriculado" ? o.enrolled_at || o.updated_at : null; }
+  },
+  async classify(input: { leadId: string | null; guardianName: string; phone?: string | null; studentName: string; grade: string; shift: string | null; source: string | null; campaign: string | null; academicYear: number }) {
+    await wait();
+    const now = new Date().toISOString();
+    const existing = store.opportunities.find((o) => input.leadId && o.legacy_lead_id === input.leadId && o.students?.full_name.toLowerCase() === input.studentName.trim().toLowerCase());
+    if (existing) {
+      Object.assign(existing, { desired_grade: input.grade, desired_shift: input.shift || existing.desired_shift, source_channel: input.source || existing.source_channel, source_campaign: input.campaign || existing.source_campaign, updated_at: now });
+    } else {
+      store.opportunities.unshift({ id: `op-${Date.now()}`, stage: "novo_interessado", legacy_lead_id: input.leadId, desired_grade: input.grade, desired_shift: input.shift,
+        source_channel: input.source || "cadastro_manual", source_campaign: input.campaign, next_action: "Agendar visita", next_action_at: now, created_at: now, updated_at: now,
+        status_updated_at: now, loss_reason: null, lost_at: null, probability_score: 30, enrolled_at: null, academic_year: input.academicYear,
+        students: { full_name: input.studentName.trim() }, guardians: { full_name: input.guardianName.trim(), phone: input.phone || null }, school_visits: [] });
+    }
+    const l = input.leadId ? store.leads.find((item) => item.id === input.leadId) : null;
+    if (l && (l.status || "novo") === "novo") l.status = "em_atendimento";
+  },
+  async addVisit(id: string, scheduledAt: string) {
+    await wait();
+    const o = store.opportunities.find((item) => item.id === id);
+    if (!o) return;
+    o.school_visits.push({ id: `v-${Date.now()}`, scheduled_at: scheduledAt, status: "agendada", created_at: new Date().toISOString(), completed_at: null, family_impression: null, objections: null, follow_up_notes: null });
+    if (["novo_interessado", "tentativa_contato", "contato_realizado", "qualificado"].includes(o.stage)) o.stage = "visita_agendada";
+    o.updated_at = new Date().toISOString();
+  },
+  async setSource(id: string, source: string, campaign: string | null) {
+    await wait();
+    const o = store.opportunities.find((item) => item.id === id);
+    if (o) { o.source_channel = source; o.source_campaign = campaign; }
   },
   /** Matrículas por dia (lançamento manual da secretaria). */
   enrollmentEntries() { return (manualEntries ||= demoEnrollmentHistory().filter((r) => r.day <= todayKey())).map((r) => ({ ...r })); },

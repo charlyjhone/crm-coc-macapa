@@ -38,10 +38,10 @@ function useNavItems() {
     });
   }, [due.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const main: NavItem[] = [
-    { to: "/hoje", label: "Hoje", icon: Home, match: ["/", "/hoje", "/captacao"], badge: due.length, badgeLabel: "lembretes para hoje" },
+    { to: "/hoje", label: "Início", icon: Home, match: ["/", "/hoje", "/captacao"], badge: due.length, badgeLabel: "lembretes para hoje" },
+    { to: "/funil", label: "Funil de matrícula", icon: Columns3, match: ["/funil", "/matriculas"] },
     { to: "/atendimentos", label: "Conversas", icon: MessageCircle, match: ["/atendimentos", "/pendentes"], badge: waiting },
-    { to: "/funil", label: "Funil", icon: Columns3, match: ["/funil", "/matriculas"] },
-    { to: "/direcao", label: "Direção", icon: BarChart3, match: ["/direcao", "/origem-conversao"] },
+    { to: "/direcao", label: "Relatórios", icon: BarChart3, match: ["/direcao", "/origem-conversao"] },
   ];
   const more: NavItem[] = [
     { to: "/visitas", label: "Visitas", icon: CalendarDays, match: ["/visitas"] },

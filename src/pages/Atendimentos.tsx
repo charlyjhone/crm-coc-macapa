@@ -13,7 +13,10 @@ import { DEMO_MODE, demo } from "@/lib/demo";
 import { LeadReminders } from "@/components/crm/Reminders";
 import { attendancePriority } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { NewFamilyDialog } from "@/components/school/NewFamilyDialog";
+import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
+import { SourceChip, TemperatureChip } from "@/components/crm/FunnelBits";
+import { useFunnelActions } from "@/hooks/useFunnelActions";
+import { FUNNEL_COLUMNS, funnelKeyOf, sourceLabel, type FunnelKey } from "@/lib/funnel";
 
 const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
@@ -484,26 +487,66 @@ function useLeadVisit(leadId: string | null) {
   return useQuery({
     queryKey: ["conversa-visita", leadId],
     enabled: !!leadId,
-    queryFn: async (): Promise<{ id: string | null; stage: string | null; grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null }> => {
+    queryFn: async (): Promise<{ id: string | null; stage: string | null; grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null; source: string | null; campaign: string | null; score: number | null }> => {
       const { data, error } = DEMO_MODE
         ? { data: (await demo.opportunities()).filter((o) => o.legacy_lead_id === leadId), error: null }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
         : await (supabase as any).from("enrollment_opportunities")
-          .select("id,stage,desired_grade,desired_shift,students(full_name),school_visits(scheduled_at,status)")
+          .select("id,stage,desired_grade,desired_shift,source_channel,source_campaign,probability_score,students(full_name),school_visits(scheduled_at,status)")
           .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
-      if (error || !data?.length) return { id: null, stage: null, grade: null, shift: null, student: null, visit: null };
+      if (error || !data?.length) return { id: null, stage: null, grade: null, shift: null, student: null, visit: null, source: null, campaign: null, score: null };
       const row = data[0];
       const visits = ((row.school_visits || []) as LeadVisit[]).filter((v) => v.status !== "cancelada")
         .sort((a, b) => Date.parse(b.scheduled_at) - Date.parse(a.scheduled_at));
-      return { id: row.id, stage: row.stage, grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null };
+      return { id: row.id, stage: row.stage, grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null,
+        source: row.source_channel || null, campaign: row.source_campaign || null, score: row.probability_score ?? null };
     },
   });
 }
 
 const visitStatusLabel: Record<string, string> = { agendada: "Agendada", confirmada: "Confirmada", reagendada: "Reagendada", realizada: "Realizada", faltou: "Não compareceu" };
 
+function StageStepper({ opportunityId, stage }: { opportunityId: string; stage: string }) {
+  const actions = useFunnelActions();
+  const [busy, setBusy] = useState(false);
+  const current = funnelKeyOf(stage);
+  const currentIndex = FUNNEL_COLUMNS.findIndex((c) => c.key === current);
+  const move = async (key: FunnelKey) => {
+    if (key === current) return;
+    setBusy(true);
+    try { await actions.moveTo(opportunityId, key); toast.success(`Família em “${FUNNEL_COLUMNS.find((c) => c.key === key)?.label}”`); }
+    catch (error) { toast.error("Não foi possível mover", { description: error instanceof Error ? error.message : undefined }); }
+    finally { setBusy(false); }
+  };
+  if (stage === "perdido") return <p className="text-sm text-[#5B6675]">Marcada como sem interesse. <Link className="font-medium text-[var(--crm-accent)] underline" to={`/funil?ficha=${opportunityId}`}>Ver no funil</Link></p>;
+  return (
+    <ol className="flex flex-col gap-1.5">
+      {FUNNEL_COLUMNS.map((column, index) => {
+        const done = index < currentIndex;
+        const now = index === currentIndex;
+        // Visita precisa de data: abre no funil.
+        if (column.key === "visita" && !now) {
+          return (
+            <li key={column.key}><Link to={`/funil?ficha=${opportunityId}`} className="flex min-h-10 items-center gap-2.5 rounded-[10px] border border-[#E1E4E9] px-3 text-sm font-semibold text-[#3B4452] hover:bg-[#F9FAFB]">
+              <i className={`h-4 w-4 rounded-full border-2 ${done ? "border-[var(--crm-accent)] bg-[var(--crm-accent)]" : "border-[#C3C8D0]"}`} />{column.label}<span className="ml-auto text-xs font-medium text-[#5B6675]">agendar</span></Link></li>
+          );
+        }
+        return (
+          <li key={column.key}>
+            <button type="button" disabled={busy || now} aria-current={now ? "step" : undefined} onClick={() => void move(column.key)}
+              className={`flex min-h-10 w-full items-center gap-2.5 rounded-[10px] border px-3 text-left text-sm font-semibold ${now ? "border-[var(--crm-accent)] text-[var(--crm-accent)] ring-1 ring-[var(--crm-accent)]" : done ? "border-[#E1E4E9] text-[#5B6675]" : "border-[#E1E4E9] text-[#3B4452] hover:bg-[#F9FAFB]"}`}>
+              <i className={`h-4 w-4 rounded-full border-2 ${now ? "border-[5px] border-[var(--crm-accent)]" : done ? "border-[var(--crm-accent)] bg-[var(--crm-accent)]" : "border-[#C3C8D0]"}`} />{column.label}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function FamilyCard({ lead }: { lead: Atendimento }) {
   const { data } = useLeadVisit(lead.id);
+  const [classifyOpen, setClassifyOpen] = useState(false);
   const row = (label: string, value: string | null | undefined) => (
     <div className="flex justify-between gap-3 py-1.5 text-sm"><span className="text-[#5B6675]">{label}</span><span className="min-w-0 break-words text-right">{value || "—"}</span></div>
   );
@@ -515,9 +558,23 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         {row("Telefone", lead.phone || lead.email)}
         {data?.student && row("Aluno", data.student)}
         {row("Série", data?.grade ? `${data.grade}${data.shift ? `, ${data.shift}` : ""}` : lead.interesse)}
-        {row("Como conheceu", lead.source)}
+        {row("Origem", data?.source ? sourceLabel(data.source) : lead.source)}
+        {data?.campaign && row("Campanha", data.campaign)}
         {row("Assunto", subjectLabel(lead.assunto))}
       </div>
+      {data?.id && data.stage ? (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Etapa no funil</p>
+            <span className="flex gap-1"><SourceChip value={data.source} />{data.stage !== "perdido" && <TemperatureChip score={data.score} />}</span></div>
+          <StageStepper opportunityId={data.id} stage={data.stage} />
+        </div>
+      ) : (
+        <div className="rounded-xl bg-[var(--crm-accent-softer)] p-3">
+          <p className="text-sm font-semibold">Ainda não está no funil</p>
+          <p className="mt-0.5 text-[13px] text-[#5B6675]">Classifique em 30 segundos: interesse, série e como conheceu a escola.</p>
+          <button type="button" className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-[var(--crm-accent)] px-3 text-sm font-medium text-white hover:bg-[var(--crm-accent-hover)]" onClick={() => setClassifyOpen(true)}>Classificar contato</button>
+        </div>
+      )}
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Visita</p>
         {data?.visit ? (
@@ -532,7 +589,7 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
       </div>
       <LeadReminders leadId={lead.id} leadName={lead.name} />
-      {lead.phone && !DEMO_MODE && !data?.id && <NewFamilyDialog initialLead={{ id: lead.id, name: lead.name, phone: lead.phone, email: lead.email, interesse: lead.interesse }} triggerLabel="Preparar cadastro de matrícula" />}
+      <ClassifyContactDialog lead={lead} open={classifyOpen} onOpenChange={setClassifyOpen} />
     </div>
   );
 }
