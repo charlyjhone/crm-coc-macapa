@@ -5,7 +5,7 @@ import { attendancePriority } from "@/lib/attendancePriority";
 import { useDueReminders } from "@/hooks/useReminders";
 import {
   BarChart3, CalendarDays, ChevronDown, CircleUserRound, ClipboardList, Columns3,
-  ContactRound, Home, ListChecks, LogOut, MessageCircle, Settings, Users,
+  ContactRound, FileBarChart, Home, ListChecks, LogOut, MessageCircle, Settings, Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -47,6 +47,7 @@ function useNavItems() {
     { to: "/visitas", label: "Visitas", icon: CalendarDays, match: ["/visitas"] },
     { to: "/familias", label: "Famílias e alunos", icon: ContactRound, match: ["/familias"] },
     { to: "/tarefas-captacao", label: "Tarefas", icon: ListChecks, match: ["/tarefas-captacao"] },
+    { to: "/relatorios", label: "Exportar relatórios", icon: FileBarChart, match: ["/relatorios"] },
   ];
   return { main, more };
 }

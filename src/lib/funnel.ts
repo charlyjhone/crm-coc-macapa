@@ -106,10 +106,26 @@ export const GRADE_GROUPS: { label: string; grades: { name: string; age: number 
   { label: "Ensino Médio", grades: [1, 2, 3].map((n) => ({ name: `${n}ª série`, age: n + 14 })) },
 ];
 
-export function gradeForAge(age: number | null) {
+export type GradeGroup = (typeof GRADE_GROUPS)[number];
+
+export function gradeForAge(age: number | null, groups: GradeGroup[] = GRADE_GROUPS) {
   if (!age || !Number.isFinite(age)) return null;
-  for (const group of GRADE_GROUPS) for (const grade of group.grades) if (grade.age === age) return grade.name;
+  for (const group of groups) for (const grade of group.grades) if (grade.age === age) return grade.name;
   return null;
+}
+
+/** Lê a configuração da escola "Série=idade; ..." (system_settings.escola_series_idades) e agrupa por segmento. */
+export function gradeGroupsFromSetting(raw: string | null | undefined): GradeGroup[] | null {
+  const items = (raw || "").split(/[;\n]+/).map((part) => part.match(/^\s*(.{2,40}?)\s*=\s*(\d{1,2})\s*$/))
+    .filter((m): m is RegExpMatchArray => !!m).map((m) => ({ name: m[1].trim(), age: Number(m[2]) }));
+  if (!items.length) return null;
+  const order = ["Educação Infantil", "Fundamental I", "Fundamental II", "Ensino Médio", "Outras"];
+  const map = new Map<string, { name: string; age: number }[]>();
+  for (const item of items) {
+    const seg = segmentOf(item.name) || (item.age <= 5 ? "Educação Infantil" : item.age <= 10 ? "Fundamental I" : item.age <= 14 ? "Fundamental II" : "Ensino Médio");
+    map.set(seg, [...(map.get(seg) || []), item]);
+  }
+  return order.filter((label) => map.has(label)).map((label) => ({ label, grades: map.get(label)! }));
 }
 
 export function segmentOf(grade: string | null | undefined) {

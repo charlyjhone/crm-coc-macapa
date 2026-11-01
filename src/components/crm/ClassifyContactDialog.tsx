@@ -1,4 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE } from "@/lib/demo";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,15 +11,28 @@ import { Label } from "@/components/ui/label";
 import type { Atendimento } from "@/hooks/useAtendimentos";
 import { useFunnelActions } from "@/hooks/useFunnelActions";
 import { currentAcademicYear } from "@/lib/enrollmentCalendar";
-import { FREE_SOURCES, GRADE_GROUPS, PAID_SOURCES, gradeForAge, isPaidSource } from "@/lib/funnel";
+import { FREE_SOURCES, GRADE_GROUPS, PAID_SOURCES, gradeForAge, gradeGroupsFromSetting, isPaidSource, type GradeGroup } from "@/lib/funnel";
 import { OptionButton } from "@/components/crm/FunnelBits";
 import { btn, btnPrimary } from "@/components/crm/ui";
 
 type Purpose = "matricula" | "familia" | "outro";
 
-const allGrades = GRADE_GROUPS.flatMap((group) => group.grades.map((grade) => grade.name));
+/** Séries da escola (configuração série=idade); sem ela, a tabela padrão do COC. */
+function useSchoolGrades(enabled: boolean): GradeGroup[] {
+  const { data } = useQuery({
+    queryKey: ["escola-series-idades"],
+    enabled: enabled && !DEMO_MODE,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- system_settings fora dos tipos gerados.
+      const { data } = await (supabase as any).from("system_settings").select("value").eq("key", "escola_series_idades").maybeSingle();
+      return gradeGroupsFromSetting(data?.value) || null;
+    },
+  });
+  return data || GRADE_GROUPS;
+}
 
-function guessGrade(text: string | null | undefined) {
+function guessGrade(text: string | null | undefined, allGrades: string[]) {
   const t = (text || "").toLocaleLowerCase("pt-BR");
   if (!t) return "";
   return [...allGrades].sort((a, b) => b.length - a.length).find((grade) => t.includes(grade.toLocaleLowerCase("pt-BR"))) || "";
@@ -54,6 +70,8 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
   const [campaign, setCampaign] = useState("");
   const [year, setYear] = useState(currentAcademicYear());
   const [saving, setSaving] = useState(false);
+  const gradeGroups = useSchoolGrades(open);
+  const allGrades = useMemo(() => gradeGroups.flatMap((group) => group.grades.map((g) => g.name)), [gradeGroups]);
 
   useEffect(() => {
     if (!open) return;
@@ -62,7 +80,7 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
     setPhone(lead?.phone || "");
     setStudentName("");
     setAge("");
-    setGrade(guessGrade(`${lead?.interesse || ""} ${lead?.triage_summary || ""} ${lead?.last_inbound_message || ""}`));
+    setGrade(guessGrade(`${lead?.interesse || ""} ${lead?.triage_summary || ""} ${lead?.last_inbound_message || ""}`, allGrades));
     setShift(/tarde/i.test(lead?.interesse || "") ? "tarde" : /manh/i.test(lead?.interesse || "") ? "manhã" : "");
     setSource(guessSource(lead));
     setCampaign("");
@@ -71,7 +89,7 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
 
   const onAge = (value: string) => {
     setAge(value);
-    const suggested = gradeForAge(Number(value.replace(/\D/g, "")));
+    const suggested = gradeForAge(Number(value.replace(/\D/g, "")), gradeGroups);
     if (suggested) setGrade(suggested);
   };
 
@@ -144,7 +162,7 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
 
               <section className="flex flex-col gap-2">
                 <SectionTitle n={3}>Para qual série?</SectionTitle>
-                {GRADE_GROUPS.map((group) => (
+                {gradeGroups.map((group) => (
                   <div key={group.label}>
                     <Group>{group.label}</Group>
                     <div className="mt-1.5 flex flex-wrap gap-2">

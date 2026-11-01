@@ -34,3 +34,13 @@ jobs:
         run: node scripts/build-conceito.mjs
       - name: Lint visual refresh files
         run: npx eslint src/components/AppTopNav.tsx src/main.tsx src/pages/Atendimentos.tsx src/pages/CaptacaoDashboard.tsx src/pages/EnrollmentPipeline.tsx
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Lint layout novo (Proposta 2)
+        run: npx eslint src/lib/funnel.ts src/hooks/useFunnelActions.ts src/hooks/useOpportunities.ts src/components/crm/ClassifyContactDialog.tsx src/components/crm/FunnelBits.tsx src/components/AppSidebar.tsx src/pages/Hoje.tsx src/pages/Funil.tsx src/pages/Direcao.tsx src/lib/demo.ts
+      - name: Guardar o build (para conferência visual)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-coc
+          path: dist
+          retention-days: 3

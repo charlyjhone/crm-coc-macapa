@@ -719,3 +719,90 @@ Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-pre
 - 22/10: ajuste único no COC (autorizado): 6 famílias em atendimento/negociação já respondidas passaram de `aguardando_secretaria` para `respondido_agente` (Evilin, Joisiane, Karolayne, Brenda Vieira, Bianca Lima, Rayra Sampaio). Ficaram como estavam: "Contato 5596981448058" (mensagem sem resposta) e "Contato 5596991376853" (sem mensagens).
 - 22/10: Conversas mostra o total geral ("N recebidas no total") e o número em todas as abas; a lista carrega até 3000 contatos.
 - 22/10: a criação da tabela `lead_reminders` no COC foi autorizada, mas a ferramenta de migration foi cancelada duas vezes na aprovação; tabela ainda NÃO existe. Aplicar o arquivo `supabase/migrations/20261022150000_lead_reminders.sql` no SQL Editor do Supabase COC.
+
+## 50. Ceci (Conceito): modo prévia, modo teste e ativação controlada (22/10/2026)
+
+- Roteiro da Ceci gravado em `escola_info` pela tela de Configurações (conferido por hash com o arquivo aprovado).
+- Segredos cadastrados pelo responsável: `OPENAI_API_KEY`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN`, `REQUIRE_ZAPI_INSTANCE_ID`. Segredo interno `school_triage_webhook_secret` criado no Vault.
+- `school-triage` (Conceito): modo prévia (`action: "preview"`) funciona com a atendente desligada e não envia nem grava; sem telefone no payload, nenhum envio é possível.
+- Modo teste: `system_settings.escola_agente_numeros_teste` (lista separada por vírgula). Com números cadastrados, a atendente ignora qualquer outro contato (`skipped: test_mode_number_not_allowed`), antes de criar lead ou enviar. Para liberar para todos, esvaziar essa configuração.
+- Ajustes de resposta: primeira pergunta sobre valores só convida para a visita (encaminha só se insistir); a oferta "Enquanto isso, posso ajudar em algo mais?" não é anexada quando a resposta já termina em pergunta.
+- Ativação em 22/10/2026 com `escola_agente_ativo=true` e modo teste restrito ao número do responsável; mensagem real de família recebida logo depois foi ignorada corretamente.
+- Pendente: teste ponta a ponta pelo WhatsApp (saudação, visita com agenda, encerramento e pesquisa), depois esvaziar a lista de teste para liberar.
+
+## 51. Ana e Ceci com função única (22/10/2026)
+
+- `supabase/functions/school-triage/index.ts` é a função ÚNICA das duas escolas. COC (`fenqnbzdjnyvgrmjczoi`) e Conceito (`xkcxvbagzxwwauofvlin`) publicam uma entrada curta que importa esse arquivo num commit fixo. Cada projeto só lê o próprio banco; nada de escola fica no código.
+- Configurações por escola em `system_settings`: `escola_nome`, `escola_agente_nome`, `escola_info` (roteiro), `escola_endereco_visita` (novo, usado na confirmação da visita), `escola_valores`, `escola_valores_data_divulgacao`, `escola_folder_ativo`, `escola_pesquisa_ativa`, `escola_agente_numeros_teste` (modo teste; vazio = todos).
+- Incorporado à função única: proteção contra mensagem duplicada (v108 do COC), tom acolhedor nos textos fixos, histórico só da conversa atual, apresentação garantida, "quero conhecer a escola" sem abrir visita, nome pedido só quando necessário, modo prévia e modo teste.
+- Referência para reverter a Ana: commit `d57bfa7` (cópia exata da v109 de produção).
+- Roteiros reescritos com a mesma estrutura e as mesmas regras de comportamento: Ana versão 3 e Ceci versão 2 (colar em Configurações → Escola). Backup do roteiro anterior da Ana em `escola_info_backup_2026_10_22`.
+
+## 52. Ceci em produção (22/10/2026, 13:50)
+
+- Modo teste desligado (`escola_agente_numeros_teste` vazio): a Ceci responde a todos os contatos do Conceito.
+- Conversa de teste do responsável arquivada (não apagada; o conector bloqueia exclusões): mensagens com telefone prefixado `teste-arquivado-`, lead arquivado e follow-up cancelado.
+- Lista de documentos passou a ser resposta geral (sem encaminhar à secretaria).
+- Pendências do Conceito: colar roteiro Ceci v3; funções `transcribe-audio` e `process-whatsapp-attachment`, bucket `whatsapp-attachments` e pg_cron de follow-up ainda não instalados (áudio recebe pedido para escrever a dúvida).
+- 22/10 14:00: primeira mensagem real mostrou a Ceci entrando numa conversa que a secretaria já atendia pelo celular. Causa: respostas do aparelho chegam só com o LID do chat (`@lid`) e ficavam órfãs, sem o número. Correção na função única (commit `526c771`): checagem de atendimento humano, histórico e resposta concorrente consideram número OU `chatLid`. Testado no caso real (retornou `human_conversation_active`). Ceci de volta em produção. Pendente: mensagens órfãs `@lid` antigas ainda não aparecem na conversa do CRM.
+
+## 53. Ana: resumo repetido, visitas perdidas, série do Ensino Médio e resposta dupla (27/10/2026)
+
+Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue no commit fixo `0557cb8`). Problemas vistos em conversas reais de 26–27/10:
+
+- **Resumo "Só para conferir..." reenviado** a cada nova mensagem depois do SIM (98136-4080, 99156-5550, 99130-9148); a pergunta da família (valores, horário) ficava sem resposta. Agora a função carrega os interesses já gravados da família (`enrollment_opportunities` + `students`), avisa a IA (`INTERESSE JÁ ANOTADO`) e não reenvia o resumo para o mesmo aluno/série; outro aluno continua recebendo resumo. "Ok/obrigada" depois de "Anotei o interesse" recebe a resposta curta.
+- **"corrigir"/"não" após o resumo** reenviava o mesmo resumo; agora pergunta o que ajustar.
+- **Visitas não agendadas**: (1) mensagens com quebra de linha viravam linhas sem "Família:" no histórico e o pedido de visita sumia — histórico agora tem uma mensagem por linha; (2) "Posso agendar" não era reconhecido — regex ampliada; (3) quando a própria Ana perguntou dia/horário da visita e a IA marcou `visita.solicitada`, o agendamento continua; (4) horários "15 hs", "16h30", "15:30", "9hrs" agora são entendidos ("dia 15 hoje" não vira horário).
+- **Série do Ensino Médio**: "1º ano" no contexto do Ensino Médio virava "1º ano" (Fundamental). Agora vira "1ª série", e o resumo mostra "1ª série do Ensino Médio" (o texto é reconvertido na confirmação).
+- **Resposta dupla** a mensagens seguidas: se chegou outra mensagem da família durante o processamento, só a mais recente responde (exceto agradecimento/despedida, mídia sem legenda e duplicata idêntica em 10 s). Não vale se cadastro ou visita já foram gravados na rodada.
+- Testes: `scripts/test-ana-conversas-reais.mjs` (15 casos; 11 falham na versão de produção e passam na nova). `scripts/test-ana-visits.mjs` ganhou `gte`, `or` e a tabela `students` no simulador: 19/27 passam, as mesmas 8 falhas antigas por textos desatualizados, antes e depois.
+- Para publicar no COC: trocar o commit da entrada curta de `school-triage` para o commit desta branch (depois do merge). A Ceci (Conceito) só muda quando a entrada dela for atualizada.
+- Dados a corrigir com autorização: oportunidade de Pedro Costa França gravada como "1º ano" (deveria ser "1ª série"); contato do 98136-4080 ficou com o nome do aluno.
+
+### 53.1 Série conferida pela idade (27/10/2026)
+
+- Nova configuração por escola `system_settings.escola_series_idades` (tabela série=idade). Sem ela, nada muda (Ceci segue igual). Valor do COC, informado pelo responsável: `Maternal 2=2; Maternal 3=3; 1º Período=4; 2º Período=5; 1º ano=6; 2º ano=7; 3º ano=8; 4º ano=9; 5º ano=10; 6º ano=11; 7º ano=12; 8º ano=13; 9º ano=14; 1ª série=15; 2ª série=16; 3ª série=17` (Infantil: Maternal 2 ao 2º Período; Fundamental I: 1º ao 5º ano; Fundamental II: 6º ao 9º; Médio: 1ª à 3ª série).
+- "1º/2º/3º ano" sem segmento: a Ana pergunta a idade; até 10 anos = Fundamental, 13 ou mais = Médio, 11–12 ou sem resposta clara = pergunta "Fundamental ou Médio?". "Maternal" sem número: 1 ano = Maternal 2, 3 anos = Maternal 3, 2 anos = pergunta qual. "Fundamental"/"Médio" ditos pela família decidem sem perguntar idade.
+- Nomes da escola reconhecidos: Maternal 2/3, 1º/2º Período (antes viravam "Maternal" ou nada).
+- Resumo mostra "Idade: N anos" e a série com segmento ("1º ano do Ensino Fundamental"). Idade fora do esperado (aceita a idade da série ou um ano a menos, porque o cadastro é para o ano seguinte) gera uma linha "Obs.:" com a série mais comum; o SIM continua gravando como a família escolheu. A idade vai para `students.notes` ("Idade informada pela família em DD/MM/AAAA: N anos").
+- IA devolve `cadastro.idade`. Testes: 23 em `scripts/test-ana-conversas-reais.mjs`.
+- Ao publicar: gravar `escola_series_idades` no COC. O formulário manual de família no CRM (`NewFamilyDialog`) ainda lista "Maternal / Jardim I / Jardim II" — ajustar à parte (o frontend é compartilhado com o Conceito).
+- Ponto em aberto: a Ana aceitou "1ª série, tarde" no 98136-4080, mas o roteiro diz que do 8º ano à 3ª série só há turno da manhã.
+
+## 54. Publicação da nova Ana e exclusão de família (27/10/2026)
+
+- Ana no COC publicada como `school-triage` v118, entrada curta importando o commit `fc36ad6` (seções 53 e 53.1). Responde 401 sem segredo (conferido). `escola_series_idades` gravada no COC. Para voltar, importar `0557cb8`. A Ceci não mudou (continua no commit dela).
+- Dados corrigidos com autorização: oportunidade de Pedro Costa França → `1ª série`, turno `manhã`; contato do 98136-4080 → Vivian Renata da Silva França; Miguel Brito Souto → `1º Período`. Registrado em `activity_log`. Obs.: o gatilho de pontuação exige sessão; correções por SQL usam `request.jwt.claims` com `role=service_role` na transação.
+- Exclusão de família: RPC `delete_school_family(guardian_ids, student_ids)` (migration `20261027220000_delete_school_family.sql`), aplicada no COC e no Conceito. Só administrador; exige família fechada (mesmo grupo do cartão); apaga responsáveis, alunos, vínculos, interesses e, em cascata, visitas, tarefas e histórico; mantém leads e conversas. Auditoria pelos gatilhos existentes. Testada no COC em transação desfeita (secretaria recusada, família aberta recusada, exclusão completa sem tocar outra família).
+- Tela Famílias: botão "Excluir família" no cartão, só para administradores, com confirmação digitando EXCLUIR (`src/components/school/DeleteFamilyDialog.tsx`).
+
+## 55. Conversa aberta no CRM = lida no WhatsApp (27/10/2026)
+
+- Decisão do responsável: marcar como lida ao ABRIR a conversa (não só ao responder).
+- Edge Function `mark-whatsapp-read` (COC e Conceito, `verify_jwt=true`, v1): recebe só `leadId`, busca número/LID no banco, valida papel admin/user e chama Z-API `modify-chat` com `action: "read"` (tenta número, depois LID).
+- Atendimentos (`Conversation`): chama ao abrir e a cada nova mensagem recebida, só com a aba visível; falha não interrompe o atendimento.
+- Efeitos conhecidos: família vê tiques azuis (se a confirmação de leitura estiver ativa no WhatsApp da escola) e a conversa deixa de aparecer como não lida no celular/WhatsApp Web.
+- Pendente: validar com uma conversa real logo após a publicação (logs da função).
+
+## 56. Visita já realizada (família veio sem agendar) — 28/10/2026
+
+- Verificação da agenda: 1 visita ativa (Gustavo, 30/10 9h, criada pela Ana); nenhum pedido de visita perdido desde a v118.
+- Antes, tela e RPCs (`schedule_school_visit`, `update_school_visit_status`) só aceitavam data futura.
+- RPC nova `register_past_school_visit(opportunity, visited_at, participantes, impressão, objeções, notas)` (migration `20261028120000_register_past_school_visit.sql`, aplicada no COC e no Conceito): cria a visita já como `realizada` na data passada (até 12 meses), etapa → `visita_realizada` quando antes dela (inclui `nutricao`), próxima ação "Realizar retorno após a visita", histórico de etapa. Repetição devolve a mesma visita; se houver visita futura em aberto, recusa e orienta a usar "Registrar" nela. Testada em transação desfeita (5 cenários).
+- Tela Visitas: botão "Registrar visita já feita" (`PastVisitDialog`), data + horário aproximado, quem veio, impressão, objeções, notas; link para Famílias quando a família ainda não existe. Lista: próximas primeiro, depois as demais da mais recente para a mais antiga.
+- Cadastro manual de família (`NewFamilyDialog`): séries vêm de `escola_series_idades` quando configurada (COC: Maternal 2/3, 1º/2º Período...); senão, lista padrão (Conceito sem mudança).
+
+## 57. Ana: datas de visita e "falar com atendente" (30/10/2026)
+
+- Casos reais: 98127-7856 pediu reagendar para "Dia 03" e a Ana procurou 03/10/2026 (passado) → "não encontrei horários"; 98422-7757 enviou "Data de Nascimento: 06/05/2022" e a Ana procurou visita em 06/05/2022, repetindo a resposta 4x; "Falar com atendente" não era reconhecido.
+- Correções: "dia N" sem mês = próxima ocorrência; mês por extenso ("3 de novembro"); ano com 2 dígitos; linhas com nascimento/aniversário/idade ignoradas; data só aceita de hoje até ~190 dias; `sanitizeVisitDate` também filtra a data sugerida pela IA. `HUMAN_REQUEST` único (falar com atendente/secretaria/alguém, atendimento humano, chama uma atendente) e pedido explícito sempre encaminha à secretaria.
+- Testes: 29 em `scripts/test-ana-conversas-reais.mjs` (6 novos falham na v118 e passam na nova).
+- Pendente de decisão: visita do Gael (98127-7856) foi remarcada pela secretaria no WhatsApp para 03/11 16h, mas no CRM continua 30/10 16h.
+
+## 58. Ana: fins de semana e dias sem expediente (30/10/2026)
+
+- Caso real 99136-6993 (sexta 30/10 15:18): "Tem como eu visitar a escola amanhã pela manhã?" → Ana respondeu "Será um prazer receber você amanhã" (sábado). "Tem como eu visitar" não era reconhecido como pedido de visita, então a resposta livre da IA saiu sem checagem; a IA também não sabia o dia da semana.
+- Correções: pedido de visita reconhece "tem como/posso/dá pra/consigo ... visitar/ir aí"; prompt ganhou CALENDÁRIO (hoje, amanhã, se a escola abre amanhã, próximos dias de visita, dias fechados nos próximos 30 dias); dia fechado não consulta a agenda e responde "a escola não abre... O próximo dia para visita é ...".
+- Configuração nova `system_settings.escola_dias_sem_visita` (DD/MM/AAAA ou AAAA-MM-DD, separados por vírgula). COC: `02/11/2026` (Finados; a secretaria informou retorno na terça 03/11). Migration `20261030190000_visit_closed_days.sql` (COC e Conceito): `is_school_closed_for_visit(date)` e `get_ana_available_visit_slots` sem horários em fim de semana e dias sem expediente.
+- Testes: 33 em `scripts/test-ana-conversas-reais.mjs` (4 novos falham na v119).
+- Pendente: tela em Configurações para editar os dias sem expediente (hoje só via banco).

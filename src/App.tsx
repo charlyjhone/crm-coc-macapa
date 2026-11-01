@@ -25,6 +25,7 @@ const Pendentes = lazy(() => import("./pages/Pendentes"));
 const CRMLayoutPreview = lazy(() => import("./pages/CRMLayoutPreview"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Perfil = lazy(() => import("./pages/Perfil"));
+const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 const Hoje = lazy(() => import("./pages/Hoje"));
 const Funil = lazy(() => import("./pages/Funil"));
@@ -76,6 +77,7 @@ const App = () => (
             <Route path="/usuarios" element={<ProtectedLayout><AdminRoute><Usuarios /></AdminRoute></ProtectedLayout>} />
             <Route path="/auditoria" element={<ProtectedLayout><AdminRoute><Auditoria /></AdminRoute></ProtectedLayout>} />
             <Route path="/perfil" element={<ProtectedLayout><Perfil /></ProtectedLayout>} />
+            <Route path="/relatorios" element={<ProtectedLayout><Relatorios /></ProtectedLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

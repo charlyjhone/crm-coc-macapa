@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatSchoolDateTime, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { ScheduleVisitDialog } from "@/components/school/ScheduleVisitDialog";
+import { PastVisitDialog } from "@/components/school/PastVisitDialog";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 
 type Visit = {
@@ -59,6 +60,16 @@ const SchoolVisits = () => {
   });
 
   const now = new Date();
+  // Próximas visitas em aberto primeiro (da mais próxima para a mais distante);
+  // depois as demais, da mais recente para a mais antiga.
+  const isUpcoming = (visit: Visit) =>
+    new Date(visit.scheduled_at) >= now && ["agendada", "confirmada", "reagendada"].includes(visit.status);
+  const ordered = [...visits].sort((a, b) => {
+    const ua = isUpcoming(a), ub = isUpcoming(b);
+    if (ua !== ub) return ua ? -1 : 1;
+    const diff = Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at);
+    return ua ? diff : -diff;
+  });
   const metrics = {
     today: visits.filter((visit) => visit.status !== "cancelada" && schoolDateTimeInput(visit.scheduled_at).slice(0,10) === schoolDateTimeInput(now).slice(0,10)).length,
     upcoming: visits.filter((visit) => new Date(visit.scheduled_at) >= now && ["agendada", "confirmada", "reagendada"].includes(visit.status)).length,
@@ -79,6 +90,7 @@ const SchoolVisits = () => {
             <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
               <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Atualizar
             </Button>
+            <PastVisitDialog onCreated={() => { void refetch(); }} />
             <ScheduleVisitDialog onCreated={() => { void refetch(); }} />
           </div>
         </div>
@@ -118,7 +130,7 @@ const SchoolVisits = () => {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {visits.map((visit) => {
+            {ordered.map((visit) => {
               const opportunity = visit.enrollment_opportunities;
               const studentName = opportunity?.students?.full_name || "Aluno não identificado";
               return (

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ClipboardList,
   ContactRound,
+  FileBarChart,
   GraduationCap,
   Inbox,
   LayoutDashboard,
@@ -155,6 +156,7 @@ export function AppTopNav() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+              <NavLink to="/relatorios" label="Relatórios" icon={FileBarChart} />
               {isAdmin && <NavLink to="/usuarios" label="Equipe" icon={Users} />}
               {isAdmin && <NavLink to="/auditoria" label="Auditoria" icon={ClipboardList} />}
         </nav>
