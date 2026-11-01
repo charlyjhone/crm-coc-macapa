@@ -138,7 +138,7 @@ function Decision({ item, column }: { item: Opportunity; column: FunnelKey }) {
   </>);
 
   // novo / conversa
-  return box("Próximo passo", <>
+  return box("O que fazer agora?", <>
     {column === "novo" && <button type="button" disabled={busy} className={`${btn} w-full justify-start`} onClick={() => void run(() => actions.moveTo(item.id, "conversa"), "Família em “Em conversa”")}>Já conversei com a família</button>}
     <label className="text-[13px] font-semibold text-[#3B4452]" htmlFor="visit-at">Agendar visita</label>
     <div className="flex gap-2">
@@ -169,7 +169,7 @@ function Ficha({ item, onClose }: { item: Opportunity; onClose: () => void }) {
         <div className="min-w-0"><h2 className="truncate text-lg font-bold">{familyName(item)}</h2><p className="text-[13px] text-[#5A6474]">{STAGE_LABEL[item.stage] || item.stage} · desde {new Date(item.created_at).toLocaleDateString("pt-BR")}</p></div>
         <div className="flex items-center gap-1.5">
           {item.stage !== "perdido" && <TemperatureChip score={item.probability_score} />}
-          <button type="button" className="rounded-lg p-1.5 text-[#5A6474] hover:bg-[#F2F4F7] lg:hidden" onClick={onClose} aria-label="Fechar ficha"><X className="h-4 w-4" /></button>
+          <button type="button" className="rounded-lg p-1.5 text-[#5A6474] hover:bg-[#F2F4F7]" onClick={onClose} aria-label="Fechar ficha"><X className="h-5 w-5" /></button>
         </div>
       </div>
       <div className="flex gap-2">
@@ -265,7 +265,7 @@ export default function Funil() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-104px)] flex-col md:min-h-screen lg:flex-row">
+    <div className="flex min-h-[calc(100vh-104px)] flex-col md:min-h-screen">
       <div className="flex min-w-0 flex-1 flex-col gap-4 px-4 pt-6 md:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -297,6 +297,7 @@ export default function Funil() {
             {showLost ? "Voltar ao funil" : `Sem interesse (${lostQuery.data?.length ?? 0})`}
           </button>
         </div>
+        {!selected && !showLost && !active.isLoading && <p className="-mt-1 text-[13px] text-[#5B6675]">Clique em uma família para abrir a ficha e registrar como foi a visita.</p>}
         {active.isLoading && <p className="text-sm text-[#5B6675]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando…</p>}
         {active.isError && <p className="text-sm text-[#B42318]">Não foi possível carregar o funil.</p>}
 
@@ -309,7 +310,7 @@ export default function Funil() {
           <div className="flex flex-1 gap-3 overflow-x-auto pb-6">
             {grouped.map((column) => (
               <section key={column.key} aria-label={column.label}
-                className={`flex min-w-[200px] flex-1 flex-col gap-2 rounded-[14px] bg-[#ECEEF2] p-2.5 ${focusColumn === column.key ? "ring-2 ring-[var(--crm-accent)]" : ""}`}>
+                className={`flex min-w-[210px] flex-1 flex-col gap-2 rounded-[14px] bg-[#ECEEF2] p-2.5 ${focusColumn === column.key ? "ring-2 ring-[var(--crm-accent)]" : ""}`}>
                 <div className="flex items-center justify-between px-1.5 pb-1 pt-1 text-[13px] font-bold"><span>{column.label}</span><span className="rounded-full bg-white px-2 text-xs font-semibold text-[#4A5463]">{column.items.length}</span></div>
                 {column.items.map((item) => card(item, column.key))}
                 {!column.items.length && !active.isLoading && <p className="px-1 py-3 text-center text-xs text-[#5B6675]">Nenhuma família nesta etapa</p>}
@@ -319,9 +320,12 @@ export default function Funil() {
         )}
       </div>
 
-      <aside className="w-full shrink-0 border-t border-[#E6E8EC] bg-white p-5 lg:w-[360px] lg:overflow-y-auto lg:border-l lg:border-t-0" aria-label="Ficha da família">
-        {selected ? <Ficha item={selected} onClose={close} /> : <p className="text-sm text-[#5B6675]">Clique em uma família para ver a ficha e registrar como foi a visita.</p>}
-      </aside>
+      {selected && (
+        <aside aria-label="Ficha da família"
+          className="fixed inset-x-0 bottom-0 z-40 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-[#E6E8EC] bg-white p-5 shadow-[0_-8px_30px_rgba(16,24,40,.18)] lg:inset-y-0 lg:left-auto lg:right-0 lg:max-h-none lg:w-[380px] lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-[-8px_0_30px_rgba(16,24,40,.12)]">
+          <Ficha item={selected} onClose={close} />
+        </aside>
+      )}
 
       <ClassifyContactDialog lead={null} open={newOpen} onOpenChange={setNewOpen} />
     </div>

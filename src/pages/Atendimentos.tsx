@@ -584,8 +584,8 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
       </div>
       {data?.id && data.stage ? (
         <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Etapa no funil</p>
-            <span className="flex gap-1"><SourceChip value={data.source} />{data.stage !== "perdido" && <TemperatureChip score={data.score} />}</span></div>
+          <p className="text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Etapa no funil</p>
+          <div className="mb-2 mt-1.5 flex flex-wrap gap-1"><SourceChip value={data.source} />{data.stage !== "perdido" && <TemperatureChip score={data.score} />}</div>
           <StageStepper opportunityId={data.id} stage={data.stage} />
         </div>
       ) : (
