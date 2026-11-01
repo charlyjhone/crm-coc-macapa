@@ -21,7 +21,16 @@ jobs:
           cat > ./tmp-shots.mjs <<'JS'
           import { chromium } from "playwright";
           const b = await chromium.launch();
-          const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+          const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+          await ctx.route(/supabase\.co/, (r) => r.abort());
+          await ctx.addInitScript(() => {
+            const now = Math.floor(Date.now() / 1000);
+            const user = { id: "00000000-0000-4000-8000-000000000001", aud: "authenticated", role: "authenticated", email: "secretaria@demo.local", user_metadata: { full_name: "Secretaria Demo" }, app_metadata: {}, created_at: new Date().toISOString() };
+            localStorage.setItem("sb-fenqnbzdjnyvgrmjczoi-auth-token", JSON.stringify({ access_token: "demo", refresh_token: "demo", token_type: "bearer", expires_in: 3600, expires_at: now + 3600, user }));
+            localStorage.setItem("crm_last_activity", JSON.stringify({ userId: user.id, at: Date.now() }));
+            sessionStorage.setItem("crm-demo", "1");
+          });
+          const p = await ctx.newPage();
           const errors = [];
           p.on("pageerror", (e) => errors.push(String(e)));
           p.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
