@@ -80,6 +80,8 @@ interface Triagem {
     idade?: number | null;
     // Preenchido pelo código (não pela IA) quando a série ainda é ambígua.
     pendencia_serie?: { tipo: "idade" | "segmento" | "maternal"; numero: number | null } | null;
+    // Irmãos informados na mesma conversa (preenchido pelo código, não pela IA).
+    alunos?: IrmaoInfo[] | null;
   };
 }
 
@@ -188,6 +190,120 @@ function extractAge(text: string): number | null {
   return age;
 }
 
+// ---- Irmãos na mesma conversa ("Maria 5 anos / Sarah 9 anos / Cecília 12 anos") ----
+type IrmaoInfo = { name: string; age: number | null; grade: string | null };
+
+const GRADE_TOKEN = /(?<![a-z0-9])(maternal\s*(?:2|ii|dois|3|iii|tres)|(?:[12]\s*o?|primeiro|segundo)\s*periodo|maternal|jardim\s*(?:i{1,2}|[12])|[1-9]\s*(?:o\s*)?ano|(?:primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|setimo|setima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano|[1-3]\s*a?\s*serie)(?![a-z])/gi;
+
+function normalizeForGrades(text: string): string {
+  return (text || "").toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[º°•]/g, "").replace(/ª/g, "a").replace(/\s+/g, " ").trim();
+}
+
+// Todas as séries citadas, na ordem ("1 ano 3 ano e 6 ano" → 1º, 3º, 6º ano).
+function allGradesIn(text: string): string[] {
+  return [...normalizeForGrades(text).matchAll(GRADE_TOKEN)]
+    .map((m) => normalizeGrade(m[0])).filter((g): g is string => !!g);
+}
+
+function gradeRank(grade: string): number {
+  const i = SERIES_IDADES.findIndex((s) => s.nome === grade);
+  if (i >= 0) return i;
+  const j = SERIES.indexOf(grade);
+  return j >= 0 ? 100 + j : 999;
+}
+
+function cleanChildName(value: string): string | null {
+  const name = value
+    .replace(/\(?\s*\d{1,2}\s*(?:anos?|años?|aninhos)\s*\)?/giu, " ")
+    .replace(/\b(?:tem|com|de|idade|anos?|años?)\b\s*$/giu, " ")
+    .replace(/[–—:()\-]+/g, " ")
+    .replace(/\s+/g, " ").trim();
+  const semSerie = stripGradeAndShiftFromStudentName(name) || "";
+  const n = semSerie.replace(/[,.;]+$/g, "").trim();
+  if (n.length < 2 || n.length > 60 || n.split(/\s+/).length > 5) return null;
+  if (!/^[\p{L}][\p{L}'’ .]*$/u.test(n)) return null;
+  if (/^(?:sim|nao|não|pode|ok|obrigad[oa]|meu filho|minha filha|filhos?|filhas?|crian[cç]as?)$/iu.test(n)) return null;
+  return n.split(/\s+/).map((w) => w.charAt(0).toLocaleUpperCase("pt-BR") + w.slice(1)).join(" ");
+}
+
+// Lista de crianças numa resposta. Só vale com 2 ou mais nomes válidos.
+function parseSiblings(text: string): IrmaoInfo[] {
+  const raw = (text || "").trim();
+  if (!raw) return [];
+  const build = (seg: string, age: number | null): IrmaoInfo | null => {
+    const name = cleanChildName(seg);
+    if (!name) return null;
+    return { name, age, grade: allGradesIn(seg)[0] || null };
+  };
+  // 1) Separados por quebra de linha, vírgula, ponto e vírgula ou " e ".
+  const segs = raw.split(/\s*(?:[\n;,]|\s+e\s+)\s*/iu).map((x) => x.trim()).filter(Boolean);
+  if (segs.length >= 2) {
+    const kids = segs.map((seg) => build(seg, extractAge(seg)));
+    if (kids.every(Boolean)) return kids as IrmaoInfo[];
+  }
+  // 2) Tudo numa linha só, separados pela idade: "Maria 5 anos Sarah 9 anos".
+  const byAge = [...raw.matchAll(/([\p{L}][\p{L}'’ .]{1,60}?)\s*[(–-]?\s*(\d{1,2})\s*(?:anos?|años?|aninhos)\)?/giu)];
+  if (byAge.length >= 2) {
+    const kids = byAge.map((m) => build(m[1], Number(m[2])));
+    if (kids.every(Boolean)) return kids as IrmaoInfo[];
+  }
+  return [];
+}
+
+// Série de cada irmão citada pelo nome ("Maria 1º ano, Sarah 3º ano").
+function assignGradesByName(kids: IrmaoInfo[], text: string): void {
+  const norm = normalizeForGrades(text);
+  for (const kid of kids) {
+    const first = normalizeForGrades(kid.name.split(/\s+/)[0]);
+    const at = norm.indexOf(first);
+    if (at < 0) continue;
+    const trecho = norm.slice(at + first.length, at + first.length + 40);
+    const g = allGradesIn(trecho)[0];
+    if (g) kid.grade = g;
+  }
+}
+
+// Completa a série de cada irmão: pela própria linha, pelo nome ou, se a família
+// citou exatamente uma série por criança, pareando por idade (mais novo, série menor).
+function resolveSiblingGrades(kids: IrmaoInfo[], gradesMentioned: string[]): { kids: IrmaoInfo[]; faltaSerie: boolean } {
+  const out = kids.map((k) => ({ ...k }));
+  const pending = out.filter((k) => !k.grade);
+  const sobra = [...gradesMentioned];
+  for (const k of out) if (k.grade) { const i = sobra.indexOf(k.grade); if (i >= 0) sobra.splice(i, 1); }
+  if (pending.length && sobra.length === pending.length) {
+    const kidsOrdenados = pending.every((k) => k.age != null) ? [...pending].sort((a, b) => a.age! - b.age!) : pending;
+    const series = pending.every((k) => k.age != null) ? [...sobra].sort((a, b) => gradeRank(a) - gradeRank(b)) : sobra;
+    kidsOrdenados.forEach((k, i) => { k.grade = series[i]; });
+  }
+  // "1º ano" com 13 anos ou mais é a 1ª série do Ensino Médio.
+  for (const k of out) {
+    const m = k.grade?.match(/^([1-3])º ano$/);
+    if (m && k.age != null && k.age >= 13 && (temSerie(m[1] + "ª série") || !SERIES_IDADES.length)) k.grade = m[1] + "ª série";
+  }
+  return { kids: out, faltaSerie: out.some((k) => !k.grade) };
+}
+
+type MultiDraft = { responsible: string; year: number; shift: string | null; kids: { student: string; grade: string; age: number | null }[] };
+
+function multiConfirmationText(d: MultiDraft): string {
+  const linhas = d.kids.map((k) => `• ${k.student}${k.age ? ` (${k.age} ${k.age === 1 ? "ano" : "anos"})` : ""} – ${gradeLabel(k.grade)}`).join("\n");
+  return `Só para conferir antes de anotar o interesse de vocês:\nResponsável: ${d.responsible}\nAlunos:\n${linhas}\nAno letivo: ${d.year}\nTurno: ${d.shift || "não informado"}\nEstá tudo certinho? Se estiver, é só responder SIM; se precisar ajustar algo, me conta o que corrigir. 😊`;
+}
+
+function confirmedMultiFromReply(message: string): MultiDraft | null {
+  const m = message.match(/Só para conferir antes de anotar o interesse de vocês:\nResponsável: ([^\r\n]+)\nAlunos:\n((?:• [^\r\n]+\n?)+)Ano letivo: (\d{4})\nTurno: ([^\r\n]+)\nEstá tudo certinho\?/);
+  if (!m) return null;
+  const kids = m[2].trim().split("\n").map((line) => {
+    const k = line.match(/^• (.+?)(?: \((\d{1,2}) anos?\))? – (.+)$/);
+    return k ? { student: k[1].trim(), age: k[2] ? Number(k[2]) : null, grade: k[3].replace(/ do Ensino (?:Médio|Fundamental)$/, "").trim() } : null;
+  });
+  if (kids.length < 2 || kids.some((k) => !k || !normalizeGrade(k.grade) && !temSerie(k!.grade))) return null;
+  const responsible = m[1].trim();
+  if (responsible.split(/\s+/).length < 2) return null;
+  return { responsible, year: Number(m[3]), shift: m[4] === "não informado" ? null : m[4], kids: kids as MultiDraft["kids"] };
+}
+
 function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, currentText: string) {
   if (!triagem.cadastro) {
     triagem.cadastro = { responsavel: null, aluno: null, ano: ENROLLMENT_CAMPAIGN_YEAR, serie: null, turno: null };
@@ -202,6 +318,8 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
   let ensinoMedio = false;
   let fundamentalExplicito = false;
   let idade: number | null = null;
+  let irmaos: IrmaoInfo[] = [];
+  const seriesCitadas: string[] = [];
 
   for (const line of lines.slice(-24)) {
     if (line.startsWith("Escola:")) {
@@ -209,7 +327,7 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
       if (/\b(?:serie|ano)s? do ensino medio\b[^?]*\?/.test(question) && !/\bfundamental\b/.test(question)) ensinoMedio = true;
       if (/\bqual (?:e )?a idade\b|\bquantos anos\b/.test(question)) lastAskedField = "idade";
       else if (/\b(nome completo do responsavel|nome do responsavel)\b/.test(question)) lastAskedField = "responsavel";
-      else if (/\b(nome do aluno|nome da aluna)\b/.test(question)) lastAskedField = "aluno";
+      else if (/\bnome (?:do aluno|da aluna|da crianca|das criancas|dos alunos|do seu filho|da sua filha|dos seus filhos|das suas filhas|dele|dela)\b/.test(question)) lastAskedField = "aluno";
       else if (/\b(serie pretendida|qual e a serie|qual serie|qual ano)\b/.test(question)) lastAskedField = "serie";
       else lastAskedField = null;
       continue;
@@ -225,6 +343,8 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
     if (idadeDita && idadeDita >= 1 && idadeDita <= 19) idade = idadeDita;
     const facts = extractGradeAndShift(answer);
     if (facts.grade) grade = facts.grade;
+    for (const g of allGradesIn(answer)) seriesCitadas.push(g);
+    if (irmaos.length) assignGradesByName(irmaos, answer);
     if (facts.shift) shift = facts.shift;
 
     if (lastAskedField === "responsavel") {
@@ -235,6 +355,12 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
           !/^(?:matriculas?|bom dia|boa tarde|boa noite|oi|ola)\b/i.test(normalizedStyleText(name))) {
         triagem.cadastro.responsavel = name;
       }
+    } else if (lastAskedField === "aluno" && parseSiblings(answer).length >= 2) {
+      irmaos = parseSiblings(answer);
+      triagem.cadastro.aluno = null;
+    } else if (lastAskedField === "aluno" && (isExplicitConfirmation(answer) || isPoliteThanks(answer) ||
+        /^(?:sim|n[aã]o|ok|okay|pode|claro|certo|beleza|ta bom|tá bom)\b/i.test(answer.trim()))) {
+      // resposta que não é nome: mantém o que já se sabia
     } else if (lastAskedField === "aluno") {
       const name = answer
         .replace(/^(?:(?:o|a)\s+)?(?:nome do aluno|nome da aluna)\s*:?\s*/i, "")
@@ -282,6 +408,15 @@ function mergeExplicitEnrollmentFacts(triagem: Triagem, historico: string, curre
   }
   if (grade) triagem.cadastro.serie = grade;
   if (shift) triagem.cadastro.turno = shift;
+  if (irmaos.length >= 2) {
+    // Séries citadas antes dos nomes ("1 ano 3 ano e 6 ano") também servem para os irmãos.
+    const { kids } = resolveSiblingGrades(irmaos, seriesCitadas.filter((g, i, a) => a.indexOf(g) === i));
+    triagem.cadastro.alunos = kids;
+    triagem.cadastro.aluno = null;
+    triagem.cadastro.pendencia_serie = null;
+  } else {
+    triagem.cadastro.alunos = null;
+  }
   // Remove série e turno do nome caso tenham sido escritos na mesma frase.
   triagem.cadastro.aluno = stripGradeAndShiftFromStudentName(triagem.cadastro.aluno);
 }
@@ -1650,6 +1785,8 @@ serve(async (req) => {
     let shouldRegister = false;
     let enrollmentConfirmed = false;
     let anteriorEraResumo = false;
+    let multiDraft: MultiDraft | null = null;
+    let ultimaFalaAna: string | null = null;
     if (phone && channel === "whatsapp") {
       let previousQuery = supabase.from("whatsapp_messages")
         .select("message, raw_data, created_at").eq("phone", phone).eq("direction", "outbound");
@@ -1659,12 +1796,43 @@ serve(async (req) => {
       if (previousError) throw new Error("visit_confirmation_lookup_failed");
       const confirmedDraft = previous && isAnaOutbound(previous)
         ? confirmedDraftFromReply(previous.message || "") : null;
-      anteriorEraResumo = !!confirmedDraft;
+      const confirmedMulti = previous && isAnaOutbound(previous)
+        ? confirmedMultiFromReply(previous.message || "") : null;
+      if (previous && isAnaOutbound(previous)) ultimaFalaAna = previous.message || "";
+      anteriorEraResumo = !!confirmedDraft || !!confirmedMulti;
       if (confirmedDraft && isExplicitConfirmation(text)) {
         draft = confirmedDraft;
         shouldRegister = true;
         enrollmentConfirmed = true;
         assunto = "matricula";
+      }
+      if (confirmedMulti && isExplicitConfirmation(text)) {
+        multiDraft = confirmedMulti;
+        draft = null;
+        shouldRegister = true;
+        enrollmentConfirmed = true;
+        assunto = "matricula";
+      }
+    }
+    // Irmãos: um resumo com todas as crianças em vez de perguntar o nome de novo.
+    const irmaos = channel === "whatsapp" && !multiDraft ? (triagem.cadastro?.alunos || []) : [];
+    const modoIrmaos = irmaos.length >= 2 && !!triagem.cadastro?.responsavel &&
+      triagem.cadastro.responsavel.trim().split(/\s+/).length >= 2;
+    let irmaosFaltaSerie = false;
+    if (modoIrmaos) {
+      assunto = "matricula";
+      triagem.cadastro_interesse = true;
+      draft = null;
+      const resolvidos = resolveSiblingGrades(irmaos, []);
+      irmaosFaltaSerie = resolvidos.faltaSerie;
+      if (!irmaosFaltaSerie) {
+        const turnoBruto = normalizedStyleText(triagem.cadastro.turno || "");
+        multiDraft = {
+          responsible: triagem.cadastro.responsavel!.trim(),
+          year: triagem.cadastro.ano && triagem.cadastro.ano >= 2026 ? triagem.cadastro.ano : ENROLLMENT_CAMPAIGN_YEAR,
+          shift: turnoBruto === "manha" ? "manhã" : turnoBruto === "tarde" ? "tarde" : null,
+          kids: resolvidos.kids.map((k) => ({ student: k.name, grade: k.grade!, age: k.age })),
+        };
       }
     }
     // Família pediu para corrigir o resumo sem dizer o quê ("corrigir", "não"):
@@ -1682,7 +1850,7 @@ serve(async (req) => {
       interessesAnotados.some((i) => mesmoTexto(i.student) === mesmoTexto(triagem.cadastro.aluno));
     const familiaJaAnotada = interessesAnotados.length > 0 && alunoJaAnotado;
     if (assunto === "matricula" && triagem.cadastro_interesse && !shouldRegister && !draft && !precisaHumano && !defersDetailsUntilVisit &&
-        !(familiaJaAnotada && !visitRequested)) {
+        !modoIrmaos && !multiDraft && !(familiaJaAnotada && !visitRequested)) {
       const cadastro = triagem.cadastro;
       const missing = missingEnrollmentQuestion(cadastro);
       const primeiraPergunta = !cadastro?.responsavel || cadastro.responsavel.trim().split(/\s+/).length < 2;
@@ -1691,7 +1859,7 @@ serve(async (req) => {
       resposta = primeiraPergunta && !jaDeuBoasVindas
         ? (visitRequested ? `Vai ser um prazer receber vocês aqui! ${missing}` : `Que bom ter vocês com a gente! ${missing}`)
         : missing;
-    } else if (assunto === "matricula" && !shouldRegister && !draft && !familiaJaAnotada &&
+    } else if (assunto === "matricula" && !shouldRegister && !draft && !familiaJaAnotada && !modoIrmaos && !multiDraft &&
         /\b(?:(?:j[aá]\s+)?(?:registrei|cadastrei|anotei|salvei|inclu[ií]|criei)\b[\s\S]{0,100}\b(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b|(?:interesse|cadastro|fam[ií]lia|aluno|matr[ií]cula|visita)\b[\s\S]{0,60}\b(?:registrado|cadastrado|anotado|salvo|inclu[ií]do|criado)\b)/i.test(resposta)) {
       resposta = "Entendi! Ainda não concluí o cadastro por aqui, mas nossa secretaria vai conferir os dados com você e continuar o atendimento. 😊";
     }
@@ -1705,6 +1873,22 @@ serve(async (req) => {
     if (awaitingEnrollmentConfirmation) resposta = confirmationText(draft!);
     if (pedidoDeCorrecao && !precisaHumano && !visitRequested) {
       resposta = "Claro! O que precisa ajustar: o nome do responsável, o nome do aluno, a série ou o turno? 😊";
+    }
+    if (modoIrmaos && !shouldRegister && !precisaHumano) {
+      const nomes = irmaos.map((k) => k.name.split(/\s+/)[0]);
+      const listaNomes = nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}` : nomes[0];
+      const todosJaAnotados = !!multiDraft && multiDraft.kids.every((k) => interessesAnotados.some((i) =>
+        mesmoTexto(i.student) === mesmoTexto(k.student) && mesmoTexto(i.grade) === mesmoTexto(k.grade)));
+      if (irmaosFaltaSerie) {
+        const exemplo = irmaos.slice(0, 2).map((k, i) => `${k.name.split(/\s+/)[0]} – ${i === 0 ? "1º ano" : "3º ano"}`).join(", ");
+        resposta = `Que bom, anotei ${listaNomes}! 😊 Para qual série vai cada uma das crianças? Pode me mandar assim: ${exemplo}.`;
+      } else if (todosJaAnotados) {
+        resposta = "O interesse de vocês já está anotado para todas as crianças e nossa secretaria está acompanhando de pertinho. 😊";
+      } else if (visitRequested) {
+        shouldRegister = true; // pedido de visita autoriza o cadastro, como com um aluno só
+      } else if (!pedidoDeCorrecao) {
+        resposta = multiConfirmationText(multiDraft!);
+      }
     }
     if (interesseJaAnotado && /Só para conferir antes de anotar|Está tudo certinho\?/i.test(resposta)) {
       // Rede de segurança: a IA não deve reenviar o resumo de um interesse já gravado.
@@ -1762,6 +1946,18 @@ serve(async (req) => {
       return json({ skipped: "newer_inbound_will_answer", lead_id: leadId });
     }
 
+    // ---- Trava contra repetição ----
+    // Se a Ana já fez exatamente esta pergunta na mensagem anterior e a família respondeu
+    // sem resolver, não repete de novo: a secretaria assume a conversa.
+    const semAssinatura = (value: string) => normalizedStyleText(value.replace(/^\*\[Atendente [^\]\r\n]+\]\*\s*/, ""));
+    const repetiriaPergunta = !!ultimaFalaAna && resposta.includes("?") && !shouldRegister &&
+      semAssinatura(ultimaFalaAna) === semAssinatura(resposta);
+    if (repetiriaPergunta && !precisaHumano) {
+      precisaHumano = true;
+      resposta = "Desculpe, acho que não entendi direito. Para você não precisar repetir, nossa secretaria vai continuar o atendimento por aqui mesmo. 😊";
+      if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+    }
+
     // ---- Salvar nome extraído pela IA ----
     if (triagem.nome_extraido && isPlaceholderName(lead?.name)) {
       const nomeExtraido = triagem.nome_extraido.trim();
@@ -1774,7 +1970,50 @@ serve(async (req) => {
     // ---- Enviar resposta ----
     let enviado = false;
     let registration: { opportunity_id: string; created: boolean } | null = null;
-    if (shouldRegister && draft && leadId) {
+    if (shouldRegister && multiDraft && leadId) {
+      if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_registration", lead_id: leadId });
+      const hoje = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Belem" }).format(new Date());
+      let criados = 0;
+      let falhou = false;
+      for (const kid of multiDraft.kids) {
+        const { data, error } = await supabase.rpc("register_ana_enrollment", {
+          p_lead_id: leadId, p_guardian_name: multiDraft.responsible,
+          p_student_name: kid.student, p_academic_year: multiDraft.year,
+          p_desired_grade: kid.grade, p_desired_shift: multiDraft.shift,
+        });
+        if (error || !data) { falhou = true; continue; }
+        if (!registration) registration = data;
+        if ((data as { created?: boolean }).created) criados++;
+        const studentId = (data as { student_id?: string }).student_id;
+        if (kid.age && studentId) {
+          try {
+            const { data: aluno } = await supabase.from("students").select("notes").eq("id", studentId).maybeSingle();
+            const notas = String(aluno?.notes || "");
+            if (!/Idade informada pela família/.test(notas)) {
+              await supabase.from("students").update({
+                notes: [notas.trim(), `Idade informada pela família em ${hoje}: ${kid.age} ${kid.age === 1 ? "ano" : "anos"}.`].filter(Boolean).join("\n"),
+              }).eq("id", studentId);
+            }
+          } catch (_) { console.error("Falha ao guardar a idade do aluno:"); }
+        }
+      }
+      const nomes = multiDraft.kids.map((k) => k.student.split(/\s+/)[0]);
+      const listaNomes = `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+      if (falhou && !registration) {
+        resposta = "Não consegui concluir o cadastro por aqui, mas nossa secretaria vai conferir os dados das crianças e continuar o atendimento com você.";
+      } else if (falhou) {
+        resposta = `Anotei parte do cadastro, mas nossa secretaria vai conferir os dados de ${listaNomes} e continuar com você. 😊`;
+      } else if (criados || enrollmentConfirmed) {
+        resposta = criados
+          ? `Prontinho! Anotei o interesse de vocês para ${listaNomes} e nossa secretaria vai acompanhar de pertinho. A matrícula ainda não está confirmada, mas a equipe vai orientar cada passo. 😊`
+          : "O interesse de vocês já estava anotado para as crianças! Nossa secretaria está acompanhando e vai orientar os próximos passos. 😊";
+      }
+      if (falhou || !triagem.visita.solicitada) {
+        precisaHumano = true;
+        if (deveSaudar) resposta = withGreeting(resposta, nomeReal);
+      }
+    }
+    if (shouldRegister && draft && !multiDraft && leadId) {
       if (await employeeAlreadyReplied()) return json({ skipped: "employee_replied_during_registration", lead_id: leadId });
       const { data, error } = await supabase.rpc("register_ana_enrollment", {
         p_lead_id: leadId, p_guardian_name: draft.responsible,

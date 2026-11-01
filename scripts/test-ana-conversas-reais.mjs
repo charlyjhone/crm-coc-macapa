@@ -495,3 +495,71 @@ test('o prompt informa hoje, amanhã e os próximos dias de visita', async () =>
   const amanhaWd = new Date(Date.UTC(hy, hm, hd + 1)).getUTCDay();
   if (amanhaWd === 0 || amanhaWd === 6) assert.match(prompt, /a escola NÃO abre amanhã/);
 });
+
+// ---- Irmãos na mesma conversa (31/10/2026, 99183-7061: três filhas, Ana repetiu "nome da criança") ----
+const semAluno = (resp) => triagem({ cadastro: { responsavel: resp, aluno: null, ano: 2027, serie: null, turno: null } });
+
+test('três filhas numa mensagem: resumo com todas, séries pareadas pela idade, SIM grava as três', async () => {
+  const h = coc();
+  h.inbound('Matrículas');
+  h.ana('Que bom que vocês pensam no COC! As matrículas para 2027 começam em 1º de novembro.');
+  h.inbound('1 ano 3 ano e 6 ano');
+  h.ana('Que bom ter vocês com a gente! Para eu anotar certinho, qual é o seu nome completo?');
+  h.inbound('Daniela Teixeira de Aguiar');
+  h.ana('Obrigada, Daniela! E qual é o nome da criança?');
+  await h.send('María Valentina 5 años\nSarah rebeca 9 anos\nMaría Cecilia 12 anos', semAluno('Daniela Teixeira de Aguiar'));
+  const resumo = h.lastSent();
+  assert.doesNotMatch(resumo, /qual é o nome da criança/);
+  assert.match(resumo, /Alunos:\n• María Valentina \(5 anos\) – 1º ano do Ensino Fundamental\n• Sarah Rebeca \(9 anos\) – 3º ano do Ensino Fundamental\n• María Cecilia \(12 anos\) – 6º ano do Ensino Fundamental/);
+  await h.send('Pode sim', semAluno('Daniela Teixeira de Aguiar'));
+  assert.match(h.lastSent(), /Anotei o interesse de vocês para María, Sarah e María/);
+  assert.deepEqual(h.state.rows.enrollment_opportunities.map(o => o.desired_grade), ['1º ano', '3º ano', '6º ano']);
+  assert.deepEqual(h.state.rows.students.map(s => s.full_name), ['María Valentina', 'Sarah Rebeca', 'María Cecilia']);
+  assert.match(h.state.rows.students[2].notes, /12 anos/);
+});
+
+test('irmãos sem série: Ana pergunta a série de cada um e monta o resumo com a resposta', async () => {
+  const h = coc();
+  h.inbound('Quero matricular meus filhos');
+  h.ana('Que bom ter vocês com a gente! Para eu anotar certinho, qual é o seu nome completo?');
+  h.inbound('Daniela Teixeira de Aguiar');
+  h.ana('Obrigada, Daniela! E qual é o nome da criança?');
+  await h.send('Pedro e Lucas', semAluno('Daniela Teixeira de Aguiar'));
+  assert.match(h.lastSent(), /anotei Pedro e Lucas!.*Para qual série vai cada uma das crianças\?/s);
+  await h.send('Pedro 2º ano, Lucas 5º ano', semAluno('Daniela Teixeira de Aguiar'));
+  assert.match(h.lastSent(), /• Pedro – 2º ano do Ensino Fundamental\n• Lucas – 5º ano do Ensino Fundamental/);
+});
+
+test('um nome só continua no fluxo normal de um aluno', async () => {
+  const h = coc();
+  h.ana('Obrigada, Daniela! E qual é o nome da criança?');
+  await h.send('Maria Valentina', triagem({ cadastro: { responsavel: 'Daniela Teixeira de Aguiar', aluno: 'Maria Valentina', ano: 2027, serie: '1º ano', turno: null, idade: 6 } }));
+  assert.match(h.lastSent(), /Aluno: Maria Valentina/);
+});
+
+test('"nome da criança" é reconhecido: resposta curta vira o nome do aluno', async () => {
+  const h = harness();
+  h.ana('Obrigada, Daniela! E qual é o nome da criança?');
+  await h.send('Ana Clara', triagem({ cadastro: { responsavel: 'Daniela Teixeira de Aguiar', aluno: null, ano: 2027, serie: '1º ano', turno: null } }));
+  assert.match(h.lastSent(), /Aluno: Ana Clara/);
+});
+
+test('trava contra repetição: mesma pergunta duas vezes seguidas passa para a secretaria', async () => {
+  const h = harness();
+  h.ana('Obrigada, Daniela! E qual é o nome da criança?');
+  await h.send('Pode sim', triagem({ cadastro: { responsavel: 'Daniela Teixeira de Aguiar', aluno: null, ano: 2027, serie: null, turno: null } }));
+  assert.doesNotMatch(h.lastSent(), /qual é o nome da criança/);
+  assert.match(h.lastSent(), /nossa secretaria vai continuar o atendimento/);
+  assert.equal(h.state.rows.leads[0].triage_status, 'aguardando_secretaria');
+});
+
+test('parseSiblings: listas válidas e frases que não são lista de nomes', () => {
+  const { context } = harness();
+  const p = t => [...context.parseSiblings(t)].map(k => `${k.name}|${k.age ?? ''}`);
+  assert.deepEqual(p('María Valentina 5 años\nSarah rebeca 9 anos'), ['María Valentina|5', 'Sarah Rebeca|9']);
+  assert.deepEqual(p('Pedro, Lucas e Ana'), ['Pedro|', 'Lucas|', 'Ana|']);
+  assert.deepEqual(p('Maria 5 anos Sarah 9 anos'), ['Maria|5', 'Sarah|9']);
+  assert.deepEqual(p('1 ano 3 ano e 6 ano'), []);
+  assert.deepEqual(p('Ana Clara'), []);
+  assert.deepEqual(p('sim, pode'), []);
+});

@@ -748,3 +748,11 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Configuração nova `system_settings.escola_dias_sem_visita` (DD/MM/AAAA ou AAAA-MM-DD, separados por vírgula). COC: `02/11/2026` (Finados; a secretaria informou retorno na terça 03/11). Migration `20261030190000_visit_closed_days.sql` (COC e Conceito): `is_school_closed_for_visit(date)` e `get_ana_available_visit_slots` sem horários em fim de semana e dias sem expediente.
 - Testes: 33 em `scripts/test-ana-conversas-reais.mjs` (4 novos falham na v119).
 - Pendente: tela em Configurações para editar os dias sem expediente (hoje só via banco).
+
+## 59. Ana: irmãos na mesma conversa e trava contra repetição (01/11/2026)
+
+- Caso real 99183-7061 (31/10): mãe disse "1 ano 3 ano e 6 ano", depois mandou "María Valentina 5 años / Sarah rebeca 9 anos / María Cecilia 12 anos"; a Ana repetiu "qual é o nome da criança?" três vezes. Causas: a pergunta "nome da criança" não era reconhecida (só "nome do aluno/aluna") e o cadastro aceitava só um aluno.
+- Agora: "nome da criança/do seu filho/da sua filha..." é reconhecido; respostas como "Pode sim/ok" não viram nome; `parseSiblings` lê 2+ crianças (linha, vírgula, " e ", ou "Nome N anos"); série de cada uma vem da própria linha, do nome ("Pedro 2º ano") ou das séries citadas antes, pareadas por idade; sem série, a Ana pergunta a série de cada uma. Resumo único "Alunos: • Nome (N anos) – Série" e, com SIM (ou pedido de visita), `register_ana_enrollment` para cada criança; idade nas observações de cada aluno.
+- Trava contra repetição: se a resposta seria igual à última pergunta da Ana, a secretaria assume com mensagem gentil.
+- Bug corrigido junto: "5 anos" não é mais lido como "5º ano".
+- Testes: 39 em `scripts/test-ana-conversas-reais.mjs`. Obs.: `test-ana-visits.mjs` usa visita "daqui a 7 dias"; quando cai em fim de semana, 9 testes antigos falham nas duas versões (não é regressão).
