@@ -756,3 +756,9 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Trava contra repetição: se a resposta seria igual à última pergunta da Ana, a secretaria assume com mensagem gentil.
 - Bug corrigido junto: "5 anos" não é mais lido como "5º ano".
 - Testes: 39 em `scripts/test-ana-conversas-reais.mjs`. Obs.: `test-ana-visits.mjs` usa visita "daqui a 7 dias"; quando cai em fim de semana, 9 testes antigos falham nas duas versões (não é regressão).
+
+## 60. Conflito de horário bloqueado também no CRM (01/11/2026)
+
+- Caso: Giovana (Ana, 30/10 10:55) e Gael (secretaria remarcou pelo CRM, 30/10 14:40) ficaram ambos em 03/11 16h. As RPCs da Ana checavam conflito; `schedule_school_visit` e `reschedule_school_visit` (tela) só checavam o mesmo aluno.
+- Migration `20261102010000_block_visit_slot_conflicts.sql` (COC e Conceito): nova `school_visit_conflict_message(horário, visita_ignorada)`; as duas RPCs da tela usam a mesma trava (`pg_advisory_xact_lock(781334218)`) e a mesma janela de 30 min da Ana e recusam com "Horário ocupado: já existe visita de X às HH:MM. Horários livres nesse dia: ...". Testado em transação desfeita (5 cenários).
+- Tela Visitas: alerta vermelho no topo listando conflitos entre visitas futuras em aberto e selo "Conflito de horário" nos cartões. O conflito Gael/Giovana já existente aparece no alerta até ser resolvido.
