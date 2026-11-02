@@ -33,7 +33,7 @@ function needsTeam(lead: Atendimento) {
 }
 
 const isResolved = (lead: Atendimento) => lead.triage_status === "resolvido" || lead.status === "resolvido" || lead.status === "nao_convertido";
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "?";
+const initials = (name: string) => name.replace(/[^\p{L}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "#";
 const lastTouch = (lead: Atendimento) => Math.max(Date.parse(lead.last_inbound_message_at || "") || 0, Date.parse(lead.created_at) || 0);
 
 /** Contato que ainda não foi classificado: sem família no funil, status Novo e sem assunto que não seja matrícula. */
@@ -147,11 +147,12 @@ export default function Hoje() {
                 <li key={lead.id} className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EEF1F5] text-xs font-bold text-[#3B4452]" aria-hidden="true">{initials(displayName(lead))}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{displayName(lead)}</p>
+                    <Link to={`/atendimentos?aba=todas&lead=${lead.id}`} className="block truncate font-semibold hover:underline">{displayName(lead)}</Link>
                     <p className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message ? `“${displayPreview(lead.last_inbound_message)}”` : lead.triage_summary || "Sem mensagem registrada"}</p>
                   </div>
                   {displaySource(lead.source) && <span className="hidden shrink-0 rounded-full bg-[#F1F3F6] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B4452] sm:inline">{displaySource(lead.source)}</span>}
                   <span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at || lead.created_at)}</span>
+                  <Link to={`/atendimentos?aba=todas&lead=${lead.id}`} className={btn}>Responder</Link>
                   <button type="button" className={btn} onClick={() => openClassify(lead)}>Classificar</button>
                 </li>
               ))}
