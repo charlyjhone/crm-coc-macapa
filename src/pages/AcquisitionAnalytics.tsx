@@ -35,6 +35,9 @@ type SourceRow = {
 const channelLabels: Record<string, string> = {
   cadastro_manual: "Cadastro manual",
   whatsapp: "WhatsApp",
+  ana_whatsapp: "WhatsApp",
+  anuncio_instagram: "Anúncio Instagram",
+  anuncio_facebook: "Anúncio Facebook",
   instagram: "Instagram",
   facebook: "Facebook",
   google: "Google",
