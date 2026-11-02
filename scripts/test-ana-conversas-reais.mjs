@@ -477,7 +477,7 @@ test('sábado pedido: Ana avisa que não abre e oferece o próximo dia útil', a
 test('feriado configurado: Ana não oferece o dia e pula para o seguinte', async () => {
   const h = coc();
   const segunda = proxDiaSemana(1);
-  const terca = proxDiaSemana(2);
+  const terca = new Date(Date.parse(segunda + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
   h.state.rows.system_settings.push({ key: 'escola_dias_sem_visita', value: `${segunda.slice(8, 10)}/${segunda.slice(5, 7)}/${segunda.slice(0, 4)}` });
   const c = { responsavel: 'Responsável Teste', aluno: 'Aluno Teste', ano: 2027, serie: '5º ano', turno: null };
   await h.send('Quero agendar uma visita', triagem({ visita: { solicitada: true, data: null, horario: null }, cadastro: c }));
@@ -490,7 +490,7 @@ test('o prompt informa hoje, amanhã e os próximos dias de visita', async () =>
   const h = coc();
   await h.send('Olá', triagem({ assunto: 'outros', cadastro_interesse: false }));
   const prompt = h.state.aiPayload.messages[0].content;
-  assert.match(prompt, /CALENDÁRIO: hoje é [a-zçá-]+, \d{2}\/\d{2}\/\d{4}; amanhã é/);
+  assert.match(prompt, /CALENDÁRIO: a secretaria (?:está atendendo agora|NÃO está atendendo agora)[^.]*\.(?:[^.]*\.)? Hoje é [a-zçá-]+, \d{2}\/\d{2}\/\d{4}; amanhã é/);
   assert.match(prompt, /Próximos dias para visita: /);
   const amanhaWd = new Date(Date.UTC(hy, hm, hd + 1)).getUTCDay();
   if (amanhaWd === 0 || amanhaWd === 6) assert.match(prompt, /a escola NÃO abre amanhã/);
@@ -562,4 +562,49 @@ test('parseSiblings: listas válidas e frases que não são lista de nomes', () 
   assert.deepEqual(p('1 ano 3 ano e 6 ano'), []);
   assert.deepEqual(p('Ana Clara'), []);
   assert.deepEqual(p('sim, pode'), []);
+});
+
+
+// ---- Valores já divulgados e secretaria fechada (02/11/2026, feriado) ----
+const hojeBr = `${String(hd).padStart(2, '0')}/${String(hm + 1).padStart(2, '0')}/${hy}`;
+
+test('depois da data de divulgação: "já estão disponíveis", nunca "serão divulgados"', async () => {
+  const h = coc();
+  h.state.rows.system_settings.push({ key: 'escola_valores_data_divulgacao', value: '1º de novembro de 2026' });
+  const r = 'Os valores para 2027 serão divulgados a partir de 1º de novembro de 2026. Se quiser, venha conhecer a escola!';
+  await h.send('Qual o valor da mensalidade do 6º ano?', triagem({ assunto: 'matricula', cadastro_interesse: false, precisa_humano: true, resposta: r }));
+  const prompt = h.state.aiPayload.messages[0].content;
+  assert.match(prompt, /os valores de 2027 JÁ ESTÃO DISPONÍVEIS/);
+  assert.doesNotMatch(prompt, /informe que serão divulgados/);
+  assert.doesNotMatch(h.lastSent(), /serão divulgados/);
+  assert.match(h.lastSent(), /Os valores para 2027 já estão disponíveis e são apresentados pela nossa secretaria\./);
+});
+
+test('antes da data de divulgação continua "serão divulgados"', async () => {
+  const h = coc();
+  h.state.rows.system_settings.push({ key: 'escola_valores_data_divulgacao', value: `01/01/${hy + 1}` });
+  await h.send('Qual o valor?', triagem({ assunto: 'matricula', cadastro_interesse: false }));
+  assert.match(h.state.aiPayload.messages[0].content, /informe que serão divulgados a partir de/);
+});
+
+test('dia sem expediente: a Ana sabe que a secretaria não atende hoje e quando volta', async () => {
+  const h = coc();
+  h.state.rows.system_settings.push({ key: 'escola_valores_data_divulgacao', value: '1º de novembro de 2026' });
+  h.state.rows.system_settings.push({ key: 'escola_dias_sem_visita', value: hojeBr });
+  await h.send('Qual o valor?', triagem({ assunto: 'matricula', cadastro_interesse: false }));
+  const prompt = h.state.aiPayload.messages[0].content;
+  assert.match(prompt, /a secretaria NÃO está atendendo agora \((?:hoje a escola não tem expediente|hoje é fim de semana)\); volta [^.]*a partir das 7h30/);
+  assert.match(prompt, /a secretaria volta [^.]* para enviar os valores/);
+});
+
+test('leitura da data de divulgação e do horário da secretaria', () => {
+  const { context } = harness();
+  assert.equal(context.parseDataTexto('1º de novembro de 2026'), '2026-11-01');
+  assert.equal(context.parseDataTexto('01/11/2026'), '2026-11-01');
+  assert.equal(context.parseDataTexto('2026-11-01'), '2026-11-01');
+  assert.equal(context.parseDataTexto('em breve'), null);
+  const h1 = context.horarioSecretariaMinutos('7h30 às 18h');
+  assert.equal(h1.abre, 450); assert.equal(h1.fecha, 1080);
+  const h2 = context.horarioSecretariaMinutos('');
+  assert.equal(h2.abre, 450); assert.equal(h2.fecha, 1080);
 });

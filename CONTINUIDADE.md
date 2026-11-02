@@ -871,3 +871,10 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Migration `whatsapp_ad_referrals` aplicada no Conceito (texto dos comentários neutro, sem menção a outra escola). Histórico: 55 telefones de anúncio (54 Instagram, 1 outro), 6 anúncios, 3 oportunidades marcadas como anúncio.
 - Layout do Conceito **não** foi alterado (Render `crm-conceito` continua na `main`).
 - Conceito ainda não tem `escola_dias_sem_visita`.
+
+## 65. Valores já disponíveis e secretaria fechada (02/11/2026)
+
+- Caso real 99117-6699 (02/11, feriado, 10:05): pediu o valor do 6º ano; a Ana respondeu "serão divulgados a partir de 1º de novembro" (data já passada) e não sabia que a secretaria estava fechada.
+- Agora: `escola_valores_data_divulgacao` é lida como data (`parseDataTexto`); depois dela o prompt diz que os valores "JÁ ESTÃO DISPONÍVEIS" com a secretaria, pede a série e encaminha (precisa_humano). Rede de segurança troca "serão divulgados a partir de..." por "já estão disponíveis".
+- `situacaoSecretaria` (horário `escola_horario_secretaria`, fins de semana e `escola_dias_sem_visita`): o CALENDÁRIO do prompt diz se a secretaria atende agora e, se não, quando volta; ao encaminhar, a Ana diz quando ela volta em vez de "em breve".
+- Testes: 43 em `scripts/test-ana-conversas-reais.mjs`.
