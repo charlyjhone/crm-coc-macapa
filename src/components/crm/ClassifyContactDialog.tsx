@@ -73,7 +73,7 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
   const [year, setYear] = useState(currentAcademicYear());
   const [saving, setSaving] = useState(false);
   const gradeGroups = useSchoolGrades(open);
-  const allGrades = useMemo(() => gradeGroups.flatMap((group) => group.grades.map((g) => g.name)), [gradeGroups]);
+  const allGrades = useMemo(() => gradeGroups.flatMap((group) => group.grades.map((g) => g.name)).filter((n, i, a) => a.indexOf(n) === i), [gradeGroups]);
 
   useEffect(() => {
     if (!open) return;
@@ -169,7 +169,7 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
                   <div key={group.label}>
                     <Group>{group.label}</Group>
                     <div className="mt-1.5 flex flex-wrap gap-2">
-                      {group.grades.map((g) => <OptionButton key={g.name} selected={grade === g.name} onClick={() => setGrade(g.name)}>{g.name}</OptionButton>)}
+                      {group.grades.filter((g, i, a) => a.findIndex((x) => x.name === g.name) === i).map((g) => <OptionButton key={g.name} selected={grade === g.name} onClick={() => setGrade(g.name)}>{g.name}</OptionButton>)}
                     </div>
                   </div>
                 ))}
