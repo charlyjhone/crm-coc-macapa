@@ -762,3 +762,10 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Caso: Giovana (Ana, 30/10 10:55) e Gael (secretaria remarcou pelo CRM, 30/10 14:40) ficaram ambos em 03/11 16h. As RPCs da Ana checavam conflito; `schedule_school_visit` e `reschedule_school_visit` (tela) só checavam o mesmo aluno.
 - Migration `20261102010000_block_visit_slot_conflicts.sql` (COC e Conceito): nova `school_visit_conflict_message(horário, visita_ignorada)`; as duas RPCs da tela usam a mesma trava (`pg_advisory_xact_lock(781334218)`) e a mesma janela de 30 min da Ana e recusam com "Horário ocupado: já existe visita de X às HH:MM. Horários livres nesse dia: ...". Testado em transação desfeita (5 cenários).
 - Tela Visitas: alerta vermelho no topo listando conflitos entre visitas futuras em aberto e selo "Conflito de horário" nos cartões. O conflito Gael/Giovana já existente aparece no alerta até ser resolvido.
+
+## 63. Valores já disponíveis e secretaria fechada (02/11/2026)
+
+- Caso real 99117-6699 (02/11, feriado, 10:05): pediu o valor do 6º ano; a Ana respondeu "serão divulgados a partir de 1º de novembro" (data já passada) e não sabia que a secretaria estava fechada.
+- Agora: `escola_valores_data_divulgacao` é lida como data (`parseDataTexto`); depois dela o prompt diz que os valores "JÁ ESTÃO DISPONÍVEIS" com a secretaria, pede a série e encaminha (precisa_humano). Rede de segurança troca "serão divulgados a partir de..." por "já estão disponíveis".
+- `situacaoSecretaria` (horário `escola_horario_secretaria`, fins de semana e `escola_dias_sem_visita`): o CALENDÁRIO do prompt diz se a secretaria atende agora e, se não, quando volta; ao encaminhar, a Ana diz quando ela volta em vez de "em breve".
+- Testes: 43 em `scripts/test-ana-conversas-reais.mjs`.
