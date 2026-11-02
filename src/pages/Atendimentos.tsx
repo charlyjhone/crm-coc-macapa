@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { SourceChip, TemperatureChip } from "@/components/crm/FunnelBits";
 import { useFunnelActions } from "@/hooks/useFunnelActions";
+import { displayName, displayPreview, displaySource, formatPhone } from "@/lib/leadDisplay";
 import { FUNNEL_COLUMNS, funnelKeyOf, sourceLabel, type FunnelKey } from "@/lib/funnel";
 
 const stages: { key: LeadStatus; label: string }[] = [
@@ -273,7 +274,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
     <section className="flex min-h-[500px] min-w-0 flex-1 flex-col md:min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E7EC] bg-white px-5 py-3.5">
         <div>
-          <h2 className="font-semibold">{lead.name}</h2>
+          <h2 className="font-semibold">{displayName(lead)}</h2>
           <p className="text-xs text-slate-600">{socialLabel ? `${socialLabel} ${social === "instagram" ? "Direct" : "Messenger"}` : lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
           {priority.level >= 3 && (
             <p className="mt-1 text-sm font-semibold text-red-700">URGENTE · {priority.reason}</p>
@@ -326,7 +327,7 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const rawText = m.message.trim();
           const text = outgoing
             ? rawText.replace(/^\*(?:\[Atendente\s+[^\]\r\n]+\]|[^*\r\n]*(?:Secretaria|Atendente)[^*\r\n]*)\*\s*/i, "")
-            : rawText;
+            : (/^\[(MÍDIA_PARA_SECRETARIA|FIGURINHA_RECEBIDA)/i.test(rawText) && m.mediaType ? "" : displayPreview(rawText) || rawText);
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
@@ -611,11 +612,11 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
     <div className="flex flex-col gap-5">
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Família</p>
-        {row("Responsável", lead.name)}
-        {row("Telefone", lead.phone || lead.email)}
+        {row("Responsável", displayName(lead))}
+        {row("Telefone", lead.phone ? formatPhone(lead.phone) : lead.email)}
         {data?.student && row("Aluno", data.student)}
         {row("Série", data?.grade ? `${data.grade}${data.shift ? `, ${data.shift}` : ""}` : lead.interesse)}
-        {row("Origem", data?.source ? sourceLabel(data.source) : lead.source)}
+        {row("Origem", data?.source ? sourceLabel(data.source) : displaySource(lead.source))}
         {data?.campaign && row("Campanha", data.campaign)}
         {row("Assunto", subjectLabel(lead.assunto))}
       </div>
@@ -643,7 +644,7 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
       </div>
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
-        <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || lead.last_inbound_message || "O resumo aparece quando houver mensagens."}</p>
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || displayPreview(lead.last_inbound_message) || "O resumo aparece quando houver mensagens."}</p>
       </div>
       <LeadReminders leadId={lead.id} leadName={lead.name} />
       <ClassifyContactDialog lead={lead} open={classifyOpen} onOpenChange={setClassifyOpen} />
@@ -723,8 +724,8 @@ export default function Atendimentos() {
           {list.map((lead) => (
             <button key={lead.id} type="button" onClick={() => { setDemoMode(false); setSelectedId(lead.id); }}
               className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[var(--crm-accent-softer)]" : ""}`}>
-              <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{lead.name}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
-              <span className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message || lead.triage_summary || "Sem mensagem registrada"}</span>
+              <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{displayName(lead)}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
+              <span className="truncate text-[13px] text-[#5B6675]">{displayPreview(lead.last_inbound_message) || lead.triage_summary || "Sem mensagem registrada"}</span>
               {(tagFor(lead) || socialChannelOf(lead)) && <span className="flex flex-wrap gap-1">{tagFor(lead)}{socialChannelOf(lead) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${socialChannelOf(lead) === "instagram" ? "bg-[#FBEAF2] text-[#9B1C5A]" : "bg-[#E8F0FE] text-[#1D4E9E]"}`}>{socialChannelOf(lead) === "instagram" ? "Instagram" : "Facebook"}</span>}</span>}
             </button>
           ))}

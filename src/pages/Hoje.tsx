@@ -12,6 +12,7 @@ import { FUNNEL_COLUMNS, funnelKeyOf } from "@/lib/funnel";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
 import { TemperatureChip } from "@/components/crm/FunnelBits";
+import { displayName, displayPreview, displaySource } from "@/lib/leadDisplay";
 import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { DEMO_MODE, demo } from "@/lib/demo";
 import { EnrollmentComparisonCard } from "@/components/crm/EnrollmentComparison";
@@ -144,12 +145,12 @@ export default function Hoje() {
             <ul className="divide-y divide-[#EEF0F3]">
               {(showAllNew ? newContacts : newContacts.slice(0, 6)).map((lead) => (
                 <li key={lead.id} className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EEF1F5] text-xs font-bold text-[#3B4452]" aria-hidden="true">{initials(lead.name)}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EEF1F5] text-xs font-bold text-[#3B4452]" aria-hidden="true">{initials(displayName(lead))}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{lead.name}</p>
-                    <p className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message ? `“${lead.last_inbound_message}”` : lead.triage_summary || "Sem mensagem registrada"}</p>
+                    <p className="truncate font-semibold">{displayName(lead)}</p>
+                    <p className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message ? `“${displayPreview(lead.last_inbound_message)}”` : lead.triage_summary || "Sem mensagem registrada"}</p>
                   </div>
-                  {lead.source && <span className="hidden shrink-0 rounded-full bg-[#F1F3F6] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B4452] sm:inline">{lead.source}</span>}
+                  {displaySource(lead.source) && <span className="hidden shrink-0 rounded-full bg-[#F1F3F6] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B4452] sm:inline">{displaySource(lead.source)}</span>}
                   <span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at || lead.created_at)}</span>
                   <button type="button" className={btn} onClick={() => openClassify(lead)}>Classificar</button>
                 </li>
@@ -173,8 +174,8 @@ export default function Hoje() {
                   <li key={lead.id} className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap">
                     <Tag tone={urgent ? "urgente" : "atencao"}>{urgent ? "Urgente" : "Atenção"}</Tag>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{lead.name}</p>
-                      <p className="truncate text-[13px] text-[#5B6675]">{lead.handoff_reason || lead.triage_summary || lead.last_inbound_message || priority.reason || "Aguardando resposta"}</p>
+                      <p className="truncate font-semibold">{displayName(lead)}</p>
+                      <p className="truncate text-[13px] text-[#5B6675]">{lead.handoff_reason || lead.triage_summary || displayPreview(lead.last_inbound_message) || priority.reason || "Aguardando resposta"}</p>
                     </div>
                     <span className="text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at || lead.handoff_at)}</span>
                     <Link to={`/atendimentos?status=todos&lead=${lead.id}`} className={index === 0 ? btnPrimary : btn}>Responder</Link>
