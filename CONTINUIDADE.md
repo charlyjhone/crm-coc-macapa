@@ -866,7 +866,8 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 ## 64. Conceito — Ceci atualizada e marcação de anúncios (02/11/2026)
 
 - `school-triage` do Conceito (v24) passou a importar o commit fixo `8812658` (mesma versão do COC); `verify_jwt=false` mantido.
-- `system_settings.escola_series_idades` criado no Conceito com "Maternal Baby=2; Maternal 3=3; 1º Período=4; … 3ª série=17" (no Conceito o Maternal se chama Maternal Baby; Maternal 3 foi assumido igual ao COC — confirmar com a escola).
+- `system_settings.escola_series_idades` no Conceito: "Maternal Baby=2; Maternal Baby=3; 1º Período=4; … 3ª série=17" (confirmado pela escola: Maternal Baby atende 2 e 3 anos).
+- Commit `77ed5a3`: a atendente aceita a mesma série com duas idades (faixa menor–maior para o aviso de idade) e, quando a tabela tem um único Maternal, "maternal"/"maternal baby" vira essa série. Sem efeito no COC (Maternal 2 e 3). Conceito `school-triage` v25 fixado em `77ed5a3`; COC continua em `8812658`.
 - Migration `whatsapp_ad_referrals` aplicada no Conceito (texto dos comentários neutro, sem menção a outra escola). Histórico: 55 telefones de anúncio (54 Instagram, 1 outro), 6 anúncios, 3 oportunidades marcadas como anúncio.
 - Layout do Conceito **não** foi alterado (Render `crm-conceito` continua na `main`).
 - Conceito ainda não tem `escola_dias_sem_visita`.
