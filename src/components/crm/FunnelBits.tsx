@@ -1,5 +1,6 @@
 import { Megaphone } from "lucide-react";
 import { isPaidSource, sourceLabel, temperatureOf } from "@/lib/funnel";
+import { adChipClass } from "@/hooks/useAdReferrals";
 
 const chip = "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold";
 
@@ -8,7 +9,7 @@ export function SourceChip({ value }: { value: string | null | undefined }) {
   const label = sourceLabel(value);
   if (!label) return null;
   return isPaidSource(value)
-    ? <span className={`${chip} bg-[#EEF0FF] text-[#3A3FB0]`}><Megaphone className="h-3 w-3" aria-hidden="true" />{label}</span>
+    ? <span className={`${chip} ${adChipClass(value)}`}><Megaphone className="h-3 w-3" aria-hidden="true" />{label}</span>
     : <span className={`${chip} bg-[#F1F3F6] text-[#3B4452]`}>{label}</span>;
 }
 

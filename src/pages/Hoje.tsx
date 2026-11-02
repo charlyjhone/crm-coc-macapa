@@ -13,7 +13,7 @@ import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
 import { TemperatureChip } from "@/components/crm/FunnelBits";
 import { displayName, displayPreview, displaySource, sourceChipClass } from "@/lib/leadDisplay";
-import { adLabel, adReferralOf, useAdReferrals } from "@/hooks/useAdReferrals";
+import { adChipClass, adLabel, adReferralOf, useAdReferrals } from "@/hooks/useAdReferrals";
 import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { DEMO_MODE, demo } from "@/lib/demo";
 import { EnrollmentComparisonCard } from "@/components/crm/EnrollmentComparison";
@@ -153,7 +153,7 @@ export default function Hoje() {
                     <p className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message ? `“${displayPreview(lead.last_inbound_message)}”` : lead.triage_summary || "Sem mensagem registrada"}</p>
                   </div>
                   {(() => { const ad = adReferralOf(ads.data, lead.phone); return ad
-                    ? <span className="hidden shrink-0 rounded-full bg-[#EEF0FF] px-2 py-0.5 text-[11.5px] font-semibold text-[#3A3FB0] sm:inline" title={ad.ad_headline || undefined}>{adLabel(ad)}</span>
+                    ? <span className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold sm:inline ${adChipClass(ad.source_app)}`} title={ad.ad_headline || undefined}>{adLabel(ad)}</span>
                     : displaySource(lead.source) && <span className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold sm:inline ${sourceChipClass(lead.source)}`}>{displaySource(lead.source)}</span>; })()}
                   <span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at || lead.created_at)}</span>
                   <Link to={`/atendimentos?aba=todas&lead=${lead.id}`} className={btn}>Responder</Link>

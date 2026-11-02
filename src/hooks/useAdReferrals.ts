@@ -45,4 +45,8 @@ export function useAdReferrals() {
 export const adReferralOf = (map: Map<string, AdReferral> | undefined, phone: string | null | undefined) =>
   (map && phone ? map.get(phoneDigits(phone)) : undefined) || null;
 
+/** Anúncio no Facebook: roxo-azulado; anúncio no Instagram: laranja. */
+export const adChipClass = (app: string | null | undefined) =>
+  app === "instagram" || app === "anuncio_instagram" ? "bg-[#FFEDD5] text-[#9A3412]" : "bg-[#EEF0FF] text-[#3A3FB0]";
+
 export const adLabel = (ref: AdReferral) => `Anúncio · ${ref.source_app === "facebook" ? "Facebook" : "Instagram"}`;
