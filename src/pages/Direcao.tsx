@@ -11,6 +11,7 @@ import { DEMO_MODE, demoDirecaoData } from "@/lib/demo";
 import { crmTheme as t, readableText } from "@/lib/crmTheme";
 import { SOURCE_CATEGORIES, isPaidSource, sourceCategory } from "@/lib/funnel";
 import { btn } from "@/components/crm/ui";
+import { campaignLabel, useAdReferrals } from "@/hooks/useAdReferrals";
 
 const DAY = 86_400_000;
 const ratingColors = ["#D92D20", "#F79009", "#98A2B3", t.accentLight, t.accent];
@@ -91,6 +92,7 @@ export default function Direcao() {
   const [period, setPeriod] = useState<Period>(30);
   const [investment, setInvestment] = useState(readInvestment);
   const { data, isLoading, isError } = useDirecaoData(period);
+  const ads = useAdReferrals();
 
   const view = useMemo(() => {
     if (!data) return null;
@@ -155,16 +157,27 @@ export default function Direcao() {
     const originRows = SOURCE_CATEGORIES.filter((c) => byOrigin.has(c.key)).map((c) => ({ ...c, ...byOrigin.get(c.key)! }))
       .sort((a, b) => b.families - a.families);
     const paidFamilies = createdNow.filter((o) => isPaidSource(o.source_channel));
-    const campaigns = new Map<string, { campaign: string; where: string; families: number; visited: number; want: number }>();
+    const campaigns = new Map<string, { campaign: string; where: string; chats: number; families: number; visited: number; want: number }>();
+    // Conversas de WhatsApp iniciadas por anúncio (registradas automaticamente).
+    let adChats = 0;
+    for (const r of ads.data?.values() || []) {
+      if (!inCur(r.first_at) || r.source_app === "outro") continue;
+      adChats++;
+      const campaign = campaignLabel(r.ad_headline);
+      const where = r.source_app === "facebook" ? "Facebook" : "Instagram";
+      const key = `${campaign}|${where}`;
+      const row = campaigns.get(key) || { campaign, where, chats: 0, families: 0, visited: 0, want: 0 };
+      row.chats++; campaigns.set(key, row);
+    }
     for (const o of paidFamilies) {
-      const campaign = o.source_campaign?.trim() || "Campanha não informada";
+      const campaign = campaignLabel(o.source_campaign?.trim() || "Campanha não informada");
       const where = o.source_channel === "anuncio_facebook" ? "Facebook" : "Instagram";
       const key = `${campaign}|${where}`;
-      const row = campaigns.get(key) || { campaign, where, families: 0, visited: 0, want: 0 };
+      const row = campaigns.get(key) || { campaign, where, chats: 0, families: 0, visited: 0, want: 0 };
       row.families++; if (visitedStages.has(o.stage)) row.visited++; if (wantStages.has(o.stage)) row.want++;
       campaigns.set(key, row);
     }
-    const campaignRows = Array.from(campaigns.values()).sort((a, b) => b.families - a.families);
+    const campaignRows = Array.from(campaigns.values()).sort((a, b) => b.chats - a.chats || b.families - a.families);
     const originTotal = origins.reduce((a, b) => a + b.value, 0);
 
     // Contatos ao longo do período: por dia (7 dias) ou por semana.
@@ -189,8 +202,8 @@ export default function Direcao() {
     const lossRows = Array.from(losses, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
 
     return { contacts, contactsPrev, visited, visitedPrev, scheduled, want, wantPrev, ratingCounts, ratingTotal, ratingAvg, origins, originTotal, originFrom, series, lossRows,
-      originRows, paidCount: paidFamilies.length, familiesInPeriod: createdNow.length, campaignRows };
-  }, [data, period]);
+      originRows, paidCount: paidFamilies.length, familiesInPeriod: createdNow.length, campaignRows, adChats };
+  }, [data, period, ads.data]);
 
   const fmt1 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const funnel = view ? [
@@ -212,8 +225,8 @@ export default function Direcao() {
           <button type="button" className={`${btn} print:hidden`} disabled={!view} onClick={() => view && downloadCsv(`relatorio-origens-${period}d.csv`, [
             ["Origem", "Famílias no funil", "Visitaram", "Querem matricular", "Conversão"],
             ...view.originRows.map((r) => [r.label, r.families, r.visited, r.want, r.families ? `${Math.round((r.want / r.families) * 100)}%` : "—"]),
-            [], ["Campanha", "Onde", "Famílias", "Visitaram", "Querem matricular"],
-            ...view.campaignRows.map((r) => [r.campaign, r.where, r.families, r.visited, r.want]),
+            [], ["Campanha", "Onde", "Conversas no WhatsApp", "Famílias no funil", "Visitaram", "Querem matricular"],
+            ...view.campaignRows.map((r) => [r.campaign, r.where, r.chats, r.families, r.visited, r.want]),
           ])}><Download className="h-4 w-4" aria-hidden="true" />CSV</button>
           <button type="button" className={`${btn} print:hidden`} onClick={() => window.print()}><Printer className="h-4 w-4" aria-hidden="true" />PDF</button>
           <div className="flex rounded-[10px] bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,.06)]" role="group" aria-label="Período">
@@ -235,8 +248,8 @@ export default function Direcao() {
         <>
           <div className="grid gap-[18px] sm:grid-cols-2 xl:grid-cols-5">
             <Kpi icon={<Users className="h-[18px] w-[18px]" />} value={view.contacts} label="Novos contatos" chip={delta(view.contacts, view.contactsPrev)} />
-            <Kpi icon={<Megaphone className="h-[18px] w-[18px]" />} value={view.paidCount} label="Famílias vindas de anúncios"
-              chip={view.familiesInPeriod ? `${Math.round((view.paidCount / view.familiesInPeriod) * 100)}% do funil` : null} />
+            <Kpi icon={<Megaphone className="h-[18px] w-[18px]" />} value={view.adChats} label="Conversas vindas de anúncios"
+              chip={view.paidCount ? `${view.paidCount} no funil` : null} />
             <Kpi icon={<CalendarDays className="h-[18px] w-[18px]" />} value={view.visited} label="Visitas realizadas" chip={delta(view.visited, view.visitedPrev)} />
             <Kpi icon={<Check className="h-[18px] w-[18px]" />} value={view.want} label="Querem matricular" chip={delta(view.want, view.wantPrev)} />
             <Kpi icon={<Star className="h-[18px] w-[18px]" />} value={view.ratingAvg ? fmt1(view.ratingAvg) : "—"} label="Satisfação média, de 5"
@@ -309,17 +322,18 @@ export default function Direcao() {
           </Panel>
 
           <Panel title="Campanhas de anúncio">
-            {!view.campaignRows.length ? <Empty>Nenhuma família de anúncio neste período. Marque a origem “Anúncio no Instagram/Facebook” ao classificar o contato.</Empty> : (
+            <p className="-mt-1 mb-2 text-[13px] text-[#5B6675]">Conversas de WhatsApp que começaram por um anúncio “Clique para conversar” são identificadas sozinhas.</p>
+            {!view.campaignRows.length ? <Empty>Nenhuma conversa ou família de anúncio neste período.</Empty> : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-[13.5px]">
                   <thead><tr className="border-b border-[#E6E8EC] text-left text-[11.5px] uppercase tracking-[.05em] text-[#5B6675]">
-                    <th className="px-2 py-2 font-bold">Campanha</th><th className="px-2 py-2 font-bold">Onde</th><th className="px-2 py-2 text-right font-bold">Famílias</th><th className="px-2 py-2 text-right font-bold">Visitaram</th><th className="px-2 py-2 text-right font-bold">Querem matricular</th>
+                    <th className="px-2 py-2 font-bold">Anúncio</th><th className="px-2 py-2 font-bold">Onde</th><th className="px-2 py-2 text-right font-bold">Conversas</th><th className="px-2 py-2 text-right font-bold">No funil</th><th className="px-2 py-2 text-right font-bold">Visitaram</th><th className="px-2 py-2 text-right font-bold">Querem matricular</th>
                   </tr></thead>
                   <tbody>
                     {view.campaignRows.map((r) => (
                       <tr key={`${r.campaign}-${r.where}`} className="border-b border-[#EEF0F3]">
                         <td className="px-2 py-2.5">{r.campaign}</td><td className="px-2 py-2.5">{r.where}</td>
-                        <td className="px-2 py-2.5 text-right tabular-nums">{r.families}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.visited}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.want}</td>
+                        <td className="px-2 py-2.5 text-right tabular-nums">{r.chats}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.families}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.visited}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.want}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -332,8 +346,9 @@ export default function Direcao() {
                   onChange={(e) => { setInvestment(e.target.value); saveInvestment(e.target.value); }} />
               </label>
               <div className="min-w-[200px] flex-1">
-                <p className="text-[13px] text-[#5B6675]">Custo por família vinda de anúncio</p>
-                <b className="text-xl">{parseMoney(investment) && view.paidCount ? money(parseMoney(investment)! / view.paidCount) : "—"}</b>
+                <p className="text-[13px] text-[#5B6675]">Custo por conversa vinda de anúncio</p>
+                <b className="text-xl">{parseMoney(investment) && (view.adChats || view.paidCount) ? money(parseMoney(investment)! / (view.adChats || view.paidCount)) : "—"}</b>
+                {parseMoney(investment) && view.paidCount > 0 && <p className="text-[12px] text-[#5B6675]">{money(parseMoney(investment)! / view.paidCount)} por família no funil</p>}
                 {parseMoney(investment) && view.campaignRows.reduce((a, r) => a + r.want, 0) > 0 && (
                   <p className="text-[12px] text-[#5B6675]">{money(parseMoney(investment)! / view.campaignRows.reduce((a, r) => a + r.want, 0))} por família que quer matricular</p>
                 )}

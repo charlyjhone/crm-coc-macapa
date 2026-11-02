@@ -17,6 +17,7 @@ import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { SourceChip, TemperatureChip } from "@/components/crm/FunnelBits";
 import { useFunnelActions } from "@/hooks/useFunnelActions";
 import { displayName, displayPreview, displaySource, formatPhone } from "@/lib/leadDisplay";
+import { adLabel, adReferralOf, campaignLabel, useAdReferrals } from "@/hooks/useAdReferrals";
 import { FUNNEL_COLUMNS, funnelKeyOf, sourceLabel, type FunnelKey } from "@/lib/funnel";
 
 const stages: { key: LeadStatus; label: string }[] = [
@@ -603,6 +604,8 @@ function StageStepper({ opportunityId, stage }: { opportunityId: string; stage: 
 }
 
 function FamilyCard({ lead }: { lead: Atendimento }) {
+  const ads = useAdReferrals();
+  const ad = adReferralOf(ads.data, lead.phone);
   const { data } = useLeadVisit(lead.id);
   const [classifyOpen, setClassifyOpen] = useState(false);
   const row = (label: string, value: string | null | undefined) => (
@@ -616,7 +619,8 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
         {row("Telefone", lead.phone ? formatPhone(lead.phone) : lead.email)}
         {data?.student && row("Aluno", data.student)}
         {row("Série", data?.grade ? `${data.grade}${data.shift ? `, ${data.shift}` : ""}` : lead.interesse)}
-        {row("Origem", data?.source ? sourceLabel(data.source) : displaySource(lead.source))}
+        {row("Origem", data?.source ? sourceLabel(data.source) : ad ? adLabel(ad) : displaySource(lead.source))}
+        {ad && !data?.campaign && row("Anúncio", campaignLabel(ad.ad_headline))}
         {data?.campaign && row("Campanha", data.campaign)}
         {row("Assunto", subjectLabel(lead.assunto))}
       </div>
@@ -653,6 +657,7 @@ function FamilyCard({ lead }: { lead: Atendimento }) {
 }
 
 export default function Atendimentos() {
+  const ads = useAdReferrals();
   const { data, isLoading, isError } = useAtendimentos();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedStage = searchParams.get("etapa");
@@ -726,7 +731,7 @@ export default function Atendimentos() {
               className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[var(--crm-accent-softer)]" : ""}`}>
               <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{displayName(lead)}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
               <span className="truncate text-[13px] text-[#5B6675]">{displayPreview(lead.last_inbound_message) || lead.triage_summary || "Sem mensagem registrada"}</span>
-              {(tagFor(lead) || socialChannelOf(lead)) && <span className="flex flex-wrap gap-1">{tagFor(lead)}{socialChannelOf(lead) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${socialChannelOf(lead) === "instagram" ? "bg-[#FBEAF2] text-[#9B1C5A]" : "bg-[#E8F0FE] text-[#1D4E9E]"}`}>{socialChannelOf(lead) === "instagram" ? "Instagram" : "Facebook"}</span>}</span>}
+              {(tagFor(lead) || socialChannelOf(lead) || adReferralOf(ads.data, lead.phone)) && <span className="flex flex-wrap gap-1">{tagFor(lead)}{adReferralOf(ads.data, lead.phone) && <span className="rounded-full bg-[#EEF0FF] px-2 py-0.5 text-xs font-semibold text-[#3A3FB0]">{adLabel(adReferralOf(ads.data, lead.phone)!)}</span>}{socialChannelOf(lead) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${socialChannelOf(lead) === "instagram" ? "bg-[#FBEAF2] text-[#9B1C5A]" : "bg-[#E8F0FE] text-[#1D4E9E]"}`}>{socialChannelOf(lead) === "instagram" ? "Instagram" : "Facebook"}</span>}</span>}
             </button>
           ))}
         </div>

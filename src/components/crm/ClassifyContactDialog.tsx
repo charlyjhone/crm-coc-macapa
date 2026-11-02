@@ -13,6 +13,7 @@ import { useFunnelActions } from "@/hooks/useFunnelActions";
 import { currentAcademicYear } from "@/lib/enrollmentCalendar";
 import { FREE_SOURCES, GRADE_GROUPS, PAID_SOURCES, gradeForAge, gradeGroupsFromSetting, isPaidSource, type GradeGroup } from "@/lib/funnel";
 import { OptionButton } from "@/components/crm/FunnelBits";
+import { adReferralOf, campaignLabel, useAdReferrals } from "@/hooks/useAdReferrals";
 import { btn, btnPrimary } from "@/components/crm/ui";
 
 type Purpose = "matricula" | "familia" | "outro";
@@ -59,6 +60,7 @@ const Group = ({ children }: { children: React.ReactNode }) => <p className="mt-
 
 export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Atendimento | null; open: boolean; onOpenChange: (open: boolean) => void }) {
   const actions = useFunnelActions();
+  const ads = useAdReferrals();
   const [purpose, setPurpose] = useState<Purpose>("matricula");
   const [guardianName, setGuardianName] = useState("");
   const [phone, setPhone] = useState("");
@@ -82,8 +84,9 @@ export function ClassifyContactDialog({ lead, open, onOpenChange }: { lead: Aten
     setAge("");
     setGrade(guessGrade(`${lead?.interesse || ""} ${lead?.triage_summary || ""} ${lead?.last_inbound_message || ""}`, allGrades));
     setShift(/tarde/i.test(lead?.interesse || "") ? "tarde" : /manh/i.test(lead?.interesse || "") ? "manhã" : "");
-    setSource(guessSource(lead));
-    setCampaign("");
+    const ad = adReferralOf(ads.data, lead?.phone);
+    setSource(ad && ad.source_app !== "outro" ? `anuncio_${ad.source_app}` : guessSource(lead));
+    setCampaign(ad?.ad_headline ? campaignLabel(ad.ad_headline) : "");
     setYear(currentAcademicYear());
   }, [open, lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

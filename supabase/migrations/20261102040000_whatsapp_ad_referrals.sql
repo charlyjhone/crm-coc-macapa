@@ -144,4 +144,6 @@ where w.direction = 'inbound'
 order by public.ad_phone_digits(w.phone), coalesce(w.timestamp, w.created_at)
 on conflict (phone_digits) do nothing;
 
+-- O recálculo da pontuação só aceita usuário da equipe ou o papel interno: o histórico roda como papel interno.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select public.apply_ad_referral_to_opportunities(phone_digits) from public.lead_ad_referrals;
