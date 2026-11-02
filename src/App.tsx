@@ -18,6 +18,7 @@ const EnrollmentTasks = lazy(() => import("./pages/EnrollmentTasks"));
 const AcquisitionAnalytics = lazy(() => import("./pages/AcquisitionAnalytics"));
 const EnrollmentPossibilities = lazy(() => import("./pages/EnrollmentPossibilities"));
 const Auth = lazy(() => import("./pages/Auth"));
+const Privacidade = lazy(() => import("./pages/Privacidade"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Atendimentos = lazy(() => import("./pages/Atendimentos"));
@@ -59,6 +60,7 @@ const App = () => (
           <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-white text-sm font-medium text-slate-600">Carregando CRM...</div>}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/privacidade" element={<Privacidade />} />
             <Route path="/" element={<ProtectedLayout><Hoje /></ProtectedLayout>} />
             <Route path="/hoje" element={<ProtectedLayout><Hoje /></ProtectedLayout>} />
             <Route path="/funil" element={<ProtectedLayout><Funil /></ProtectedLayout>} />
