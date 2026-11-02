@@ -3,7 +3,7 @@
 // - POST: confere a assinatura X-Hub-Signature-256 com o App Secret, grava a mensagem em
 //   social_messages, cria/atualiza o contato (leads) e o vínculo em lead_social_identities.
 // A Ana não responde nesses canais por enquanto: a conversa vai para a secretaria.
-// Segredos: META_APP_SECRET, META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN (opcional, para buscar nome/foto).
+// Segredos: META_APP_SECRET, META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN e META_IG_ACCESS_TOKEN (opcionais, para buscar nome/foto).
 // Os logs não imprimem conteúdo de mensagens nem identificadores das famílias.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
@@ -47,8 +47,12 @@ const preview = (body: string | null, attachments: Json[]) => {
   return kind === "image" ? "[imagem]" : kind === "audio" ? "[áudio]" : kind === "video" ? "[vídeo]" : kind === "story_mention" ? "[menção no story]" : "[anexo]";
 };
 
+// Instagram pode usar um token próprio (META_IG_ACCESS_TOKEN); sem ele, usa o da Página.
+export const tokenFor = (channel: Channel) =>
+  ((channel === "instagram" && Deno.env.get("META_IG_ACCESS_TOKEN")) || Deno.env.get("META_PAGE_ACCESS_TOKEN") || "").trim() || null;
+
 async function fetchProfile(channel: Channel, userId: string) {
-  const token = Deno.env.get("META_PAGE_ACCESS_TOKEN");
+  const token = tokenFor(channel);
   if (!token) return null;
   const fields = channel === "instagram" ? "name,username,profile_pic" : "first_name,last_name,profile_pic";
   try {

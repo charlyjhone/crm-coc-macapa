@@ -9,7 +9,7 @@ import { test } from "node:test";
 
 function load() {
   let src = readFileSync(new URL("../supabase/functions/meta-webhook/index.ts", import.meta.url), "utf8");
-  src = src.replace(/^import .*;\n/gm, "").replace(/export async function/g, "async function").replace("import.meta.main", "false");
+  src = src.replace(/^import .*;\n/gm, "").replace(/export async function/g, "async function").replace(/export const/g, "const").replace("import.meta.main", "false");
   const js = stripTypeScriptTypes(src, { mode: "transform" }) + "\nglobalThis.__x = { handleEvent, validSignature };";
   const ctx = { crypto: globalThis.crypto, TextEncoder, URL, Response, console: { log() {}, error() {} },
     fetch: async () => ({ ok: true, json: async () => ({ name: "Maria Souza", username: "maria.s" }) }),

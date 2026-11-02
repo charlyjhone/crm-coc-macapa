@@ -2,7 +2,7 @@
 // Recebe só { leadId, message }: o destinatário vem do banco, o nome da pessoa vem da sessão.
 // Regra da Meta: resposta livre até 24 h depois da última mensagem da família. Entre 24 h e 7 dias,
 // só com a etiqueta HUMAN_AGENT (exige aprovação do app; ligue META_HUMAN_AGENT=1 depois de aprovada).
-// Segredos: META_PAGE_ACCESS_TOKEN (token da Página com instagram_manage_messages / pages_messaging).
+// Segredos: META_PAGE_ACCESS_TOKEN (Messenger, pages_messaging) e opcional META_IG_ACCESS_TOKEN (Instagram, instagram_manage_messages).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
@@ -35,15 +35,15 @@ serve(async (req) => {
   if (typeof leadId !== "string" || !/^[0-9a-f-]{36}$/i.test(leadId)) return json({ error: "leadId inválido" }, 400);
   if (typeof message !== "string" || !message.trim()) return json({ error: "Escreva a mensagem" }, 400);
 
-  const pageToken = Deno.env.get("META_PAGE_ACCESS_TOKEN");
-  if (!pageToken) return json({ error: "Integração com Instagram/Facebook ainda não configurada." }, 503);
-
   const { data: identity } = await db.from("lead_social_identities")
     .select("channel, social_user_id, last_inbound_at").eq("lead_id", leadId)
     .order("last_inbound_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
   if (!identity) return json({ error: "Este contato não veio do Instagram nem do Facebook." }, 404);
 
   const label = identity.channel === "instagram" ? "Instagram" : "Facebook";
+  // Instagram pode ter token próprio (META_IG_ACCESS_TOKEN); sem ele, usa o token da Página.
+  const pageToken = ((identity.channel === "instagram" && Deno.env.get("META_IG_ACCESS_TOKEN")) || Deno.env.get("META_PAGE_ACCESS_TOKEN") || "").trim();
+  if (!pageToken) return json({ error: `Integração com o ${label} ainda não configurada.` }, 503);
   const text = `${operatorName} · Secretaria\n${message.trim()}`;
   if (new TextEncoder().encode(text).length > 1000) return json({ error: `Mensagem longa demais para o ${label} (limite de 1000 caracteres). Divida em duas.` }, 400);
 
