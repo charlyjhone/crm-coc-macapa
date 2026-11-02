@@ -12,7 +12,7 @@ import { FUNNEL_COLUMNS, funnelKeyOf } from "@/lib/funnel";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
 import { Empty, Page, PageTitle, Panel, Tag, btn, btnPrimary, timeAgo } from "@/components/crm/ui";
 import { TemperatureChip } from "@/components/crm/FunnelBits";
-import { displayName, displayPreview, displaySource } from "@/lib/leadDisplay";
+import { displayName, displayPreview, displaySource, sourceChipClass } from "@/lib/leadDisplay";
 import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { DEMO_MODE, demo } from "@/lib/demo";
 import { EnrollmentComparisonCard } from "@/components/crm/EnrollmentComparison";
@@ -150,7 +150,7 @@ export default function Hoje() {
                     <Link to={`/atendimentos?aba=todas&lead=${lead.id}`} className="block truncate font-semibold hover:underline">{displayName(lead)}</Link>
                     <p className="truncate text-[13px] text-[#5B6675]">{lead.last_inbound_message ? `“${displayPreview(lead.last_inbound_message)}”` : lead.triage_summary || "Sem mensagem registrada"}</p>
                   </div>
-                  {displaySource(lead.source) && <span className="hidden shrink-0 rounded-full bg-[#F1F3F6] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B4452] sm:inline">{displaySource(lead.source)}</span>}
+                  {displaySource(lead.source) && <span className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold sm:inline ${sourceChipClass(lead.source)}`}>{displaySource(lead.source)}</span>}
                   <span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at || lead.created_at)}</span>
                   <Link to={`/atendimentos?aba=todas&lead=${lead.id}`} className={btn}>Responder</Link>
                   <button type="button" className={btn} onClick={() => openClassify(lead)}>Classificar</button>

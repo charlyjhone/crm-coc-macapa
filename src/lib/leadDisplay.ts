@@ -43,3 +43,12 @@ export function displayPreview(text: string | null | undefined) {
   if (/^\[FIGURINHA_RECEBIDA\]/i.test(t)) return "Enviou uma figurinha";
   return t.replace(/\[(ANÁLISE_DA_IMAGEM|MÍDIA_PARA_SECRETARIA|FIGURINHA_RECEBIDA)[^\]]*\]\s*/gi, "").trim() || "Enviou um arquivo";
 }
+
+/** Cores do selo de origem: WhatsApp verde, Facebook azul, Instagram rosa. */
+export function sourceChipClass(source: string | null | undefined) {
+  const v = displaySource(source);
+  if (v === "WhatsApp") return "bg-[#E7F6EC] text-[#1A6A3A]";
+  if (v === "Facebook") return "bg-[#E8F0FE] text-[#1D4E9E]";
+  if (v === "Instagram") return "bg-[#FBEAF2] text-[#9B1C5A]";
+  return "bg-[#F1F3F6] text-[#3B4452]";
+}
