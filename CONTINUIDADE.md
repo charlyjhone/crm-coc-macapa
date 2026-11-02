@@ -870,7 +870,7 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Commit `77ed5a3`: a atendente aceita a mesma série com duas idades (faixa menor–maior para o aviso de idade) e, quando a tabela tem um único Maternal, "maternal"/"maternal baby" vira essa série. Sem efeito no COC (Maternal 2 e 3). Conceito `school-triage` v25 fixado em `77ed5a3`; COC continua em `8812658`.
 - Migration `whatsapp_ad_referrals` aplicada no Conceito (texto dos comentários neutro, sem menção a outra escola). Histórico: 55 telefones de anúncio (54 Instagram, 1 outro), 6 anúncios, 3 oportunidades marcadas como anúncio.
 - Layout do Conceito **não** foi alterado (Render `crm-conceito` continua na `main`).
-- Conceito ainda não tem `escola_dias_sem_visita`.
+- Conceito: `escola_dias_sem_visita` = "02/11/2026" (feriado de Finados).
 
 ## 65. Valores já disponíveis e secretaria fechada (02/11/2026)
 
