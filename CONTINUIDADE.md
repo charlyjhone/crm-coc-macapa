@@ -862,3 +862,11 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Tela: selo "Anúncio · Instagram/Facebook" nos novos contatos e na lista de Conversas, linha "Anúncio" na ficha, classificação já vem com a origem/campanha do anúncio. Relatórios: KPI "Conversas vindas de anúncios", tabela por anúncio (conversas, no funil, visitaram, querem matricular), CSV e custo por conversa.
 - Uma das 20 conversas é de candidato a emprego (pedagogo), não família.
 - Conceito ainda não recebeu.
+
+## 64. Conceito — Ceci atualizada e marcação de anúncios (02/11/2026)
+
+- `school-triage` do Conceito (v24) passou a importar o commit fixo `8812658` (mesma versão do COC); `verify_jwt=false` mantido.
+- `system_settings.escola_series_idades` criado no Conceito com "Maternal Baby=2; Maternal 3=3; 1º Período=4; … 3ª série=17" (no Conceito o Maternal se chama Maternal Baby; Maternal 3 foi assumido igual ao COC — confirmar com a escola).
+- Migration `whatsapp_ad_referrals` aplicada no Conceito (texto dos comentários neutro, sem menção a outra escola). Histórico: 55 telefones de anúncio (54 Instagram, 1 outro), 6 anúncios, 3 oportunidades marcadas como anúncio.
+- Layout do Conceito **não** foi alterado (Render `crm-conceito` continua na `main`).
+- Conceito ainda não tem `escola_dias_sem_visita`.
