@@ -70,6 +70,7 @@ const INTEREST_LABELS: Record<string, string> = { alto: "Alto", medio: "Médio",
 const ORIGIN_LABELS: Record<string, string> = {
   indicacao: "Indicação", redes_sociais: "Redes sociais", instagram: "Redes sociais", facebook: "Redes sociais",
   panfletagem_outdoor: "Panfletagem / outdoor", outros: "Outros", cadastro_manual: "Cadastro manual", ana_whatsapp: "WhatsApp",
+  anuncio_instagram: "Anúncio Instagram", anuncio_facebook: "Anúncio Facebook",
 };
 const RELATION_LABELS: Record<string, string> = {
   mae: "Mãe", pai: "Pai", responsavel: "Responsável", avo: "Avó/Avô", tio: "Tia/Tio", outro: "Outro",
