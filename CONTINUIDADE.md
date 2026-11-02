@@ -833,3 +833,17 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Frontend: Conversas mostra selo Instagram/Facebook na lista, mensagens desses canais no histórico, aviso "pode responder por mais X h" e envio pelo canal certo (sem áudio por enquanto).
 - Testes: `scripts/test-meta-webhook.mjs` (6 casos: assinatura, criação, duplicidade, eco, anexo/reabertura, eventos ignorados) no CI (`crm-visual-validation`, agora Node 22). Conferido no ar via pg_net: verificação com token errado → 403; POST sem segredos → 503.
 - **Pendente (responsável):** criar o app na Meta, cadastrar os segredos `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGE_ACCESS_TOKEN` no Supabase COC, apontar o webhook para `https://fenqnbzdjnyvgrmjczoi.supabase.co/functions/v1/meta-webhook` (Página: `messages`, `message_echoes`; Instagram: `messages`), assinar a Página em `subscribed_apps`, ligar "Permitir acesso a mensagens" no Instagram e pedir acesso avançado (`pages_messaging`, `instagram_manage_messages`, opcional Human Agent). Até o acesso avançado, só chegam mensagens de pessoas com papel no app.
+
+## 61. Ana: irmãos na mesma conversa e trava contra repetição (01/11/2026)
+
+- Caso real 99183-7061 (31/10): mãe disse "1 ano 3 ano e 6 ano", depois mandou "María Valentina 5 años / Sarah rebeca 9 anos / María Cecilia 12 anos"; a Ana repetiu "qual é o nome da criança?" três vezes. Causas: a pergunta "nome da criança" não era reconhecida (só "nome do aluno/aluna") e o cadastro aceitava só um aluno.
+- Agora: "nome da criança/do seu filho/da sua filha..." é reconhecido; respostas como "Pode sim/ok" não viram nome; `parseSiblings` lê 2+ crianças (linha, vírgula, " e ", ou "Nome N anos"); série de cada uma vem da própria linha, do nome ("Pedro 2º ano") ou das séries citadas antes, pareadas por idade; sem série, a Ana pergunta a série de cada uma. Resumo único "Alunos: • Nome (N anos) – Série" e, com SIM (ou pedido de visita), `register_ana_enrollment` para cada criança; idade nas observações de cada aluno.
+- Trava contra repetição: se a resposta seria igual à última pergunta da Ana, a secretaria assume com mensagem gentil.
+- Bug corrigido junto: "5 anos" não é mais lido como "5º ano".
+- Testes: 39 em `scripts/test-ana-conversas-reais.mjs`. Obs.: `test-ana-visits.mjs` usa visita "daqui a 7 dias"; quando cai em fim de semana, 9 testes antigos falham nas duas versões (não é regressão).
+
+## 62. Conflito de horário bloqueado também no CRM (01/11/2026)
+
+- Caso: Giovana (Ana, 30/10 10:55) e Gael (secretaria remarcou pelo CRM, 30/10 14:40) ficaram ambos em 03/11 16h. As RPCs da Ana checavam conflito; `schedule_school_visit` e `reschedule_school_visit` (tela) só checavam o mesmo aluno.
+- Migration `20261102010000_block_visit_slot_conflicts.sql` (COC e Conceito): nova `school_visit_conflict_message(horário, visita_ignorada)`; as duas RPCs da tela usam a mesma trava (`pg_advisory_xact_lock(781334218)`) e a mesma janela de 30 min da Ana e recusam com "Horário ocupado: já existe visita de X às HH:MM. Horários livres nesse dia: ...". Testado em transação desfeita (5 cenários).
+- Tela Visitas: alerta vermelho no topo listando conflitos entre visitas futuras em aberto e selo "Conflito de horário" nos cartões. O conflito Gael/Giovana já existente aparece no alerta até ser resolvido.

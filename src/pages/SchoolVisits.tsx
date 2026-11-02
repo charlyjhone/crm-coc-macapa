@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types will include the school tables after the pending migration is applied and types are regenerated. */
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, CalendarDays, CheckCircle2, Clock3, MapPin, RefreshCw, UserRound, UsersRound } from "lucide-react";
+import { AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, Clock3, MapPin, RefreshCw, UserRound, UsersRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,25 @@ const SchoolVisits = () => {
     const diff = Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at);
     return ua ? diff : -diff;
   });
+  // Conflito de horário: duas visitas em aberto a menos de 30 minutos uma da outra.
+  const ativas = visits
+    .filter((visit) => ["agendada", "confirmada", "reagendada"].includes(visit.status) && new Date(visit.scheduled_at) >= now)
+    .sort((a, b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at));
+  const conflitos: Array<{ quando: string; nomes: string[] }> = [];
+  const emConflito = new Set<string>();
+  for (let i = 0; i < ativas.length; i++) {
+    const grupo = [ativas[i]];
+    while (i + 1 < ativas.length && Date.parse(ativas[i + 1].scheduled_at) - Date.parse(grupo[grupo.length - 1].scheduled_at) < 30 * 60000) {
+      grupo.push(ativas[++i]);
+    }
+    if (grupo.length > 1) {
+      grupo.forEach((visit) => emConflito.add(visit.id));
+      conflitos.push({
+        quando: formatSchoolDateTime(grupo[0].scheduled_at),
+        nomes: grupo.map((visit) => visit.enrollment_opportunities?.students?.full_name || "Aluno não identificado"),
+      });
+    }
+  }
   const metrics = {
     today: visits.filter((visit) => visit.status !== "cancelada" && schoolDateTimeInput(visit.scheduled_at).slice(0,10) === schoolDateTimeInput(now).slice(0,10)).length,
     upcoming: visits.filter((visit) => new Date(visit.scheduled_at) >= now && ["agendada", "confirmada", "reagendada"].includes(visit.status)).length,
@@ -101,6 +120,23 @@ const SchoolVisits = () => {
           <div className="mb-5 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <p className="text-sm" role="alert">Não foi possível atualizar a agenda. Confira sua conexão e clique em Atualizar. As informações exibidas podem estar desatualizadas.</p>
+          </div>
+        )}
+
+        {conflitos.length > 0 && (
+          <div role="alert" className="mb-5 flex gap-3 rounded-xl border border-rose-300 bg-rose-50 p-4 text-rose-950">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-700" />
+            <div className="text-sm">
+              <p className="font-semibold">{conflitos.length === 1 ? "Conflito de horário na agenda" : `${conflitos.length} conflitos de horário na agenda`}</p>
+              <ul className="mt-1 space-y-0.5">
+                {conflitos.map((conflito) => (
+                  <li key={conflito.quando + conflito.nomes.join()}>
+                    {conflito.quando}: {conflito.nomes.join(" e ")}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-rose-900">Remarque uma das visitas em <strong>Registrar → Reagendada</strong> ou confirme com as famílias.</p>
+            </div>
           </div>
         )}
 
@@ -145,9 +181,14 @@ const SchoolVisits = () => {
                           {opportunity?.guardians?.phone ? " · " + opportunity.guardians.phone : ""}
                         </p>
                       </div>
-                      <Badge className={statusClass[visit.status] || "bg-slate-100 text-slate-800"}>
-                        {statusLabel[visit.status] || visit.status}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={statusClass[visit.status] || "bg-slate-100 text-slate-800"}>
+                          {statusLabel[visit.status] || visit.status}
+                        </Badge>
+                        {emConflito.has(visit.id) && (
+                          <Badge className="gap-1 bg-rose-100 text-rose-800"><AlertTriangle className="h-3 w-3" /> Conflito de horário</Badge>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-4 grid gap-3 rounded-xl bg-emerald-50/70 p-4 sm:grid-cols-2">
