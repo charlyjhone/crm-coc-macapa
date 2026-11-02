@@ -878,3 +878,10 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Agora: `escola_valores_data_divulgacao` é lida como data (`parseDataTexto`); depois dela o prompt diz que os valores "JÁ ESTÃO DISPONÍVEIS" com a secretaria, pede a série e encaminha (precisa_humano). Rede de segurança troca "serão divulgados a partir de..." por "já estão disponíveis".
 - `situacaoSecretaria` (horário `escola_horario_secretaria`, fins de semana e `escola_dias_sem_visita`): o CALENDÁRIO do prompt diz se a secretaria atende agora e, se não, quando volta; ao encaminhar, a Ana diz quando ela volta em vez de "em breve".
 - Testes: 43 em `scripts/test-ana-conversas-reais.mjs`.
+
+## 66. Despertador do CRM COC no Render (02/11/2026)
+
+- O serviço `crm-coc-macapa` no Render é *web service* no plano **free** (`npx serve -s dist`), que dorme após ~15 min sem acesso e leva 30–60 s para acordar. O Conceito (`crm-conceito`) é *static site* e não dorme.
+- Paliativo: job do pg_cron no Supabase do COC `despertador-crm-render` (`*/10 * * * *`) faz `net.http_get('https://crm-coc-macapa.onrender.com/robots.txt')`. Para desligar: `select cron.unschedule('despertador-crm-render');`.
+- Uso estimado ~744 h/mês, dentro das 750 h grátis do workspace (só este serviço é web service).
+- Soluções definitivas em avaliação pelo usuário: plano Starter (mantém o endereço) ou domínio próprio (ex.: crm-cocmacapa.com) apontando para um static site. Se o endereço mudar, atualizar a URL de privacidade no app da Meta.
