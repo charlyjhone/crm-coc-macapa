@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { marcarWhatsAppComoLido, socialChannelOf, useEnviarMeta, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { marcarWhatsAppComoLido, socialChannelOf, useEnviarMeta, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useEnviarArquivoWhatsApp, ARQUIVO_TIPOS_ACEITOS, ARQUIVO_LIMITE_BYTES, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
+import { BookOpen, ExternalLink, FileText, Loader2, MessageCircle, Mic, Paperclip, Send, Square, Trash2, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatSchoolDateTime } from "@/lib/schoolDateTime";
@@ -74,6 +74,10 @@ function Conversation({ lead }: { lead: Atendimento }) {
   const lastSocialInbound = social ? [...(messages || [])].reverse().find((m) => m.channel === social && m.direction === "inbound")?.at || lead.last_inbound_message_at : null;
   const windowLeftMs = lastSocialInbound ? Date.parse(lastSocialInbound) + 24 * 3_600_000 - Date.now() : -1;
   const sendAudio = useEnviarAudioWhatsApp();
+  const sendFile = useEnviarArquivoWhatsApp();
+  // Arquivo escolhido (ou o folder digital) aguardando o clique em "Enviar arquivo".
+  const [pendingFile, setPendingFile] = useState<{ file?: File; folder?: boolean; name: string; size?: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const update = useUpdateTriage();
   const updateStatus = useUpdateLeadStatus();
   const [draft, setDraft] = useState("");
@@ -223,6 +227,27 @@ function Conversation({ lead }: { lead: Atendimento }) {
       else toast.success("Áudio enviado pelo WhatsApp");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar o áudio.");
+    }
+  };
+
+  const pickFile = (file: File | undefined) => {
+    if (!file) return;
+    const mime = (file.type || "").split(";")[0].trim().toLowerCase();
+    if (!ARQUIVO_TIPOS_ACEITOS[mime]) { toast.error("Tipo de arquivo não aceito. Envie PDF, imagem (JPG, PNG), Word ou Excel."); return; }
+    if (file.size > ARQUIVO_LIMITE_BYTES) { toast.error("O arquivo passa de 25 MB."); return; }
+    setPendingFile({ file, name: file.name, size: file.size });
+  };
+
+  const sendPendingFile = async () => {
+    if (!pendingFile || sendFile.isPending) return;
+    try {
+      const result = await sendFile.mutateAsync({ lead, file: pendingFile.file, folder: pendingFile.folder, caption: draft.trim() });
+      setPendingFile(null);
+      setDraft("");
+      if (result.warning) toast.warning(result.warning);
+      else toast.success(pendingFile.folder ? "Folder digital enviado pelo WhatsApp" : "Arquivo enviado pelo WhatsApp");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o arquivo.");
     }
   };
 
@@ -431,11 +456,40 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 </Button>
               </div>
             )}
+            {pendingFile && !isRecording && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 p-3">
+                <span className="flex min-w-[180px] flex-1 items-center gap-2 text-sm text-slate-700">
+                  {pendingFile.folder ? <BookOpen className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}
+                  <span className="truncate font-medium">{pendingFile.name}</span>
+                  {pendingFile.size ? <span className="shrink-0 text-xs text-slate-500">{(pendingFile.size / 1024 / 1024).toFixed(1)} MB</span> : null}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setPendingFile(null)} disabled={sendFile.isPending}>
+                  <X className="mr-1 h-4 w-4" /> Remover
+                </Button>
+                <Button size="sm" onClick={() => void sendPendingFile()} disabled={sendFile.isPending}>
+                  {sendFile.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+                  Enviar arquivo
+                </Button>
+                <p className="w-full text-xs text-slate-500">O texto escrito na caixa abaixo vai junto como legenda, com o seu nome.</p>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" className="hidden"
+              accept={Object.keys(ARQUIVO_TIPOS_ACEITOS).join(",")}
+              onChange={(event) => { pickFile(event.target.files?.[0]); event.target.value = ""; }} />
             <div className="flex gap-2">
               <Input aria-label="Mensagem de WhatsApp" placeholder={isRecording ? "Gravação em andamento..." : "Escreva uma resposta para a família"} value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendMessage(); } }}
-                disabled={send.isPending || isRecording || sendAudio.isPending} />
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void (pendingFile ? sendPendingFile() : sendMessage()); } }}
+                disabled={send.isPending || isRecording || sendAudio.isPending || sendFile.isPending} />
+              <Button variant="outline" title="Enviar arquivo (PDF, imagem, Word, Excel)" aria-label="Enviar arquivo"
+                onClick={() => fileInputRef.current?.click()} disabled={isRecording || sendFile.isPending || sendAudio.isPending}>
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" title="Enviar o folder digital da escola" aria-label="Enviar folder digital"
+                onClick={() => setPendingFile({ folder: true, name: "Folder digital da escola.pdf" })}
+                disabled={isRecording || sendFile.isPending || sendAudio.isPending}>
+                <BookOpen className="h-4 w-4" /><span className="ml-2 hidden sm:inline">Folder</span>
+              </Button>
               {isRecording ? (
                 <Button variant="outline" title="Parar gravação" aria-label="Parar gravação" onClick={stopRecording}>
                   <Square className="h-4 w-4" />
@@ -446,12 +500,12 @@ function Conversation({ lead }: { lead: Atendimento }) {
                   <Mic className="h-4 w-4" />
                 </Button>
               )}
-              <Button onClick={() => void sendMessage()} disabled={!draft.trim() || send.isPending || isRecording || sendAudio.isPending}>
+              <Button onClick={() => void sendMessage()} disabled={!draft.trim() || !!pendingFile || send.isPending || isRecording || sendAudio.isPending || sendFile.isPending}>
                 {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 <span className="ml-2">Enviar</span>
               </Button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Você pode gravar até 2 minutos, ouvir antes de enviar e descartar se necessário.</p>
+            <p className="mt-2 text-xs text-slate-500">Grave áudio de até 2 minutos, envie arquivos (PDF, imagem, Word, Excel, até 25 MB) ou o folder digital da escola.</p>
           </>
         ) : <p className="text-sm text-slate-600">Sem WhatsApp cadastrado. O envio por e-mail será integrado depois.</p>}
       </div>
