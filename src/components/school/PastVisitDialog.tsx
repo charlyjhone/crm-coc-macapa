@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- a RPC register_past_school_visit entra nos tipos quando forem regenerados. */
 import { FormEvent, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { schoolDateTimeInput, schoolDateTimeToIso } from "@/lib/schoolDateTime";
+import { FamilyModeToggle, NewFamilyFields, createFamilyForVisit, emptyNewFamily, newFamilyMissing, type FamilyMode, type NewFamily } from "@/components/school/NewFamilyFields";
 
 type OpportunityOption = {
   id: string;
@@ -39,6 +39,8 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
   const [objections, setObjections] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<FamilyMode>("cadastrada");
+  const [family, setFamily] = useState<NewFamily>(emptyNewFamily);
 
   const now = schoolDateTimeInput(new Date());
   const today = now.slice(0, 10);
@@ -68,12 +70,19 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
     setImpression("");
     setObjections("");
     setFollowUp("");
+    setMode("cadastrada");
+    setFamily(emptyNewFamily);
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!opportunityId || !date || !time) {
-      toast({ title: "Selecione o aluno, a data e o horário da visita", variant: "destructive" });
+    if ((mode === "cadastrada" && !opportunityId) || !date || !time) {
+      toast({ title: mode === "cadastrada" ? "Selecione o aluno, a data e o horário da visita" : "Informe a data e o horário da visita", variant: "destructive" });
+      return;
+    }
+    const missing = mode === "nova" ? newFamilyMissing(family) : null;
+    if (missing) {
+      toast({ title: missing, variant: "destructive" });
       return;
     }
     const visitedIso = schoolDateTimeToIso(`${date}T${time}`);
@@ -83,8 +92,18 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
     }
 
     setSaving(true);
+    let targetId = opportunityId;
+    if (mode === "nova") {
+      try {
+        targetId = await createFamilyForVisit(family);
+      } catch (createError) {
+        setSaving(false);
+        toast({ title: "Não foi possível cadastrar a família", description: (createError as Error).message, variant: "destructive" });
+        return;
+      }
+    }
     const { error } = await (supabase as any).rpc("register_past_school_visit", {
-      p_opportunity_id: opportunityId,
+      p_opportunity_id: targetId,
       p_visited_at: visitedIso,
       p_participants: participants.trim() || null,
       p_family_impression: impression.trim() || null,
@@ -94,7 +113,8 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
     setSaving(false);
 
     if (error) {
-      toast({ title: "Não foi possível registrar a visita", description: error.message, variant: "destructive" });
+      toast({ title: "Não foi possível registrar a visita", description: mode === "nova" ? `A família foi cadastrada no funil, mas a visita não: ${error.message}` : error.message, variant: "destructive" });
+      if (mode === "nova") { reset(); setOpen(false); onCreated(); }
       return;
     }
 
@@ -116,11 +136,12 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
           <DialogHeader>
             <DialogTitle className="text-slate-950">Registrar visita já feita</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Para famílias que vieram à escola sem agendar. A visita fica como Realizada na data informada.
+              Para famílias que vieram à escola sem agendar, já cadastradas ou não. A visita fica como Realizada na data informada.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-5">
-            <div className="space-y-2">
+            <FamilyModeToggle mode={mode} onChange={setMode} />
+            {mode === "nova" ? <NewFamilyFields value={family} onChange={setFamily} /> : <div className="space-y-2">
               <Label>Aluno *</Label>
               <Select value={opportunityId} onValueChange={setOpportunityId}>
                 <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
@@ -133,11 +154,8 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">
-                A família ainda não está no CRM? Cadastre primeiro em{" "}
-                <Link to="/familias" className="font-medium text-emerald-700 underline" onClick={() => setOpen(false)}>Famílias</Link>.
-              </p>
-            </div>
+              <p className="text-xs text-slate-500">A família ainda não está no CRM? Escolha "Família nova" acima.</p>
+            </div>}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="past-visit-date">Data da visita *</Label>

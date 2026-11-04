@@ -15,6 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { schoolDateTimeInput, schoolDateTimeToIso } from "@/lib/schoolDateTime";
+import { FamilyModeToggle, NewFamilyFields, createFamilyForVisit, emptyNewFamily, newFamilyMissing, type FamilyMode, type NewFamily } from "@/components/school/NewFamilyFields";
 
 type OpportunityOption = {
   id: string;
@@ -33,6 +34,8 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
   const [participants, setParticipants] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<FamilyMode>("cadastrada");
+  const [family, setFamily] = useState<NewFamily>(emptyNewFamily);
 
   useEffect(() => {
     if (!open) return;
@@ -53,8 +56,13 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!opportunityId || !scheduledAt) {
-      toast({ title: "Selecione a oportunidade e o horário", variant: "destructive" });
+    if ((mode === "cadastrada" && !opportunityId) || !scheduledAt) {
+      toast({ title: mode === "cadastrada" ? "Selecione o aluno e o horário" : "Informe o horário da visita", variant: "destructive" });
+      return;
+    }
+    const missing = mode === "nova" ? newFamilyMissing(family) : null;
+    if (missing) {
+      toast({ title: missing, variant: "destructive" });
       return;
     }
     const scheduledIso = schoolDateTimeToIso(scheduledAt);
@@ -64,8 +72,18 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
     }
 
     setSaving(true);
+    let targetId = opportunityId;
+    if (mode === "nova") {
+      try {
+        targetId = await createFamilyForVisit(family);
+      } catch (createError) {
+        setSaving(false);
+        toast({ title: "Não foi possível cadastrar a família", description: (createError as Error).message, variant: "destructive" });
+        return;
+      }
+    }
     const { error } = await (supabase as any).rpc("schedule_school_visit", {
-      p_opportunity_id: opportunityId,
+      p_opportunity_id: targetId,
       p_scheduled_at: scheduledIso,
       p_participants: participants.trim() || null,
       p_notes: notes.trim() || null,
@@ -73,7 +91,9 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
     setSaving(false);
 
     if (error) {
-      toast({ title: "Não foi possível agendar", description: error.message, variant: "destructive" });
+      toast({ title: "Não foi possível agendar", description: mode === "nova" ? `A família foi cadastrada no funil, mas a visita não: ${error.message}` : error.message, variant: "destructive" });
+      // A família já ficou no funil: na próxima tentativa basta escolhê-la em "Família já cadastrada".
+      if (mode === "nova") { setMode("cadastrada"); setFamily(emptyNewFamily); setOpen(false); onCreated(); }
       return;
     }
 
@@ -82,6 +102,8 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
     setScheduledAt("");
     setParticipants("");
     setNotes("");
+    setMode("cadastrada");
+    setFamily(emptyNewFamily);
     setOpen(false);
     onCreated();
   };
@@ -93,16 +115,17 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
           <CalendarPlus className="h-4 w-4" /> Agendar visita
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle className="text-slate-950">Agendar visita escolar</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Escolha uma oportunidade ativa. O aluno avançará automaticamente para visita agendada.
+              Escolha uma família do funil ou cadastre uma nova aqui mesmo. O aluno avança automaticamente para visita agendada.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-5">
-            <div className="space-y-2">
+            <FamilyModeToggle mode={mode} onChange={setMode} />
+            {mode === "nova" ? <NewFamilyFields value={family} onChange={setFamily} /> : <div className="space-y-2">
               <Label>Aluno e oportunidade *</Label>
               <Select value={opportunityId} onValueChange={setOpportunityId}>
                 <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
@@ -114,7 +137,7 @@ export function ScheduleVisitDialog({ onCreated }: { onCreated: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div>}
             <div className="space-y-2">
               <Label htmlFor="visit-at">Data e horário *</Label>
               <Input id="visit-at" type="datetime-local" required min={schoolDateTimeInput(new Date())} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
