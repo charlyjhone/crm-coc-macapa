@@ -885,3 +885,10 @@ Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, 
 - Paliativo: job do pg_cron no Supabase do COC `despertador-crm-render` (`*/10 * * * *`) faz `net.http_get('https://crm-coc-macapa.onrender.com/robots.txt')`. Para desligar: `select cron.unschedule('despertador-crm-render');`.
 - Uso estimado ~744 h/mês, dentro das 750 h grátis do workspace (só este serviço é web service).
 - Soluções definitivas em avaliação pelo usuário: plano Starter (mantém o endereço) ou domínio próprio (ex.: crm-cocmacapa.com) apontando para um static site. Se o endereço mudar, atualizar a URL de privacidade no app da Meta.
+
+## 67. Aguardando/urgente após resposta da secretaria e lembretes ativados (04/11/2026)
+
+- `src/lib/attendancePriority.ts`: `teamRepliedAfterHandoff` e `waitingForTeam`. Conversa encaminhada deixa de contar como aguardando/urgente quando a última mensagem enviada é posterior à última da família, ao `handoff_at` e a `agent_replied_at` + 5 s (resposta da atendente virtual). Vale para resposta pelo CRM ou pelo celular; nova mensagem da família volta a fila.
+- Layout novo (COC, commit `313a2ca`): Início, contador do menu e abas de Conversas usam `waitingForTeam`.
+- `main` (Conceito, layout antigo, commit `3d251fe`): filtro/contador "Aguardando secretaria", Pendentes e painel de captação usam a mesma regra. O ramo temporário `fix/aguardando-respondida` ficou no GitHub (o proxy não permite apagar); pode ser removido.
+- Lembretes por família (`lead_reminders`, migration `20261022150000_lead_reminders.sql`) **aplicados no COC** em 04/11. Testado como usuário da equipe (insert + leitura com nome da família, revertido). Conceito: aplicar junto com a troca para o layout novo.
