@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadPhoneVariants, getPhoneVariants } from "@/lib/whatsappPhone";
+import { waitingForTeam } from "@/lib/attendancePriority";
+import type { Atendimento } from "@/hooks/useAtendimentos";
 
 export type PendingChannel = "email" | "whatsapp";
 export type PendingReason = "unanswered_message" | "aguardando_secretaria";
@@ -145,7 +147,7 @@ export function usePendingLeads() {
       const { data: leads, error: leadsErr } = await supabase
         .from("leads")
         .select(
-          "id, name, email, phone, phones, whatsapp_chat_lids, status, triage_status, handoff_at, handoff_reason, triage_summary, created_at, last_inbound_message, last_inbound_message_at, produto, valor, moeda, profile_picture_url"
+          "id, name, email, phone, phones, whatsapp_chat_lids, status, triage_status, handoff_at, handoff_reason, agent_replied_at, last_outbound_message_at, triage_summary, created_at, last_inbound_message, last_inbound_message_at, produto, valor, moeda, profile_picture_url"
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
@@ -191,7 +193,7 @@ export function usePendingLeads() {
 
         // Uma resposta automática de handoff não conclui o atendimento humano.
         // Mantemos o contato visível até a equipe alterar o andamento.
-        if (lead.triage_status === "aguardando_secretaria") {
+        if (waitingForTeam(lead as unknown as Atendimento)) {
           reasons.push("aguardando_secretaria");
           if (whatsapp) addChannel("whatsapp");
           if (email) addChannel("email");

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
-import { attendancePriority } from "@/lib/attendancePriority";
+import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
@@ -453,14 +453,14 @@ export default function Atendimentos() {
     urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
     atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
     novos: (data || []).filter(isNewContact).length,
-    aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
+    aguardando_secretaria: (data || []).filter(waitingForTeam).length,
     matricula: (data || []).filter((a) => a.assunto === "matricula").length,
     respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
     resolvido: (data || []).filter((a) => a.triage_status === "resolvido").length,
     todos: data?.length || 0,
   }), [data]);
   const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
+    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : filter === "aguardando_secretaria" ? waitingForTeam(lead) : lead.triage_status === filter));
     const term = search.toLocaleLowerCase("pt-BR");
     return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
   }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||

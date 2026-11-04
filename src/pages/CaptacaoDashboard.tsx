@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { waitingForTeam } from "@/lib/attendancePriority";
+import type { Atendimento } from "@/hooks/useAtendimentos";
 import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -114,7 +116,9 @@ const CaptacaoDashboard = () => {
       const base = () => supabase.from("leads").select("id", { count: "exact", head: true }).eq("archived", false);
       const [all, waiting, replied, contactResults] = await Promise.all([
         base(),
-        base().eq("triage_status", "aguardando_secretaria"),
+        // Encaminhadas que a equipe ainda não respondeu (mesma regra da tela de atendimentos).
+        supabase.from("leads").select("triage_status, handoff_at, agent_replied_at, last_inbound_message_at, last_outbound_message_at")
+          .eq("archived", false).eq("triage_status", "aguardando_secretaria").limit(1000),
         base().eq("triage_status", "respondido_agente"),
         Promise.all(contactStages.map(([status]) => supabase.from("leads")
           .select("id", { count: "exact", head: true })
@@ -125,7 +129,7 @@ const CaptacaoDashboard = () => {
         setAttendanceError(true);
         return;
       }
-      setAttendance({ total: all.count ?? 0, waiting: waiting.count ?? 0, replied: replied.count ?? 0 });
+      setAttendance({ total: all.count ?? 0, waiting: ((waiting.data || []) as unknown as Atendimento[]).filter(waitingForTeam).length, replied: replied.count ?? 0 });
       setContactCounts(Object.fromEntries(contactStages.map(([key], index) => [key, contactResults[index].count ?? 0])));
       setAttendanceError(false);
       setLastUpdated(new Date());
