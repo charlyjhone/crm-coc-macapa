@@ -11,7 +11,7 @@ import { formatSchoolDateTime } from "@/lib/schoolDateTime";
 import { timeAgo } from "@/components/crm/ui";
 import { DEMO_MODE, demo } from "@/lib/demo";
 import { LeadReminders } from "@/components/crm/Reminders";
-import { attendancePriority } from "@/lib/attendancePriority";
+import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
 import { SourceChip, TemperatureChip } from "@/components/crm/FunnelBits";
@@ -581,7 +581,7 @@ const tabs: { key: Tab; label: string }[] = [
 
 function tabOf(lead: Atendimento): Exclude<Tab, "todas"> {
   if (lead.triage_status === "resolvido" || lead.status === "resolvido" || lead.status === "nao_convertido") return "resolvidas";
-  if (lead.triage_status === "aguardando_secretaria" || attendancePriority(lead).level >= 1) return "aguardando";
+  if (waitingForTeam(lead) || attendancePriority(lead).level >= 1) return "aguardando";
   return "em_conversa";
 }
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { attendancePriority } from "@/lib/attendancePriority";
+import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { useDueReminders } from "@/hooks/useReminders";
 import {
   BarChart3, CalendarDays, ChevronDown, CircleUserRound, ClipboardList, Columns3,
@@ -23,7 +23,7 @@ type NavItem = { to: string; label: string; icon: typeof Home; match: string[]; 
 
 function useNavItems() {
   const { data } = useAtendimentos();
-  const waiting = (data || []).filter((lead) => lead.triage_status === "aguardando_secretaria" || attendancePriority(lead).level >= 1).length;
+  const waiting = (data || []).filter((lead) => waitingForTeam(lead) || attendancePriority(lead).level >= 1).length;
   const { due } = useDueReminders();
   const navigate = useNavigate();
   // Aviso uma vez por dia quando há lembretes para hoje (ou atrasados).

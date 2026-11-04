@@ -6,7 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAtendimentos, type Atendimento } from "@/hooks/useAtendimentos";
 import { useActiveOpportunities, useLinkedLeadIds } from "@/hooks/useOpportunities";
-import { attendancePriority } from "@/lib/attendancePriority";
+import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { SCHOOL_TIME_ZONE, schoolDateTimeInput } from "@/lib/schoolDateTime";
 import { FUNNEL_COLUMNS, funnelKeyOf } from "@/lib/funnel";
 import { VisitStatusDialog } from "@/components/school/VisitStatusDialog";
@@ -30,7 +30,7 @@ const activeVisit = ["agendada", "confirmada", "reagendada"];
 const visitLabel: Record<string, string> = { agendada: "Agendada", confirmada: "Confirmada", reagendada: "Reagendada", realizada: "Compareceu", faltou: "Faltou", cancelada: "Cancelada" };
 
 function needsTeam(lead: Atendimento) {
-  return lead.triage_status === "aguardando_secretaria" || attendancePriority(lead).level >= 1;
+  return waitingForTeam(lead) || attendancePriority(lead).level >= 1;
 }
 
 const isResolved = (lead: Atendimento) => lead.triage_status === "resolvido" || lead.status === "resolvido" || lead.status === "nao_convertido";
