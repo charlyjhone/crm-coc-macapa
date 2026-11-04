@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- RPC e system_settings fora dos tipos gerados do Supabase. */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo";
@@ -120,6 +120,55 @@ export function NewFamilyFields({ value, onChange }: { value: NewFamily; onChang
           </Select>
         </div>
       </div>
+    </div>
+  );
+}
+
+export type FamilyOption = {
+  id: string;
+  desired_grade: string;
+  desired_shift?: string | null;
+  students: { full_name: string } | null;
+  guardians: { full_name: string } | null;
+};
+
+const fold = (text: string) => text.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** Busca por nome (aluno ou responsável); se não achar, oferece cadastrar como família nova. */
+export function FamilySearch({ options, value, onChange, onNew }: {
+  options: FamilyOption[]; value: string; onChange: (id: string) => void; onNew: (typed: string) => void;
+}) {
+  const [term, setTerm] = useState("");
+  const selected = options.find((o) => o.id === value) || null;
+  const matches = useMemo(() => {
+    const t = fold(term.trim());
+    if (!t) return options.slice(0, 8);
+    return options.filter((o) => fold(`${o.students?.full_name || ""} ${o.guardians?.full_name || ""}`).includes(t)).slice(0, 8);
+  }, [options, term]);
+  const label = (o: FamilyOption) => `${o.students?.full_name || "Aluno"} · ${o.desired_grade}${o.guardians?.full_name ? ` · ${o.guardians.full_name}` : ""}`;
+
+  if (selected) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
+        <span className="min-w-0 truncate font-semibold text-slate-900">{label(selected)}</span>
+        <button type="button" className="shrink-0 text-sm font-medium text-emerald-800 underline" onClick={() => { onChange(""); setTerm(""); }}>Trocar</button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <Input autoFocus value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Digite o nome do aluno ou do responsável" aria-label="Buscar família" />
+      <ul className="max-h-52 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+        {matches.map((o) => (
+          <li key={o.id}>
+            <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => onChange(o.id)}>{label(o)}</button>
+          </li>
+        ))}
+        {!matches.length && <li className="px-3 py-2 text-sm text-slate-500">Nenhuma família com esse nome no funil.</li>}
+      </ul>
+      <button type="button" className="text-sm font-medium text-emerald-800 underline" onClick={() => onNew(term.trim())}>
+        {term.trim() ? `Cadastrar “${term.trim()}” como família nova` : "Cadastrar família nova"}
+      </button>
     </div>
   );
 }

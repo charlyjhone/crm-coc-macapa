@@ -9,13 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { schoolDateTimeInput, schoolDateTimeToIso } from "@/lib/schoolDateTime";
-import { FamilyModeToggle, NewFamilyFields, createFamilyForVisit, emptyNewFamily, newFamilyMissing, type FamilyMode, type NewFamily } from "@/components/school/NewFamilyFields";
+import { FamilyModeToggle, NewFamilyFields, createFamilyForVisit, emptyNewFamily, newFamilyMissing, type FamilyMode, type NewFamily, FamilySearch } from "@/components/school/NewFamilyFields";
 
 type OpportunityOption = {
   id: string;
@@ -142,18 +139,9 @@ export function PastVisitDialog({ onCreated }: { onCreated: () => void }) {
           <div className="grid gap-4 py-5">
             <FamilyModeToggle mode={mode} onChange={setMode} />
             {mode === "nova" ? <NewFamilyFields value={family} onChange={setFamily} /> : <div className="space-y-2">
-              <Label>Aluno *</Label>
-              <Select value={opportunityId} onValueChange={setOpportunityId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o aluno" /></SelectTrigger>
-                <SelectContent>
-                  {opportunities.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {(item.students?.full_name || "Aluno") + " · " + item.desired_grade +
-                        (item.guardians?.full_name ? " · " + item.guardians.full_name : "")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Família *</Label>
+              <FamilySearch options={opportunities} value={opportunityId} onChange={setOpportunityId}
+                onNew={(typed) => { setMode("nova"); setFamily({ ...emptyNewFamily, guardianName: typed }); }} />
               <p className="text-xs text-slate-500">A família ainda não está no CRM? Escolha "Família nova" acima.</p>
             </div>}
             <div className="grid gap-4 sm:grid-cols-2">
