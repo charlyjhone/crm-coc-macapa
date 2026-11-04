@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { marcarWhatsAppComoLido, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
+import { marcarWhatsAppComoLido, socialChannelOf, useEnviarMeta, useAtendimentos, useEnviarWhatsApp, useEnviarAudioWhatsApp, useEnviarArquivoWhatsApp, ARQUIVO_TIPOS_ACEITOS, ARQUIVO_LIMITE_BYTES, useMensagensAtendimento, useUpdateTriage, useUpdateLeadStatus, type Atendimento, type LeadStatus, type MensagemAtendimento } from "@/hooks/useAtendimentos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ExternalLink, FileText, Loader2, MessageCircle, Mic, Send, Square, Trash2 } from "lucide-react";
-import { useSchoolIdentity } from "@/hooks/useSchoolIdentity";
-import { attendancePriority } from "@/lib/attendancePriority";
+import { BookOpen, ExternalLink, FileText, Loader2, MessageCircle, Mic, Paperclip, Send, Square, Trash2, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { formatSchoolDateTime } from "@/lib/schoolDateTime";
+import { timeAgo } from "@/components/crm/ui";
+import { DEMO_MODE, demo } from "@/lib/demo";
+import { LeadReminders } from "@/components/crm/Reminders";
+import { attendancePriority, waitingForTeam } from "@/lib/attendancePriority";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ClassifyContactDialog } from "@/components/crm/ClassifyContactDialog";
+import { SourceChip, TemperatureChip } from "@/components/crm/FunnelBits";
+import { useFunnelActions } from "@/hooks/useFunnelActions";
+import { displayName, displayPreview, displaySource, formatPhone } from "@/lib/leadDisplay";
+import { adChipClass, adLabel, adReferralOf, campaignLabel, useAdReferrals } from "@/hooks/useAdReferrals";
+import { FUNNEL_COLUMNS, funnelKeyOf, sourceLabel, type FunnelKey } from "@/lib/funnel";
 
-type Filter = "urgentes" | "atencao" | "novos" | "aguardando_secretaria" | "matricula" | "respondido_agente" | "resolvido" | "todos";
-const filters: { key: Filter; label: string }[] = [
-  { key: "urgentes", label: "Urgentes" },
-  { key: "atencao", label: "Atenção" },
-  { key: "novos", label: "Novos" },
-  { key: "aguardando_secretaria", label: "Aguardando secretaria" },
-  { key: "matricula", label: "Matrículas" },
-  { key: "respondido_agente", label: "Respondidos pelo agente" },
-  { key: "resolvido", label: "Resolvidos" },
-  { key: "todos", label: "Todos" },
-];
 const stages: { key: LeadStatus; label: string }[] = [
   { key: "novo", label: "Novo" },
   { key: "em_atendimento", label: "Em atendimento" },
@@ -67,7 +67,17 @@ function Conversation({ lead }: { lead: Atendimento }) {
   const priority = attendancePriority(lead);
   const { data: messages, isLoading, isError } = useMensagensAtendimento(lead);
   const send = useEnviarWhatsApp();
+  const sendMeta = useEnviarMeta();
+  const social = socialChannelOf(lead);
+  const socialLabel = social === "instagram" ? "Instagram" : social === "facebook" ? "Facebook" : null;
+  // Janela da Meta: 24 h desde a última mensagem da família nesse canal.
+  const lastSocialInbound = social ? [...(messages || [])].reverse().find((m) => m.channel === social && m.direction === "inbound")?.at || lead.last_inbound_message_at : null;
+  const windowLeftMs = lastSocialInbound ? Date.parse(lastSocialInbound) + 24 * 3_600_000 - Date.now() : -1;
   const sendAudio = useEnviarAudioWhatsApp();
+  const sendFile = useEnviarArquivoWhatsApp();
+  // Arquivo escolhido (ou o folder digital) aguardando o clique em "Enviar arquivo".
+  const [pendingFile, setPendingFile] = useState<{ file?: File; folder?: boolean; name: string; size?: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const update = useUpdateTriage();
   const updateStatus = useUpdateLeadStatus();
   const [draft, setDraft] = useState("");
@@ -220,6 +230,39 @@ function Conversation({ lead }: { lead: Atendimento }) {
     }
   };
 
+  const pickFile = (file: File | undefined) => {
+    if (!file) return;
+    const mime = (file.type || "").split(";")[0].trim().toLowerCase();
+    if (!ARQUIVO_TIPOS_ACEITOS[mime]) { toast.error("Tipo de arquivo não aceito. Envie PDF, imagem (JPG, PNG), Word ou Excel."); return; }
+    if (file.size > ARQUIVO_LIMITE_BYTES) { toast.error("O arquivo passa de 25 MB."); return; }
+    setPendingFile({ file, name: file.name, size: file.size });
+  };
+
+  const sendPendingFile = async () => {
+    if (!pendingFile || sendFile.isPending) return;
+    try {
+      const result = await sendFile.mutateAsync({ lead, file: pendingFile.file, folder: pendingFile.folder, caption: draft.trim() });
+      setPendingFile(null);
+      setDraft("");
+      if (result.warning) toast.warning(result.warning);
+      else toast.success(pendingFile.folder ? "Folder digital enviado pelo WhatsApp" : "Arquivo enviado pelo WhatsApp");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o arquivo.");
+    }
+  };
+
+  const sendSocial = async () => {
+    const message = draft.trim();
+    if (!message || sendMeta.isPending) return;
+    try {
+      await sendMeta.mutateAsync({ lead, message });
+      setDraft("");
+      toast.success(`Mensagem enviada pelo ${socialLabel}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao enviar a mensagem.");
+    }
+  };
+
   const sendMessage = async () => {
     const message = draft.trim();
     if (!lead.phone || !message || send.isPending) return;
@@ -254,11 +297,11 @@ function Conversation({ lead }: { lead: Atendimento }) {
   };
 
   return (
-    <section className="flex min-h-[500px] min-w-0 flex-1 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+    <section className="flex min-h-[500px] min-w-0 flex-1 flex-col md:min-h-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E7EC] bg-white px-5 py-3.5">
         <div>
-          <h2 className="font-semibold">{lead.name}</h2>
-          <p className="text-xs text-slate-600">{lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
+          <h2 className="font-semibold">{displayName(lead)}</h2>
+          <p className="text-xs text-slate-600">{socialLabel ? `${socialLabel} ${social === "instagram" ? "Direct" : "Messenger"}` : lead.phone || lead.email || "Sem telefone ou e-mail"}</p>
           {priority.level >= 3 && (
             <p className="mt-1 text-sm font-semibold text-red-700">URGENTE · {priority.reason}</p>
           )}
@@ -287,21 +330,21 @@ function Conversation({ lead }: { lead: Atendimento }) {
             </a>
           )}
           <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => void finish()}>
-            {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Concluir atendimento"}
+            {lead.triage_status === "resolvido" ? "Verificar pesquisa" : "Marcar como resolvida"}
           </Button>
         </div>
-      </header>
-      <div className="flex flex-wrap items-center gap-3 border-b bg-white px-4 py-3">
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#E4E7EC] bg-white px-5 py-2.5">
         <label htmlFor="lead-status" className="text-sm font-medium">Andamento do contato</label>
         <select id="lead-status" aria-label="Andamento do contato" className="h-9 rounded-md border bg-background px-3 text-sm" value={lead.status || "novo"}
           onChange={(event) => void changeStatus(event.target.value as LeadStatus)} disabled={updateStatus.isPending}>
-          {lead.status === "matriculado" && <option value="matriculado" disabled>Matrícula confirmada no funil</option>}
+          {lead.status === "matriculado" && <option value="matriculado" disabled>Interesse em matrícula</option>}
           {stages.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
         </select>
         <span className="text-xs text-slate-600">Assunto: {subjectLabel(lead.assunto)}</span>
-        <Link to="/matriculas" className="text-xs font-medium text-primary underline">Confirmar matrícula no funil do aluno</Link>
+        <Link to="/funil" className="text-xs font-medium text-[var(--crm-accent)] underline">Ver no funil</Link>
       </div>
-      <div className="flex max-h-[60vh] min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
+      <div className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto bg-[#F6F7F9] p-5">
         {isLoading && <p className="text-sm text-slate-600">Carregando histórico...</p>}
         {isError && <p className="text-sm text-red-700">Não foi possível carregar o histórico.</p>}
         {!isLoading && !isError && !messages?.length && <p className="text-sm text-slate-600">Nenhuma mensagem encontrada.</p>}
@@ -310,12 +353,12 @@ function Conversation({ lead }: { lead: Atendimento }) {
           const rawText = m.message.trim();
           const text = outgoing
             ? rawText.replace(/^\*(?:\[Atendente\s+[^\]\r\n]+\]|[^*\r\n]*(?:Secretaria|Atendente)[^*\r\n]*)\*\s*/i, "")
-            : rawText;
+            : (/^\[(MÍDIA_PARA_SECRETARIA|FIGURINHA_RECEBIDA)/i.test(rawText) && m.mediaType ? "" : displayPreview(rawText) || rawText);
           const audioPlaceholder = /^\[(?:mensagem de áudio|áudio não transcrito|áudio enviado pela secretaria)/i.test(text);
           const duration = formatMediaDuration(m.mediaDurationSeconds);
           return (
-            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3 py-2 text-sm ${outgoing ? "self-end bg-emerald-100" : "self-start bg-white"}`}>
-              {outgoing && m.senderName && <p className="mb-1 text-xs font-semibold text-emerald-900">[{m.senderName}]</p>}
+            <div key={`${m.channel}-${m.id}`} className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed md:max-w-[62%] ${outgoing ? "self-end border-[var(--crm-accent-line)] bg-[var(--crm-accent-soft)]" : "self-start border-[#E4E7EC] bg-white"}`}>
+              {outgoing && m.senderName && <p className="mb-0.5 text-xs text-[#5B6675]">{m.senderName}</p>}
               {m.mediaType && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-300/70 bg-white/70 px-2 py-1.5 text-xs font-semibold text-slate-700">
                   <span aria-hidden="true">{m.mediaType === "audio" ? "🎙️" : m.mediaType === "image" ? "🖼️" : m.mediaType === "video" ? "🎬" : m.mediaType === "document" || m.mediaType === "file" ? "📎" : m.mediaType === "location" ? "📍" : "📄"}</span>
@@ -367,14 +410,33 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 <p className="mt-1 text-xs text-slate-600">Para localizar outros arquivos e imprimir a documentação da família, use o atalho WhatsApp Web no cabeçalho.</p>
               )}
               <p className="mt-1 text-[11px] text-slate-500">
-                {m.channel === "whatsapp" ? "WhatsApp" : "E-mail"} · {outgoing ? "Enviada pela escola" : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
+                {{ whatsapp: "WhatsApp", email: "E-mail", instagram: "Instagram", facebook: "Facebook" }[m.channel]} · {outgoing ? (m.senderName && m.channel !== "whatsapp" ? `Enviada por ${m.senderName}` : "Enviada pela escola") : "Recebida"} · {new Date(m.at).toLocaleString("pt-BR")}
               </p>
             </div>
           );
         })}
       </div>
-      <div className="border-t p-4">
-        {lead.phone ? (
+      <div className="border-t border-[#E4E7EC] bg-white px-5 py-3.5">
+        {social ? (
+          <>
+            <p className={`mb-2 text-xs font-medium ${windowLeftMs > 3 * 3_600_000 ? "text-[#5B6675]" : windowLeftMs > 0 ? "text-[#93370D]" : "text-[#B42318]"}`}>
+              {windowLeftMs > 0
+                ? `Janela do ${socialLabel}: pode responder por mais ${windowLeftMs >= 3_600_000 ? `${Math.floor(windowLeftMs / 3_600_000)} h` : `${Math.max(1, Math.floor(windowLeftMs / 60_000))} min`}.`
+                : `A janela de 24 h do ${socialLabel} fechou. A resposta só vai se a família mandar uma nova mensagem (ou com a permissão "atendimento humano" da Meta, até 7 dias).`}
+            </p>
+            <div className="flex gap-2">
+              <Input aria-label={`Mensagem pelo ${socialLabel}`} placeholder="Escreva uma resposta para a família" value={draft} maxLength={950}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendSocial(); } }}
+                disabled={sendMeta.isPending} />
+              <Button onClick={() => void sendSocial()} disabled={!draft.trim() || sendMeta.isPending}>
+                {sendMeta.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <span className="ml-2">Enviar</span>
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">A mensagem sai pelo {socialLabel} da escola com o seu nome. Áudio ainda não é enviado por aqui.</p>
+          </>
+        ) : lead.phone ? (
           <>
             {isRecording && (
               <div className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -394,11 +456,40 @@ function Conversation({ lead }: { lead: Atendimento }) {
                 </Button>
               </div>
             )}
+            {pendingFile && !isRecording && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 p-3">
+                <span className="flex min-w-[180px] flex-1 items-center gap-2 text-sm text-slate-700">
+                  {pendingFile.folder ? <BookOpen className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}
+                  <span className="truncate font-medium">{pendingFile.name}</span>
+                  {pendingFile.size ? <span className="shrink-0 text-xs text-slate-500">{(pendingFile.size / 1024 / 1024).toFixed(1)} MB</span> : null}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setPendingFile(null)} disabled={sendFile.isPending}>
+                  <X className="mr-1 h-4 w-4" /> Remover
+                </Button>
+                <Button size="sm" onClick={() => void sendPendingFile()} disabled={sendFile.isPending}>
+                  {sendFile.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+                  Enviar arquivo
+                </Button>
+                <p className="w-full text-xs text-slate-500">O texto escrito na caixa abaixo vai junto como legenda, com o seu nome.</p>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" className="hidden"
+              accept={Object.keys(ARQUIVO_TIPOS_ACEITOS).join(",")}
+              onChange={(event) => { pickFile(event.target.files?.[0]); event.target.value = ""; }} />
             <div className="flex gap-2">
               <Input aria-label="Mensagem de WhatsApp" placeholder={isRecording ? "Gravação em andamento..." : "Escreva uma resposta para a família"} value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void sendMessage(); } }}
-                disabled={send.isPending || isRecording || sendAudio.isPending} />
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void (pendingFile ? sendPendingFile() : sendMessage()); } }}
+                disabled={send.isPending || isRecording || sendAudio.isPending || sendFile.isPending} />
+              <Button variant="outline" title="Enviar arquivo (PDF, imagem, Word, Excel)" aria-label="Enviar arquivo"
+                onClick={() => fileInputRef.current?.click()} disabled={isRecording || sendFile.isPending || sendAudio.isPending}>
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" title="Enviar o folder digital da escola" aria-label="Enviar folder digital"
+                onClick={() => setPendingFile({ folder: true, name: "Folder digital da escola.pdf" })}
+                disabled={isRecording || sendFile.isPending || sendAudio.isPending}>
+                <BookOpen className="h-4 w-4" /><span className="ml-2 hidden sm:inline">Folder</span>
+              </Button>
               {isRecording ? (
                 <Button variant="outline" title="Parar gravação" aria-label="Parar gravação" onClick={stopRecording}>
                   <Square className="h-4 w-4" />
@@ -409,12 +500,12 @@ function Conversation({ lead }: { lead: Atendimento }) {
                   <Mic className="h-4 w-4" />
                 </Button>
               )}
-              <Button onClick={() => void sendMessage()} disabled={!draft.trim() || send.isPending || isRecording || sendAudio.isPending}>
+              <Button onClick={() => void sendMessage()} disabled={!draft.trim() || !!pendingFile || send.isPending || isRecording || sendAudio.isPending || sendFile.isPending}>
                 {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 <span className="ml-2">Enviar</span>
               </Button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Você pode gravar até 2 minutos, ouvir antes de enviar e descartar se necessário.</p>
+            <p className="mt-2 text-xs text-slate-500">Grave áudio de até 2 minutos, envie arquivos (PDF, imagem, Word, Excel, até 25 MB) ou o folder digital da escola.</p>
           </>
         ) : <p className="text-sm text-slate-600">Sem WhatsApp cadastrado. O envio por e-mail será integrado depois.</p>}
       </div>
@@ -438,78 +529,283 @@ function Conversation({ lead }: { lead: Atendimento }) {
   );
 }
 
-export default function Atendimentos() {
-  const { agentName } = useSchoolIdentity();
-  const { data, isLoading, isError } = useAtendimentos();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedFilter = searchParams.get("status");
-  const requestedStage = searchParams.get("etapa");
-  const stageFilter = stages.some((item) => item.key === requestedStage) ? requestedStage as LeadStatus : null;
-  const isValidRequestedFilter = filters.some((item) => item.key === requestedFilter);
-  const filter: Filter = isValidRequestedFilter ? requestedFilter as Filter : "aguardando_secretaria";
-  const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("lead"));
-  const counts = useMemo(() => ({
-    urgentes: (data || []).filter((a) => attendancePriority(a).level >= 3).length,
-    atencao: (data || []).filter((a) => attendancePriority(a).level === 2).length,
-    novos: (data || []).filter(isNewContact).length,
-    aguardando_secretaria: (data || []).filter((a) => a.triage_status === "aguardando_secretaria").length,
-    matricula: (data || []).filter((a) => a.assunto === "matricula").length,
-    respondido_agente: (data || []).filter((a) => a.triage_status === "respondido_agente").length,
-    resolvido: (data || []).filter((a) => a.triage_status === "resolvido").length,
-    todos: data?.length || 0,
-  }), [data]);
-  const list = (data || []).filter((lead) => {
-    const matchesFilter = (stageFilter ? lead.status === stageFilter : filter === "todos" || (filter === "urgentes" ? attendancePriority(lead).level >= 3 : filter === "atencao" ? attendancePriority(lead).level === 2 : filter === "novos" ? isNewContact(lead) : filter === "matricula" ? lead.assunto === "matricula" : lead.triage_status === filter));
-    const term = search.toLocaleLowerCase("pt-BR");
-    return matchesFilter && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
-  }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
-    (Date.parse(a.last_inbound_message_at || "") || 0) - (Date.parse(b.last_inbound_message_at || "") || 0));
-  const requestedLeadId = searchParams.get("lead");
-  const selected = list.find((lead) => lead.id === selectedId)
-    || (requestedLeadId ? (data || []).find((lead) => lead.id === requestedLeadId) ?? null : null)
-    || (isValidRequestedFilter || stageFilter ? list[0] ?? null : null);
 
+function DemoConversation({ onClose }: { onClose: () => void }) {
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState([
+    { id: 1, from: "family", time: "09:14", text: "Bom dia! Gostaria de saber sobre matrícula para o 6º ano." },
+    { id: 2, from: "school", time: "09:15", text: "Bom dia! Seja bem-vinda ao Colégio Conceito Bilíngue. Posso ajudar com as informações iniciais." },
+    { id: 3, from: "family", time: "09:16", text: "Quais são os turnos disponíveis?" },
+  ]);
+  const sendDemoMessage = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setMessages((current) => [...current, { id: Date.now(), from: "school", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), text }]);
+    setDraft("");
+  };
   return (
-    <div className="mx-auto max-w-[1480px] px-4 py-6 md:px-7">
-      <h1 className="text-2xl font-bold">Atendimentos da escola</h1>
-      <p className="mt-1 text-sm text-slate-600">Acompanhe os repasses de {agentName} e responda às famílias pelo WhatsApp. O vermelho indica uma demanda escolar urgente; o amarelo, atenção por espera; o azul, contato novo.</p>
-      {stageFilter && <p className="mt-2 text-sm text-slate-600">Andamento: {stages.find((item) => item.key === stageFilter)?.label}. <button className="font-medium text-primary underline" onClick={() => setSearchParams({ status: "todos" })}>Mostrar todos</button></p>}
-      <div className="mt-5 flex flex-wrap gap-2">
-        {filters.map((item) => (
-          <Button key={item.key} size="sm" variant={!stageFilter && filter === item.key ? "default" : "outline"}
-            onClick={() => { setSearchParams({ status: item.key }); setSelectedId(null); }}>
-            {item.key === "respondido_agente" ? `Respondidos por ${agentName}` : item.label} ({counts[item.key]})
-          </Button>
+    <div className="flex min-h-[500px] h-full min-w-0 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-card p-4">
+        <div><div className="flex items-center gap-2"><h2 className="font-semibold">Mariana Oliveira</h2><span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">DEMONSTRAÇÃO</span></div><p className="text-xs text-muted-foreground">(96) 99999-0101 · Exemplo fictício</p></div>
+        <Button size="sm" variant="outline" onClick={onClose}>Fechar demonstração</Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-3">
+        <span className="text-xs font-medium text-muted-foreground">Andamento</span><span className="rounded-full border px-2.5 py-1 text-xs">Novo</span>
+        <span className="ml-auto text-xs text-muted-foreground">Matrícula · 6º ano</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
+        <div className="mx-auto rounded-full bg-white px-3 py-1 text-[10px] text-slate-500 shadow-sm">Hoje · conversa fictícia</div>
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.from === "school" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm ${message.from === "school" ? "rounded-br-sm bg-emerald-100 text-slate-800" : "rounded-bl-sm border bg-white text-slate-800"}`}>
+              <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p><p className="mt-1 text-right text-[10px] text-slate-500">{message.time} · {message.from === "school" ? "Secretaria (simulado)" : "Família (simulado)"}</p>
+            </div>
+          </div>
         ))}
       </div>
-      <div className="mt-4 grid overflow-hidden rounded-xl border bg-white md:grid-cols-[minmax(280px,360px)_1fr]">
-        <div className="border-b md:border-b-0 md:border-r">
-          <div className="border-b p-3">
-            <Input aria-label="Buscar atendimento" placeholder="Buscar nome, telefone ou e-mail"
-              value={search} onChange={(event) => setSearch(event.target.value)} />
-          </div>
-          <div className="max-h-[70vh] overflow-y-auto">
-            {isLoading && <p className="p-4 text-sm text-slate-600">Carregando atendimentos...</p>}
-            {isError && <p className="p-4 text-sm text-red-700">Erro ao carregar atendimentos.</p>}
-            {!isLoading && !isError && !list.length && <p className="p-4 text-sm text-slate-600">Nenhum atendimento nesta lista.</p>}
-            {list.map((lead) => (
-              <button key={lead.id} type="button" onClick={() => setSelectedId(lead.id)}
-                className={`w-full border-b px-4 py-3 text-left hover:bg-emerald-50 ${attendancePriority(lead).level >= 3 ? "border-l-4 border-l-red-600 bg-red-50" : attendancePriority(lead).level === 2 ? "border-l-4 border-l-amber-500 bg-amber-50" : isNewContact(lead) ? "border-l-4 border-l-blue-500 bg-blue-50" : ""} ${lead.id === selected?.id ? "ring-2 ring-inset ring-emerald-400" : ""}`}>
-                <span className="flex items-center gap-2 font-medium"><span className="truncate">{lead.name}</span>{attendancePriority(lead).level >= 3 ? <span className="shrink-0 rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">URGENTE!</span> : attendancePriority(lead).level === 2 ? <span className="shrink-0 rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">ATENÇÃO</span> : isNewContact(lead) ? <span className="shrink-0 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">NOVO</span> : null}</span>
-                <span className="block text-xs text-slate-600">{lead.phone || lead.email}</span>
-                {attendancePriority(lead).level > 0 && <span className={`block text-xs ${attendancePriority(lead).level >= 3 ? "font-semibold text-red-700" : "text-amber-700"}`}>{attendancePriority(lead).reason}</span>}
-                <span className="mt-1 block line-clamp-2 text-sm text-slate-600">{lead.triage_summary || lead.last_inbound_message || "Sem resumo"}</span>
-              </button>
-            ))}
-          </div>
+      <form className="border-t bg-card p-3" onSubmit={(event) => { event.preventDefault(); sendDemoMessage(); }}>
+        <div className="flex items-end gap-2"><textarea aria-label="Mensagem de demonstração" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Digite uma resposta de teste (não será enviada ao WhatsApp)..." rows={2} className="min-h-11 flex-1 resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" /><Button type="submit" disabled={!draft.trim()}><Send className="mr-2 h-4 w-4" />Simular envio</Button></div>
+        <p className="mt-2 text-[10px] text-muted-foreground">Modo demonstração: as mensagens ficam somente nesta tela e não são gravadas nem enviadas.</p>
+      </form>
+    </div>
+  );
+}
+
+type Tab = "aguardando" | "em_conversa" | "resolvidas" | "todas";
+const tabs: { key: Tab; label: string }[] = [
+  { key: "aguardando", label: "Aguardando" },
+  { key: "em_conversa", label: "Em conversa" },
+  { key: "resolvidas", label: "Resolvidas" },
+  { key: "todas", label: "Todas" },
+];
+
+function tabOf(lead: Atendimento): Exclude<Tab, "todas"> {
+  if (lead.triage_status === "resolvido" || lead.status === "resolvido" || lead.status === "nao_convertido") return "resolvidas";
+  if (waitingForTeam(lead) || attendancePriority(lead).level >= 1) return "aguardando";
+  return "em_conversa";
+}
+
+function legacyFilterToTab(value: string | null): Tab | null {
+  if (!value) return null;
+  if (tabs.some((item) => item.key === value)) return value as Tab;
+  if (value === "todos") return "todas";
+  if (value === "resolvido") return "resolvidas";
+  if (["urgentes", "atencao", "aguardando_secretaria"].includes(value)) return "aguardando";
+  if (["novos", "respondido_agente", "matricula"].includes(value)) return "em_conversa";
+  return null;
+}
+
+type LeadVisit = { scheduled_at: string; status: string };
+function useLeadVisit(leadId: string | null) {
+  return useQuery({
+    queryKey: ["conversa-visita", leadId],
+    enabled: !!leadId,
+    queryFn: async (): Promise<{ id: string | null; stage: string | null; grade: string | null; shift: string | null; student: string | null; visit: LeadVisit | null; source: string | null; campaign: string | null; score: number | null }> => {
+      const { data, error } = DEMO_MODE
+        ? { data: (await demo.opportunities()).filter((o) => o.legacy_lead_id === leadId), error: null }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabelas escolares ainda não estão nos tipos gerados.
+        : await (supabase as any).from("enrollment_opportunities")
+          .select("id,stage,desired_grade,desired_shift,source_channel,source_campaign,probability_score,students(full_name),school_visits(scheduled_at,status)")
+          .eq("legacy_lead_id", leadId).order("created_at", { ascending: false }).limit(1);
+      if (error || !data?.length) return { id: null, stage: null, grade: null, shift: null, student: null, visit: null, source: null, campaign: null, score: null };
+      const row = data[0];
+      const visits = ((row.school_visits || []) as LeadVisit[]).filter((v) => v.status !== "cancelada")
+        .sort((a, b) => Date.parse(b.scheduled_at) - Date.parse(a.scheduled_at));
+      return { id: row.id, stage: row.stage, grade: row.desired_grade, shift: row.desired_shift, student: row.students?.full_name || null, visit: visits[0] || null,
+        source: row.source_channel || null, campaign: row.source_campaign || null, score: row.probability_score ?? null };
+    },
+  });
+}
+
+const visitStatusLabel: Record<string, string> = { agendada: "Agendada", confirmada: "Confirmada", reagendada: "Reagendada", realizada: "Realizada", faltou: "Não compareceu" };
+
+function StageStepper({ opportunityId, stage }: { opportunityId: string; stage: string }) {
+  const actions = useFunnelActions();
+  const [busy, setBusy] = useState(false);
+  const current = funnelKeyOf(stage);
+  const currentIndex = FUNNEL_COLUMNS.findIndex((c) => c.key === current);
+  const move = async (key: FunnelKey) => {
+    if (key === current) return;
+    setBusy(true);
+    try { await actions.moveTo(opportunityId, key); toast.success(`Família em “${FUNNEL_COLUMNS.find((c) => c.key === key)?.label}”`); }
+    catch (error) { toast.error("Não foi possível mover", { description: error instanceof Error ? error.message : undefined }); }
+    finally { setBusy(false); }
+  };
+  if (stage === "perdido") return <p className="text-sm text-[#5B6675]">Marcada como sem interesse. <Link className="font-medium text-[var(--crm-accent)] underline" to={`/funil?ficha=${opportunityId}`}>Ver no funil</Link></p>;
+  return (
+    <ol className="flex flex-col gap-1.5">
+      {FUNNEL_COLUMNS.map((column, index) => {
+        const done = index < currentIndex;
+        const now = index === currentIndex;
+        // Visita precisa de data: abre no funil.
+        if (column.key === "visita" && !now) {
+          return (
+            <li key={column.key}><Link to={`/funil?ficha=${opportunityId}`} className="flex min-h-10 items-center gap-2.5 rounded-[10px] border border-[#E1E4E9] px-3 text-sm font-semibold text-[#3B4452] hover:bg-[#F9FAFB]">
+              <i className={`h-4 w-4 rounded-full border-2 ${done ? "border-[var(--crm-accent)] bg-[var(--crm-accent)]" : "border-[#C3C8D0]"}`} />{column.label}<span className="ml-auto text-xs font-medium text-[#5B6675]">agendar</span></Link></li>
+          );
+        }
+        return (
+          <li key={column.key}>
+            <button type="button" disabled={busy || now} aria-current={now ? "step" : undefined} onClick={() => void move(column.key)}
+              className={`flex min-h-10 w-full items-center gap-2.5 rounded-[10px] border px-3 text-left text-sm font-semibold ${now ? "border-[var(--crm-accent)] text-[var(--crm-accent)] ring-1 ring-[var(--crm-accent)]" : done ? "border-[#E1E4E9] text-[#5B6675]" : "border-[#E1E4E9] text-[#3B4452] hover:bg-[#F9FAFB]"}`}>
+              <i className={`h-4 w-4 rounded-full border-2 ${now ? "border-[5px] border-[var(--crm-accent)]" : done ? "border-[var(--crm-accent)] bg-[var(--crm-accent)]" : "border-[#C3C8D0]"}`} />{column.label}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function FamilyCard({ lead }: { lead: Atendimento }) {
+  const ads = useAdReferrals();
+  const ad = adReferralOf(ads.data, lead.phone);
+  const { data } = useLeadVisit(lead.id);
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const row = (label: string, value: string | null | undefined) => (
+    <div className="flex justify-between gap-3 py-1.5 text-sm"><span className="text-[#5B6675]">{label}</span><span className="min-w-0 break-words text-right">{value || "—"}</span></div>
+  );
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Família</p>
+        {row("Responsável", displayName(lead))}
+        {row("Telefone", lead.phone ? formatPhone(lead.phone) : lead.email)}
+        {data?.student && row("Aluno", data.student)}
+        {row("Série", data?.grade ? `${data.grade}${data.shift ? `, ${data.shift}` : ""}` : lead.interesse)}
+        {row("Origem", data?.source ? sourceLabel(data.source) : ad ? adLabel(ad) : displaySource(lead.source))}
+        {ad && !data?.campaign && row("Anúncio", campaignLabel(ad.ad_headline))}
+        {data?.campaign && row("Campanha", data.campaign)}
+        {row("Assunto", subjectLabel(lead.assunto))}
+      </div>
+      {data?.id && data.stage ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Etapa no funil</p>
+          <div className="mb-2 mt-1.5 flex flex-wrap gap-1"><SourceChip value={data.source} />{data.stage !== "perdido" && <TemperatureChip score={data.score} />}</div>
+          <StageStepper opportunityId={data.id} stage={data.stage} />
         </div>
-        {selected ? <Conversation key={selected.id} lead={selected} /> : (
-          <div className="flex min-h-[400px] items-center justify-center p-8 text-center text-sm text-slate-600">
-            Selecione um atendimento para ler o histórico e responder.
+      ) : (
+        <div className="rounded-xl bg-[var(--crm-accent-softer)] p-3">
+          <p className="text-sm font-semibold">Ainda não está no funil</p>
+          <p className="mt-0.5 text-[13px] text-[#5B6675]">Classifique em 30 segundos: interesse, série e como conheceu a escola.</p>
+          <button type="button" className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-[var(--crm-accent)] px-3 text-sm font-medium text-white hover:bg-[var(--crm-accent-hover)]" onClick={() => setClassifyOpen(true)}>Classificar contato</button>
+        </div>
+      )}
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Visita</p>
+        {data?.visit ? (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>{formatSchoolDateTime(data.visit.scheduled_at)}</span>
+            <span className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-xs font-semibold text-[#067647]">{visitStatusLabel[data.visit.status] || data.visit.status}</span>
+          </div>
+        ) : <p className="text-sm text-[#5B6675]">Nenhuma visita marcada.</p>}
+      </div>
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[.04em] text-[#5B6675]">Resumo da IA</p>
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[#5B6675]">{lead.triage_summary || displayPreview(lead.last_inbound_message) || "O resumo aparece quando houver mensagens."}</p>
+      </div>
+      <LeadReminders leadId={lead.id} leadName={lead.name} />
+      <ClassifyContactDialog lead={lead} open={classifyOpen} onOpenChange={setClassifyOpen} />
+    </div>
+  );
+}
+
+export default function Atendimentos() {
+  const ads = useAdReferrals();
+  const { data, isLoading, isError } = useAtendimentos();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedStage = searchParams.get("etapa");
+  const stageFilter = stages.some((item) => item.key === requestedStage) ? requestedStage as LeadStatus : null;
+  const requestedLeadId = searchParams.get("lead");
+  const tab: Tab = legacyFilterToTab(searchParams.get("aba") || searchParams.get("status")) || "aguardando";
+  const [search, setSearch] = useState("");
+  const [demoMode, setDemoMode] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(requestedLeadId);
+
+  const counts = useMemo(() => {
+    const result: Record<Tab, number> = { aguardando: 0, em_conversa: 0, resolvidas: 0, todas: data?.length || 0 };
+    for (const lead of data || []) result[tabOf(lead)]++;
+    return result;
+  }, [data]);
+
+  const list = (data || []).filter((lead) => {
+    const matchesTab = stageFilter ? lead.status === stageFilter : tab === "todas" || tabOf(lead) === tab;
+    const term = search.toLocaleLowerCase("pt-BR");
+    return matchesTab && (!term || [lead.name, lead.phone, lead.email].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term)));
+  }).sort((a, b) => attendancePriority(b).level - attendancePriority(a).level ||
+    (Date.parse(b.last_inbound_message_at || "") || 0) - (Date.parse(a.last_inbound_message_at || "") || 0));
+
+  const selected = (data || []).find((lead) => lead.id === selectedId) || list[0] || null;
+
+  const tagFor = (lead: Atendimento) => {
+    const level = attendancePriority(lead).level;
+    if (level >= 3) return <span className="rounded-full bg-[#FEF3F2] px-2 py-0.5 text-xs font-semibold text-[#B42318]">Urgente</span>;
+    if (level >= 1) return <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 text-xs font-semibold text-[#93370D]">Atenção</span>;
+    if (isNewContact(lead)) return <span className="rounded-full bg-[#EFF8FF] px-2 py-0.5 text-xs font-semibold text-[#175CD3]">Novo</span>;
+    return null;
+  };
+
+  return (
+    <section aria-label="Conversas" className="flex min-h-[calc(100vh-104px)] flex-col bg-[#F6F7F9] md:h-screen md:min-h-0 lg:flex-row">
+      <aside className="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-[#E4E7EC] bg-white lg:max-h-none lg:w-[300px] lg:border-b-0 lg:border-r">
+        <div className="px-4 pb-2 pt-[18px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <h1 className="text-base font-semibold">Conversas</h1>
+            <span className="text-[13px] text-[#5B6675]"><b className="text-[#1B2430]">{counts.todas}</b> recebidas no total</span>
+          </div>
+          <Input aria-label="Buscar conversa" placeholder="Buscar nome ou telefone" value={search} onChange={(event) => setSearch(event.target.value)} className="mt-3 h-9" />
+        </div>
+        <div className="flex flex-wrap gap-1 px-3 pb-2.5" role="tablist" aria-label="Situação das conversas">
+          {tabs.map((item) => (
+            <button key={item.key} type="button" role="tab" aria-selected={!stageFilter && tab === item.key}
+              onClick={() => { setSearchParams({ aba: item.key }); setSelectedId(null); }}
+              className={`min-h-9 rounded-lg px-2.5 text-sm font-medium ${!stageFilter && tab === item.key ? "bg-[var(--crm-accent-soft)] text-[var(--crm-accent)]" : "text-[#5B6675] hover:bg-[#F2F4F7]"}`}>
+              {item.label} <span className="opacity-75">{counts[item.key]}</span>
+            </button>
+          ))}
+        </div>
+        {stageFilter && (
+          <div className="mx-3 mb-2 flex items-center justify-between rounded-lg bg-[var(--crm-accent-softer)] px-3 py-2 text-xs">
+            <span>Etapa: <strong>{stages.find((item) => item.key === stageFilter)?.label}</strong></span>
+            <button className="font-medium text-[var(--crm-accent)] underline" onClick={() => setSearchParams({ aba: "todas" })}>Limpar</button>
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading && <p className="p-5 text-sm text-[#5B6675]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Carregando conversas…</p>}
+          {isError && <p className="p-5 text-sm text-[#B42318]">Não foi possível carregar as conversas. Atualize a página.</p>}
+          {!isLoading && !isError && !list.length && (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm font-semibold">Nenhuma conversa aqui</p>
+              <p className="mt-1 text-xs text-[#5B6675]">As mensagens novas aparecem automaticamente.</p>
+              <button type="button" className="mt-3 text-xs font-medium text-[var(--crm-accent)] underline" onClick={() => setDemoMode(true)}>Ver conversa de exemplo</button>
+            </div>
+          )}
+          {list.map((lead) => (
+            <button key={lead.id} type="button" onClick={() => { setDemoMode(false); setSelectedId(lead.id); }}
+              className={`flex w-full flex-col gap-1 border-t border-[#EEF0F3] px-4 py-3 text-left hover:bg-[#F9FAFB] ${!demoMode && lead.id === selected?.id ? "bg-[var(--crm-accent-softer)]" : ""}`}>
+              <span className="flex items-center justify-between gap-2"><b className="truncate text-sm">{displayName(lead)}</b><span className="shrink-0 text-[13px] text-[#5B6675]">{timeAgo(lead.last_inbound_message_at).replace("há ", "")}</span></span>
+              <span className="truncate text-[13px] text-[#5B6675]">{displayPreview(lead.last_inbound_message) || lead.triage_summary || "Sem mensagem registrada"}</span>
+              {(tagFor(lead) || socialChannelOf(lead) || adReferralOf(ads.data, lead.phone)) && <span className="flex flex-wrap gap-1">{tagFor(lead)}{adReferralOf(ads.data, lead.phone) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${adChipClass(adReferralOf(ads.data, lead.phone)!.source_app)}`}>{adLabel(adReferralOf(ads.data, lead.phone)!)}</span>}{socialChannelOf(lead) && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${socialChannelOf(lead) === "instagram" ? "bg-[#FBEAF2] text-[#9B1C5A]" : "bg-[#E8F0FE] text-[#1D4E9E]"}`}>{socialChannelOf(lead) === "instagram" ? "Instagram" : "Facebook"}</span>}</span>}
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <div className="flex min-h-[520px] min-w-0 flex-1 flex-col">
+        {demoMode ? <DemoConversation onClose={() => setDemoMode(false)} /> : selected ? <Conversation key={selected.id} lead={selected} /> : (
+          <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
+            <MessageCircle className="mb-3 h-8 w-8 text-[var(--crm-accent)]" aria-hidden="true" />
+            <h2 className="text-lg font-semibold">Escolha uma conversa</h2>
+            <p className="mt-1 max-w-sm text-sm text-[#5B6675]">O histórico, a resposta e a ficha da família aparecem aqui.</p>
           </div>
         )}
       </div>
-    </div>
+
+      <aside className="w-full shrink-0 border-t border-[#E4E7EC] bg-white p-[18px] lg:w-[300px] lg:overflow-y-auto lg:border-l lg:border-t-0">
+        {selected && !demoMode ? <FamilyCard lead={selected} /> : (
+          <p className="text-sm text-[#5B6675]">{demoMode ? "Conversa de exemplo: nada é salvo nem enviado." : "A ficha da família aparece ao abrir uma conversa."}</p>
+        )}
+      </aside>
+    </section>
   );
 }

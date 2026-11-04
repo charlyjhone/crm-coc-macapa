@@ -1,0 +1,48 @@
+name: CRM visual validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/build-conceito.mjs"
+      - "deployments/conceito/public-config.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/crm-visual-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build COC (default mode)
+        run: npm run build
+      - name: Build Colégio Conceito
+        run: node scripts/build-conceito.mjs
+      - name: Lint visual refresh files
+        run: npx eslint src/components/AppTopNav.tsx src/main.tsx src/pages/Atendimentos.tsx src/pages/CaptacaoDashboard.tsx src/pages/EnrollmentPipeline.tsx
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Testes do webhook da Meta
+        run: node --test scripts/test-meta-webhook.mjs
+      - name: Lint layout novo (Proposta 2)
+        run: npx eslint src/lib/funnel.ts src/hooks/useFunnelActions.ts src/hooks/useOpportunities.ts src/components/crm/ClassifyContactDialog.tsx src/components/crm/FunnelBits.tsx src/components/AppSidebar.tsx src/pages/Hoje.tsx src/pages/Funil.tsx src/pages/Direcao.tsx src/lib/demo.ts src/hooks/useAtendimentos.ts
+      - name: Guardar o build (para conferência visual)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-coc
+          path: dist
+          retention-days: 3

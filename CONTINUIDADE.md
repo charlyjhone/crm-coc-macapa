@@ -662,6 +662,64 @@ Commit de código usado como referência antes da criação do documento: **`3c1
 - `escola_valores_data_divulgacao` do Conceito foi esvaziada (o "1º de novembro" era do COC). Backup do roteiro anterior em `escola_info_backup_2026_10_21`.
 - Pendente: colar o roteiro da Ceci em Configurações → Escola (o conector recusou gravar o texto longo); depois, segredos da OpenAI/Z-API, webhook e testes em modo prévia antes de ativar a Ceci.
 
+## Layout novo no prévio do Conceito (21/10/2026)
+
+Branch `feat/novo-visual-crm-escolas`. Publicado nos serviços `crm-conceito-preview` (demonstração) e `crm-coc-macapa` (COC, dados reais — ver seção de estado abaixo). `main` ainda não recebeu o layout novo.
+
+- Menu superior trocado por barra lateral (`src/components/AppSidebar.tsx`): Hoje, Conversas, Funil, Direção; em "Mais": Visitas, Famílias e alunos, Tarefas. Equipe, Configurações e Auditoria ficam no menu do usuário.
+- `/` e `/hoje` — nova tela Hoje (`src/pages/Hoje.tsx`): famílias aguardando a secretaria, visitas do dia (registro pelo `VisitStatusDialog`) e oportunidades/conversas sem retorno há 3 dias ou mais.
+- `/atendimentos` — Conversas em três colunas (lista com abas Aguardando/Em conversa/Resolvidas/Todas, conversa, ficha da família com visita e resumo da IA). Envio, áudio, conclusão e pesquisa continuam usando as mesmas funções. Parâmetros antigos `?status=` são aceitos.
+- `/funil` — quadro com quatro colunas (Novo interessado, Visita agendada, Visitou, Quer matricular) agrupando as etapas de `enrollment_opportunities`, com ficha lateral e `OpportunityProgressDialog`. `/matriculas` continua disponível.
+- `/direcao` — indicadores de 7/30/90 dias: novos contatos, visitas realizadas, querem matricular, satisfação (pesquisa), contatos por período, origem (pesquisa; sem respostas usa a origem do funil), caminho das famílias e motivos de desistência.
+- Telas antigas (`/captacao`, `/origem-conversao`, `/pendentes` etc.) seguem acessíveis pela URL.
+- Nenhuma alteração de banco, funções ou permissões.
+- Modo demonstração (`src/lib/demo.ts`): liga sozinho em hosts com "preview" (ou `?demo=1`; `?demo=0` desliga). Usa famílias fictícias em memória; enviar, resolver, mover no funil e registrar visita funcionam só na tela. Nada vai ao Supabase nem ao WhatsApp. Botões de cadastro que gravam no banco ficam ocultos.
+- Cores por escola (`src/lib/crmTheme.ts`): um tema por modo de build (Conceito: verde-azulado + laranja; padrão: verde + verde-limão), aplicado como variáveis `--crm-*` no início do app.
+- Cores do Conceito ajustadas pelo logo (turquesa #12B9AE, verde-água #46C8B6, laranja #E27C26; botões em #0B8077 para leitura com texto branco).
+- **Regra do responsável: o CRM não confirma matrícula; é ferramenta de atendimento e análise de dados.** O botão "Confirmar matrícula" criado em 21/10 foi removido em 22/10 (Funil, ficha da conversa e opção "Matriculado" da demonstração), e a etapa "Matriculado" saiu da lista do `OpportunityProgressDialog`. Motivo: o pai pode não concluir a matrícula e o dado ficaria errado. A matrícula é confirmada no sistema da escola; o CRM vai no máximo até "Quer matricular". Não reintroduzir.
+- Comparativo de matrículas (`useEnrollmentComparison`, `EnrollmentComparison`, `RecordEnrollmentsDialog`): a secretaria lança data + quantidade de matrículas do dia (ou cola vários dias); o sistema calcula o acumulado do ano letivo (campanha de 1º/08 a 31/03) e compara com a mesma data dos dois anos anteriores. Cartão na tela Hoje e painel na Direção.
+- PENDENTE para usar fora da demonstração: criar a tabela `enrollment_history (academic_year int, day date unique, count int)` com RLS para usuários da equipe. O comparativo usa somente os números lançados pela secretaria (não lê matrículas do funil); sem a tabela ele fica vazio e o lançamento mostra aviso. Não criada por decisão do responsável (prévio só para testes).
+- Logo da escola no topo da barra lateral, em cartão branco (`AppSidebar.tsx`): Conceito usa o logo oficial `public/brand/colegio-conceito-logo.png` (o SVG antigo `colegio-conceito.svg` é uma redesenhada aproximada e não deve ser usado); COC usa o logo original `public/brand/coc-macapa-norte-logo.svg` (vetor recortado do PDF oficial, 22/10). "AE CRM" fica pequeno no rodapé da barra.
+- Direção → "Caminho das famílias" redesenhado em barras horizontais alinhadas à esquerda (nome, % da etapa anterior, número), sem texto dentro das barras.
+- Branch juntado com o `main` em 21/10 (commit `8b44835`): inclui correções de anexos do WhatsApp e nome da atendente configurável. Conflito só no CONTINUIDADE.md, resolvido mantendo as duas seções.
+
+## Estado em 21/10/2026, 23h30 — continuar daqui
+
+### Serviços no Render (equipe "CRM COC")
+| Serviço | Tipo | Branch | Uso | Situação |
+|---|---|---|---|---|
+| `crm-conceito-preview` | estático | `feat/novo-visual-crm-escolas` | prévio do Conceito, modo demonstração automático (host com "preview") | no ar |
+| `crm-coc-macapa` (crm-coc-macapa.onrender.com) | web service grátis (`npx serve -s dist`) | `feat/novo-visual-crm-escolas` | COC com layout novo e **dados reais** | reativado em 21/10; ver problema abaixo |
+| `crm-escola` | estático | `main` | produção atual do COC | no ar, sem mudanças |
+| `crm-conceito` | estático | `main` | produção do Conceito | no ar, sem mudanças |
+
+- `crm-coc-macapa`: o responsável trocou o branch e o Build Command para `npm ci && npm run build` (o antigo `npm run build` falhava com `vite: not found`). O build passa.
+- **Problema aberto:** a primeira publicação abriu página em branco. Os logs mostram que o navegador baixa `index-*.js` e o CSS, mas nenhum chunk de rota (nem `/auth`), então o app quebra ao iniciar. Hipótese: variáveis de ambiente antigas do serviço sobrescrevendo o Supabase. Em 21/10 foram definidas no serviço `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` com os valores públicos do COC (iguais ao `.env`) e foi disparado novo deploy (`dep-dbcn9ca9lscs73efotv0`). **Primeiro passo amanhã:** abrir o link; se continuar em branco, pegar o erro do Console (F12) e corrigir.
+- Decisão do responsável: depois de validado, deixar **apenas um** CRM do COC no ar — o `crm-coc-macapa` (pelo link) — e suspender o `crm-escola`.
+- A Ana não depende do frontend (roda nas funções do Supabase COC `fenqnbzdjnyvgrmjczoi` + Z-API); trocar o link não a afeta. Nenhuma função tem URL do frontend fixa; CORS `*`.
+
+### Próximos passos
+1. Resolver a página em branco do `crm-coc-macapa` e validar com login real (Hoje, Conversas, Funil, Direção, enviar mensagem).
+2. Supabase COC → Authentication → URL Configuration: adicionar `https://crm-coc-macapa.onrender.com` em Redirect URLs e como Site URL.
+3. No Render, em cada serviço estático/web: header `Cache-Control: no-cache` para `/*` (evita navegador mostrar versão antiga após deploy).
+4. Suspender `crm-escola` quando o link novo estiver aprovado.
+5. Avaliar plano pago ou site estático para o `crm-coc-macapa` (o web service grátis "dorme" após ~15 min; primeiro acesso demora até ~1 min).
+6. Criar a tabela `enrollment_history` (COC e Conceito) para o lançamento manual de matrículas valer fora da demonstração — só quando o responsável liberar mudanças no banco.
+7. Quando aprovado, levar o branch para o `main` (Conceito e COC sobem o mesmo layout, cada um com seu tema).
+8. Confirmar com o responsável se a campanha de matrículas começa em 1º de agosto (usado no comparativo) e se o número lançado pela secretaria inclui rematrículas.
+9. Conceito: continuam pendentes o roteiro da Ceci, segredos OpenAI/Z-API e webhook antes de ativar a atendente.
+- 22/10: cores do COC ajustadas pelo logo oficial (verde #2EA04F, verde-claro #6EC646; botões #217A39 para leitura com texto branco; destaque âmbar #F2A93B no selo de conversas e em "querem matricular").
+
+## 22/10/2026 — urgência e lembretes
+
+- **Urgência:** ao mudar o andamento para "Em atendimento" ou "Em negociação", o `useUpdateLeadStatus` passa `triage_status` de `aguardando_secretaria` para `respondido_agente` (a secretaria assumiu). Assim a família sai de "Aguardando/urgente"; uma mensagem nova volta a acionar a triagem. Se a última mensagem da família continua sem resposta, ela segue marcada (alguém precisa responder). Em 22/10 havia 9 famílias no COC com andamento em atendimento/negociação ainda em `aguardando_secretaria` (criadas antes da correção); a secretaria pode resolvê-las mudando o andamento, ou fazer um ajuste único no banco se o responsável autorizar.
+- O selo de "Conversas" na barra conta as famílias que aguardam a secretaria pela mesma regra da tela Hoje.
+- **Lembretes** (`useReminders`, `components/crm/Reminders.tsx`): botão "Criar lembrete" na ficha da conversa e na ficha do Funil (tipo: enviar valores, enviar documento, falar sobre matrícula, retornar contato, outro; data com atalhos Amanhã / Próxima segunda / Dia 1º; observação). No dia, o lembrete aparece no painel "Lembretes de hoje" da tela Hoje (com atrasados), gera aviso na abertura do CRM (uma vez por dia) e um selo no item "Hoje" da barra. "Feito" conclui.
+- Tabela `lead_reminders` em `supabase/migrations/20261022150000_lead_reminders.sql` (RLS: equipe admin/user). Testada no COC dentro de transação desfeita (ok). **Ainda não aplicada** — aguardando liberação do responsável. Sem a tabela, a ficha mostra "Lembretes ainda não ativados" e o painel não aparece. Na demonstração funciona em memória.
+- 22/10: ajuste único no COC (autorizado): 6 famílias em atendimento/negociação já respondidas passaram de `aguardando_secretaria` para `respondido_agente` (Evilin, Joisiane, Karolayne, Brenda Vieira, Bianca Lima, Rayra Sampaio). Ficaram como estavam: "Contato 5596981448058" (mensagem sem resposta) e "Contato 5596991376853" (sem mensagens).
+- 22/10: Conversas mostra o total geral ("N recebidas no total") e o número em todas as abas; a lista carrega até 3000 contatos.
+- 22/10: a criação da tabela `lead_reminders` no COC foi autorizada, mas a ferramenta de migration foi cancelada duas vezes na aprovação; tabela ainda NÃO existe. Aplicar o arquivo `supabase/migrations/20261022150000_lead_reminders.sql` no SQL Editor do Supabase COC.
+
 ## 50. Ceci (Conceito): modo prévia, modo teste e ativação controlada (22/10/2026)
 
 - Roteiro da Ceci gravado em `escola_info` pela tela de Configurações (conferido por hash com o arquivo aprovado).
@@ -749,7 +807,34 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Testes: 33 em `scripts/test-ana-conversas-reais.mjs` (4 novos falham na v119).
 - Pendente: tela em Configurações para editar os dias sem expediente (hoje só via banco).
 
-## 59. Ana: irmãos na mesma conversa e trava contra repetição (01/11/2026)
+## 59. Layout "Proposta 2 — funil escolar" (01/11/2026)
+
+Branch `feat/novo-visual-crm-escolas` (serviços `crm-coc-macapa`, dados reais, e `crm-conceito-preview`, demonstração). Base: merge de `origin/main` até `9e9838a` (inclui exclusão de família, visita já feita, marcar como lida e a página de exportação `/relatorios`). Proposta visual aprovada pelo responsável no canvas do CRM (página "Proposta 2").
+
+- Menu: Início, Funil de matrícula, Conversas, Relatórios; em "Mais": Visitas, Famílias e alunos, Tarefas, Exportar relatórios (`/relatorios`, a página de exportação vinda da `main`). "Relatórios" do menu é a antiga Direção (`/direcao`).
+- `src/lib/funnel.ts`: funil em 5 colunas sobre as etapas do banco (Novo contato, Em conversa, Visita agendada, Visitou, Quer matricular — sem "Matriculado"), origens novas (`anuncio_instagram`, `anuncio_facebook`, `instagram` orgânico, `whatsapp`, `indicacao`, `passou_na_frente`, `outro`; valores antigos continuam reconhecidos), temperatura Quente/Morno/Frio pela `probability_score` (≥60 / ≥30), motivos de desistência e séries por idade (usa `escola_series_idades` quando existir).
+- Início (`Hoje.tsx`): faixa do funil, Novos contatos (contato status Novo, sem família no funil, últimos 30 dias, exceto `attention_level=externo`) com botão Classificar, Aguardando resposta, Visitas de hoje, Retornar hoje, lembretes e comparativo de matrículas.
+- Classificar contato (`ClassifyContactDialog`): o que procura (matrícula / família da escola / outro assunto), responsável, aluno, idade → série, turno, ano letivo, origem e campanha (quando anúncio). "Família da escola" e "outro assunto" só mudam o status do contato para Em atendimento. Cadastro manual (botão Novo contato) usa `create_school_enrollment`.
+- Funil: filtros (busca, segmento, origem, só anúncios), "Sem interesse", ficha sobreposta com "Como foi a visita?" (Ficou interessado → Quer matricular; Ainda pensando → retorno em 2 dias; Não ficou interessado → motivo), agendar visita (`schedule_school_visit`), corrigir origem/campanha, histórico (`enrollment_stage_history`) e "Mais opções" (`OpportunityProgressDialog`).
+- Conversas: ficha mostra origem/campanha e a etapa no funil clicável; quem ainda não está no funil ganha "Classificar contato" (substitui "Preparar cadastro", que chamava `register_ana_enrollment`, permitido só ao service_role e por isso falhava para a equipe).
+- Relatórios: KPI de famílias vindas de anúncios, tabela "Qual origem traz famílias que querem matricular?", campanhas de anúncio, investimento do mês (guardado só no navegador) → custo por família, exportar CSV e PDF (impressão).
+- Migration `supabase/migrations/20261101183438_classify_school_contact.sql` (`classify_school_contact` e `set_opportunity_source`) **aplicada no COC em 01/11/2026** com autorização do responsável (versão `20261101183438`). EXECUTE só para `authenticated` (anon negado); guarda de papel admin/Secretaria. Teste transacional desfeito: cadastro com origem/campanha, repetição reaproveita a mesma oportunidade, correção de origem, vínculo `legacy_lead_id`, contato Novo → Em atendimento e recusa para usuário sem papel. **Conceito ainda não recebeu** — aplicar lá antes de levar o layout à `main`.
+- Validação: CI (`crm-visual-validation`, workflow_dispatch) com build COC e Conceito, TypeScript global e ESLint dos arquivos novos — aprovado. Capturas em modo demonstração (sessão fictícia, Supabase bloqueado) conferidas para Início, Classificar, Funil, Conversas, Relatórios e celular; nenhum erro de página. O npm registry estava bloqueado na sessão, por isso a validação foi feita no GitHub Actions.
+- Corrigido erro de TypeScript vindo da `main` em `Families.tsx` (`is_financially_responsible`).
+
+- Próximo pedido do responsável: receber mensagens do Instagram (Direct) e do Facebook (Messenger) no CRM, além do WhatsApp.
+
+## 60. Instagram Direct e Facebook Messenger (01/11/2026)
+
+- Integração pela API oficial da Meta (Messenger Platform; Instagram via Página do Facebook ligada à conta profissional). A Ana **não** atende esses canais: toda mensagem vai para a secretaria (`triage_status=aguardando_secretaria`).
+- Banco (COC, versão `20261102011058`, aplicada com autorização): `lead_social_identities` (contato ↔ IGSID/PSID, nome, @, `last_inbound_at`) e `social_messages` (mensagens, `unique(channel, external_id)` para não duplicar reenvios). RLS ligada; equipe admin/Secretaria só lê; gravação só pelas funções (service_role). Conceito ainda não recebeu.
+- `meta-webhook` v1 (COC, `verify_jwt=false`, autenticação própria): GET verifica `META_VERIFY_TOKEN`; POST confere `X-Hub-Signature-256` com `META_APP_SECRET` (sem segredo → 503; assinatura errada → 401). Cria o contato com `source` "Instagram Direct"/"Facebook Messenger", busca nome/@ com o token da Página, grava ecos (respostas feitas pelo app do Instagram/Facebook) como "Pelo aplicativo", reabre contato resolvido. Retorna 500 em falha de gravação para a Meta reenviar. Logs sem conteúdo nem IDs.
+- `send-meta-message` v1 (COC, `verify_jwt=true`): só admin/Secretaria com nome em Meu perfil; recebe `{leadId, message}`; texto sai como "Nome · Secretaria"; limite 1000 bytes; janela de 24 h pela `last_inbound_at`; com `META_HUMAN_AGENT=1` (só depois da aprovação "Human Agent" da Meta) usa `MESSAGE_TAG`/`HUMAN_AGENT` até 7 dias; fora disso recusa com 409.
+- Frontend: Conversas mostra selo Instagram/Facebook na lista, mensagens desses canais no histórico, aviso "pode responder por mais X h" e envio pelo canal certo (sem áudio por enquanto).
+- Testes: `scripts/test-meta-webhook.mjs` (6 casos: assinatura, criação, duplicidade, eco, anexo/reabertura, eventos ignorados) no CI (`crm-visual-validation`, agora Node 22). Conferido no ar via pg_net: verificação com token errado → 403; POST sem segredos → 503.
+- **Pendente (responsável):** criar o app na Meta, cadastrar os segredos `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGE_ACCESS_TOKEN` no Supabase COC, apontar o webhook para `https://fenqnbzdjnyvgrmjczoi.supabase.co/functions/v1/meta-webhook` (Página: `messages`, `message_echoes`; Instagram: `messages`), assinar a Página em `subscribed_apps`, ligar "Permitir acesso a mensagens" no Instagram e pedir acesso avançado (`pages_messaging`, `instagram_manage_messages`, opcional Human Agent). Até o acesso avançado, só chegam mensagens de pessoas com papel no app.
+
+## 61. Ana: irmãos na mesma conversa e trava contra repetição (01/11/2026)
 
 - Caso real 99183-7061 (31/10): mãe disse "1 ano 3 ano e 6 ano", depois mandou "María Valentina 5 años / Sarah rebeca 9 anos / María Cecilia 12 anos"; a Ana repetiu "qual é o nome da criança?" três vezes. Causas: a pergunta "nome da criança" não era reconhecida (só "nome do aluno/aluna") e o cadastro aceitava só um aluno.
 - Agora: "nome da criança/do seu filho/da sua filha..." é reconhecido; respostas como "Pode sim/ok" não viram nome; `parseSiblings` lê 2+ crianças (linha, vírgula, " e ", ou "Nome N anos"); série de cada uma vem da própria linha, do nome ("Pedro 2º ano") ou das séries citadas antes, pareadas por idade; sem série, a Ana pergunta a série de cada uma. Resumo único "Alunos: • Nome (N anos) – Série" e, com SIM (ou pedido de visita), `register_ana_enrollment` para cada criança; idade nas observações de cada aluno.
@@ -757,15 +842,46 @@ Branch `fix/ana-repeticao-visitas-serie` (ainda NÃO publicada; produção segue
 - Bug corrigido junto: "5 anos" não é mais lido como "5º ano".
 - Testes: 39 em `scripts/test-ana-conversas-reais.mjs`. Obs.: `test-ana-visits.mjs` usa visita "daqui a 7 dias"; quando cai em fim de semana, 9 testes antigos falham nas duas versões (não é regressão).
 
-## 60. Conflito de horário bloqueado também no CRM (01/11/2026)
+## 62. Conflito de horário bloqueado também no CRM (01/11/2026)
 
 - Caso: Giovana (Ana, 30/10 10:55) e Gael (secretaria remarcou pelo CRM, 30/10 14:40) ficaram ambos em 03/11 16h. As RPCs da Ana checavam conflito; `schedule_school_visit` e `reschedule_school_visit` (tela) só checavam o mesmo aluno.
 - Migration `20261102010000_block_visit_slot_conflicts.sql` (COC e Conceito): nova `school_visit_conflict_message(horário, visita_ignorada)`; as duas RPCs da tela usam a mesma trava (`pg_advisory_xact_lock(781334218)`) e a mesma janela de 30 min da Ana e recusam com "Horário ocupado: já existe visita de X às HH:MM. Horários livres nesse dia: ...". Testado em transação desfeita (5 cenários).
 - Tela Visitas: alerta vermelho no topo listando conflitos entre visitas futuras em aberto e selo "Conflito de horário" nos cartões. O conflito Gael/Giovana já existente aparece no alerta até ser resolvido.
 
-## 63. Valores já disponíveis e secretaria fechada (02/11/2026)
+### 60.1 Ativação real (02/11/2026)
+- Segredos no Supabase COC: `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGE_ACCESS_TOKEN` (token da Página "COC Macapá Norte", id 979888565440792, tipo PAGE, não expira, escopos pages_messaging, pages_manage_metadata, pages_read_engagement, pages_show_list, instagram_basic, instagram_manage_messages, business_management). Gerado pelo Explorador da API Graph (token de usuário estendido → `979888565440792?fields=access_token`), porque o "Gerar token" do caso de uso Messenger só dava pages_messaging. `META_IG_ACCESS_TOKEN` é opcional (tem prioridade para o Instagram) e não deve existir agora.
+- Página assinada no app (`subscribed_apps`: messages, message_echoes); Instagram @cocmacapa (17841464760442525) ligado à Página; webhooks do Messenger e do Instagram verificados.
+- Teste real: Messenger "Olá" (00h03) e Instagram Direct "Teste crm" (00h40) gravados com nome e @. Respostas pelo CRM às 00h42 nos dois canais: aceitas pela Meta (message_id), gravadas como "Renato Coutinho · Secretaria" e os ecos do webhook não duplicaram.
+- Função temporária `meta-diagnostic` usada no diagnóstico, agora neutralizada (410). App ainda em desenvolvimento: só recebe de quem tem função no app até a análise da Meta (acesso avançado).
+- Tela: novos contatos com nome clicável e botão Responder; telefone formatado no lugar de "Contato 55…"; marcadores técnicos da Ana escondidos; selo de canal colorido. Política de privacidade pública em `/privacidade`.
+- 02/11 00h46, a pedido do responsável: removidos os dados de teste da integração Meta — 2 contatos "Renato Coutinho" (Facebook Messenger e Instagram Direct), 4 mensagens sociais, 2 vínculos de identidade, 3 registros de atividade e a família de teste do funil (aluno "teste", responsável sem telefone, oportunidade sem visita/tarefa). Nenhum outro dado foi alterado. Conferido: zero registros restantes. A próxima mensagem do mesmo perfil cria um contato novo.
+
+## 63. Origem por anúncio "Clique para conversar no WhatsApp" (02/11/2026)
+- A Z-API grava em `whatsapp_messages.raw_data.externalAdReply` os dados do anúncio (`sourceType=ad`, `sourceApp` instagram/facebook, `sourceId`, `body`, `ctwaClid`). Texto pronto comum: "Olá! Posso ter mais informações sobre isso?" (mas a família pode trocar).
+- Migration `20261102040231_whatsapp_ad_referrals.sql` aplicada no COC (com autorização): tabela `lead_ad_referrals` (1ª conversa de anúncio por telefone; equipe só lê), gatilho em `whatsapp_messages` (após inserir) e em `enrollment_opportunities` (antes de inserir) que trocam origem genérica (ana_whatsapp/whatsapp/cadastro_manual/vazia) por `anuncio_instagram|anuncio_facebook` + campanha = 1ª frase do anúncio. Falha no gatilho nunca bloqueia a mensagem. Histórico: 20 conversas (13 Instagram, 7 Facebook, 4 anúncios, desde 29/10); 6 famílias do funil corrigidas. A 1ª tentativa falhou porque o recálculo de pontuação exige papel interno; o histórico roda com `request.jwt.claims` de service_role. Gatilho ao vivo não testado com inserção (evitado para não disparar a Ana); usa a mesma lógica do histórico.
+- Tela: selo "Anúncio · Instagram/Facebook" nos novos contatos e na lista de Conversas, linha "Anúncio" na ficha, classificação já vem com a origem/campanha do anúncio. Relatórios: KPI "Conversas vindas de anúncios", tabela por anúncio (conversas, no funil, visitaram, querem matricular), CSV e custo por conversa.
+- Uma das 20 conversas é de candidato a emprego (pedagogo), não família.
+- Conceito ainda não recebeu.
+
+## 64. Conceito — Ceci atualizada e marcação de anúncios (02/11/2026)
+
+- `school-triage` do Conceito (v24) passou a importar o commit fixo `8812658` (mesma versão do COC); `verify_jwt=false` mantido.
+- `system_settings.escola_series_idades` no Conceito: "Maternal Baby=2; Maternal Baby=3; 1º Período=4; … 3ª série=17" (confirmado pela escola: Maternal Baby atende 2 e 3 anos).
+- Commit `77ed5a3`: a atendente aceita a mesma série com duas idades (faixa menor–maior para o aviso de idade) e, quando a tabela tem um único Maternal, "maternal"/"maternal baby" vira essa série. Sem efeito no COC (Maternal 2 e 3). Conceito `school-triage` v25 fixado em `77ed5a3`; COC continua em `8812658`.
+- Migration `whatsapp_ad_referrals` aplicada no Conceito (texto dos comentários neutro, sem menção a outra escola). Histórico: 55 telefones de anúncio (54 Instagram, 1 outro), 6 anúncios, 3 oportunidades marcadas como anúncio.
+- Layout do Conceito **não** foi alterado (Render `crm-conceito` continua na `main`).
+- Conceito: `escola_dias_sem_visita` = "02/11/2026" (feriado de Finados).
+
+## 65. Valores já disponíveis e secretaria fechada (02/11/2026)
 
 - Caso real 99117-6699 (02/11, feriado, 10:05): pediu o valor do 6º ano; a Ana respondeu "serão divulgados a partir de 1º de novembro" (data já passada) e não sabia que a secretaria estava fechada.
 - Agora: `escola_valores_data_divulgacao` é lida como data (`parseDataTexto`); depois dela o prompt diz que os valores "JÁ ESTÃO DISPONÍVEIS" com a secretaria, pede a série e encaminha (precisa_humano). Rede de segurança troca "serão divulgados a partir de..." por "já estão disponíveis".
 - `situacaoSecretaria` (horário `escola_horario_secretaria`, fins de semana e `escola_dias_sem_visita`): o CALENDÁRIO do prompt diz se a secretaria atende agora e, se não, quando volta; ao encaminhar, a Ana diz quando ela volta em vez de "em breve".
 - Testes: 43 em `scripts/test-ana-conversas-reais.mjs`.
+
+## 66. Despertador do CRM COC no Render (02/11/2026)
+
+- O serviço `crm-coc-macapa` no Render é *web service* no plano **free** (`npx serve -s dist`), que dorme após ~15 min sem acesso e leva 30–60 s para acordar. O Conceito (`crm-conceito`) é *static site* e não dorme.
+- Paliativo: job do pg_cron no Supabase do COC `despertador-crm-render` (`*/10 * * * *`) faz `net.http_get('https://crm-coc-macapa.onrender.com/robots.txt')`. Para desligar: `select cron.unschedule('despertador-crm-render');`.
+- Uso estimado ~744 h/mês, dentro das 750 h grátis do workspace (só este serviço é web service).
+- Soluções definitivas em avaliação pelo usuário: plano Starter (mantém o endereço) ou domínio próprio (ex.: crm-cocmacapa.com) apontando para um static site. Se o endereço mudar, atualizar a URL de privacidade no app da Meta.

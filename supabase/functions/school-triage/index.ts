@@ -105,7 +105,14 @@ function parseSeriesIdades(raw: string | null | undefined): SerieIdade[] {
 }
 
 const temSerie = (nome: string) => SERIES_IDADES.some((s) => s.nome === nome);
-const idadeEsperada = (grade: string) => SERIES_IDADES.find((s) => s.nome === grade)?.idade ?? null;
+// Uma série pode aparecer mais de uma vez na tabela quando atende duas idades
+// (ex.: "Maternal Baby=2; Maternal Baby=3"): vale a faixa entre a menor e a maior.
+const idadesDaSerie = (grade: string) => SERIES_IDADES.filter((s) => s.nome === grade).map((s) => s.idade);
+// Série única de Maternal na tabela da escola (ex.: "Maternal Baby"), para quando a família só diz "maternal".
+function maternalUnicoDaEscola(): string | null {
+  const nomes = [...new Set(SERIES_IDADES.map((s) => s.nome).filter((n) => /^maternal\b/i.test(n)))];
+  return nomes.length === 1 ? nomes[0] : null;
+}
 
 function normalizeGrade(value: string | null | undefined): string | null {
   if (!value?.trim()) return null;
@@ -118,7 +125,7 @@ function normalizeGrade(value: string | null | undefined): string | null {
   const maternalN = normalized.match(/^maternal\s*(2|ii|dois|3|iii|tres)$/);
   if (maternalN) {
     const nome = /^(?:3|iii|tres)$/.test(maternalN[1]) ? "Maternal 3" : "Maternal 2";
-    return temSerie(nome) ? nome : "Maternal";
+    return temSerie(nome) ? nome : (maternalUnicoDaEscola() || "Maternal");
   }
   const periodo = normalized.match(/^(?:([12])\s*o?|(primeiro|segundo))\s*periodo$/);
   if (periodo) {
@@ -127,7 +134,7 @@ function normalizeGrade(value: string | null | undefined): string | null {
   }
   const fundamental = normalized.match(/^([1-9])\s*o?\s*ano\s*(?:do\s+)?(?:ensino\s+)?fundamental(?:\s*(?:i{1,2}|[12]))?$/);
   if (fundamental) return fundamental[1] + "º ano";
-  if (normalized === "maternal") return "Maternal";
+  if (normalized === "maternal" || normalized === "maternal baby") return maternalUnicoDaEscola() || "Maternal";
   const jardim = normalized.match(/^jardim\s*(i{1,2}|[12])$/);
   if (jardim) return jardim[1] === "ii" || jardim[1] === "2" ? "Jardim II" : "Jardim I";
   // "1º ano do Ensino Médio" é a 1ª série; nunca confundir com o 1º ano do Fundamental.
@@ -168,7 +175,7 @@ function extractGradeAndShift(text: string): { grade: string | null; shift: stri
 function stripGradeAndShiftFromStudentName(value: string | null | undefined): string | null {
   if (!value?.trim()) return value?.trim() || null;
   const original = value.trim();
-  const suffix = original.match(/^(.*?)(?:[,;]?\s+)(maternal(?:\s*(?:2|3|ii|iii))?|(?:[12]\s*[º°o]?|primeiro|segundo)\s*per[ií]odo|jardim\s*(?:i{1,2}|[12])|[1-9]\s*(?:[º°o]\s*)?ano|(?:primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|s[eé]timo|s[eé]tima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano|[1-3]\s*[ªa]?\s*s[eé]rie)(?:\s*[,;]?\s*(?:manhã|manha|tarde|integral))?$/iu);
+  const suffix = original.match(/^(.*?)(?:[,;]?\s+)(maternal(?:\s*(?:2|3|ii|iii|baby))?|(?:[12]\s*[º°o]?|primeiro|segundo)\s*per[ií]odo|jardim\s*(?:i{1,2}|[12])|[1-9]\s*(?:[º°o]\s*)?ano|(?:primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quarta|quinto|quinta|sexto|sexta|s[eé]timo|s[eé]tima|oitavo|oitava|nono|nona)\s*(?:o\s*)?ano|[1-3]\s*[ªa]?\s*s[eé]rie)(?:\s*[,;]?\s*(?:manhã|manha|tarde|integral))?$/iu);
   if (!suffix) return original;
   const studentName = suffix[1].trim().replace(/[\s,;:–—-]+$/u, "").trim();
   return studentName.length >= 2 ? studentName : null;
@@ -454,9 +461,9 @@ function gradeLabel(grade: string) {
 // Idade fora do esperado para a série: avisa no resumo, sem impedir o cadastro.
 // Para o ano seguinte, a criança costuma ter a idade da série ou um ano a menos.
 function avisoIdade(grade: string, age: number | null): string | null {
-  const esperada = idadeEsperada(grade);
-  if (esperada == null || age == null || (age >= esperada - 1 && age <= esperada)) return null;
-  const sugestoes = SERIES_IDADES.filter((s) => s.idade === age || s.idade === age + 1).map((s) => gradeLabel(s.nome));
+  const idades = idadesDaSerie(grade);
+  if (!idades.length || age == null || (age >= Math.min(...idades) - 1 && age <= Math.max(...idades))) return null;
+  const sugestoes = [...new Set(SERIES_IDADES.filter((s) => s.idade === age || s.idade === age + 1).map((s) => gradeLabel(s.nome)))];
   return sugestoes.length
     ? `Obs.: pela idade informada, a série mais comum seria ${sugestoes.join(" ou ")}.`
     : "Obs.: a idade informada não costuma corresponder a essa série.";

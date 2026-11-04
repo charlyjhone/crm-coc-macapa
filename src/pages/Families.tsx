@@ -97,7 +97,7 @@ function groupFamilies(guardians: GuardianRow[]): FamilyGroup[] {
       guardian: g,
       relationship: links.find((l) => l.relationship)?.relationship || "Responsável",
       isPrimary: links.some((l) => l.is_primary),
-      isFinancial: links.some((l) => l.is_financially_responsible),
+      isFinancial: links.some((l) => (l as { is_financially_responsible?: boolean }).is_financially_responsible === true),
     });
   });
 

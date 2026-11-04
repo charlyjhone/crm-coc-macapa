@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE, demo } from "@/lib/demo";
 
 export type TriageStatus = "novo" | "respondido_agente" | "aguardando_secretaria" | "resolvido";
 export type LeadStatus = "novo" | "em_atendimento" | "em_negociacao" | "matriculado" | "nao_convertido" | "resolvido";
@@ -9,7 +10,7 @@ export type WhatsAppMediaType = "audio" | "image" | "video" | "document" | "stic
 
 export interface MensagemAtendimento {
   id: string;
-  channel: "whatsapp" | "email";
+  channel: "whatsapp" | "email" | "instagram" | "facebook";
   direction: string;
   message: string;
   at: string;
@@ -19,10 +20,14 @@ export interface MensagemAtendimento {
   mediaDurationSeconds: number | null;
   mediaUrl: string | null;
   mediaStoragePath: string | null;
+  /** Bucket do arquivo guardado (áudio da secretaria, arquivo enviado ou folder). */
+  mediaStorageBucket?: string | null;
   mediaMimeType: string | null;
   isAudio: boolean;
   senderName: string | null;
 }
+
+const SIGNABLE_BUCKETS = new Set(["whatsapp-audio", "whatsapp-sent-files", "school-materials"]);
 
 type JsonRecord = Record<string, unknown>;
 
@@ -80,7 +85,10 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
   const mediaUrl = (obj: JsonRecord | null, ...keys: string[]) =>
     firstString(...keys.map((key) => obj?.[key]));
   const audioUrl = mediaUrl(audio, "audioUrl", "url", "mediaUrl") || firstString(findValue("audioUrl", "pttUrl", "voiceUrl"));
-  const audioStoragePath = mediaUrl(audio, "storagePath", "mediaStoragePath") || firstString(findValue("storagePath", "mediaStoragePath"));
+  const audioStoragePath = mediaUrl(audio, "storagePath", "mediaStoragePath")
+    || mediaUrl(document, "storagePath") || mediaUrl(image, "storagePath")
+    || firstString(findValue("storagePath", "mediaStoragePath"));
+  const storageBucket = firstString(audio?.storageBucket, document?.storageBucket, image?.storageBucket, findValue("storageBucket"));
   const imageUrl = mediaUrl(image, "imageUrl", "url", "mediaUrl") || firstString(findValue("imageUrl", "photoUrl"));
   const videoUrl = mediaUrl(video, "videoUrl", "url", "mediaUrl") || firstString(findValue("videoUrl"));
   const documentUrl = mediaUrl(document, "documentUrl", "url", "mediaUrl", "fileUrl") || firstString(findValue("documentUrl", "fileUrl"));
@@ -124,6 +132,7 @@ function describeWhatsAppMedia(rawValue: unknown, isAudioFlag: boolean | null, m
     mediaDurationSeconds: duration,
     mediaUrl: url,
     mediaStoragePath: audioStoragePath,
+    mediaStorageBucket: storageBucket,
     mediaMimeType: mimeType,
     isAudio: mediaType === "audio",
   };
@@ -157,6 +166,7 @@ export function useAtendimentos() {
     queryKey: ["atendimentos"],
     refetchInterval: 30_000,
     queryFn: async (): Promise<Atendimento[]> => {
+      if (DEMO_MODE) return demo.leads();
       const { data, error } = await supabase
         .from("leads")
         .select(
@@ -164,7 +174,7 @@ export function useAtendimentos() {
         )
         .eq("archived", false)
         .order("last_inbound_message_at", { ascending: false, nullsFirst: false })
-        .limit(500);
+        .limit(3000);
       if (error) throw error;
       return (data || []) as unknown as Atendimento[];
     },
@@ -175,6 +185,7 @@ export function useUpdateTriage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TriageStatus }) => {
+      if (DEMO_MODE) return status === "resolvido" ? demo.resolve(id) : undefined;
       if (status === "resolvido") {
         const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: id } });
         if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
@@ -193,6 +204,7 @@ export function useUpdateLeadStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ lead, status }: { lead: Atendimento; status: LeadStatus }) => {
+      if (DEMO_MODE) { if (status === "resolvido") return demo.resolve(lead.id); await demo.setLeadStatus(lead.id, status); return; }
       if (status === "resolvido") {
         const { data, error } = await supabase.functions.invoke("complete-school-attendance", { body: { leadId: lead.id } });
         if (error || !data?.success) throw error || new Error(data?.error || "Falha ao concluir atendimento.");
@@ -222,6 +234,7 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
     refetchInterval: 15_000,
     queryFn: async (): Promise<MensagemAtendimento[]> => {
       if (!lead) return [];
+      if (DEMO_MODE) return demo.messages(lead.id);
       const whatsappByLead = supabase
         .from("whatsapp_messages")
         .select("id, direction, message, timestamp, created_at, raw_data, is_audio")
@@ -247,7 +260,12 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(50);
-      const [byLead, byPhone, emails] = await Promise.all([whatsappByLead, whatsappByPhone, emailByLead]);
+      // Instagram Direct / Facebook Messenger (tabela nova; se ainda não existir, ignora).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela fora dos tipos gerados.
+      const socialByLead = (supabase as any).from("social_messages")
+        .select("id, channel, direction, message, attachments, operator_name, sent_at")
+        .eq("lead_id", lead.id).order("sent_at", { ascending: false }).limit(100);
+      const [byLead, byPhone, emails, socialRes] = await Promise.all([whatsappByLead, whatsappByPhone, emailByLead, socialByLead]);
       if (byLead.error) throw byLead.error;
       if (byPhone.error) throw byPhone.error;
       if (emails.error) throw emails.error;
@@ -276,8 +294,10 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
       });
       const whatsapp: MensagemAtendimento[] = await Promise.all(whatsappBase.map(async (message) => {
         if (!message.mediaStoragePath || message.mediaUrl) return message;
+        const bucket = message.mediaStorageBucket && SIGNABLE_BUCKETS.has(message.mediaStorageBucket)
+          ? message.mediaStorageBucket : "whatsapp-audio";
         const { data: signed, error: signedError } = await supabase.storage
-          .from("whatsapp-audio")
+          .from(bucket)
           .createSignedUrl(message.mediaStoragePath, 3600);
         return !signedError && signed?.signedUrl
           ? { ...message, mediaUrl: signed.signedUrl }
@@ -299,7 +319,20 @@ export function useMensagensAtendimento(lead: Atendimento | null) {
         isAudio: false,
         senderName: null,
       }));
-      return [...whatsapp, ...email].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+      type SocialRow = { id: string; channel: "instagram" | "facebook"; direction: string; message: string | null; attachments: { type?: string; url?: string | null }[] | null; operator_name: string | null; sent_at: string };
+      const social: MensagemAtendimento[] = ((socialRes?.error ? [] : socialRes?.data || []) as SocialRow[]).map((m) => {
+        const att = (m.attachments || [])[0];
+        const kind = att?.type === "image" ? "image" : att?.type === "video" ? "video" : att?.type === "audio" ? "audio" : att ? "file" : null;
+        return {
+          id: m.id, channel: m.channel, direction: m.direction,
+          message: m.message || (kind === "image" ? "[imagem]" : kind ? "[anexo]" : ""),
+          at: m.sent_at,
+          mediaType: kind as WhatsAppMediaType | null, mediaName: null, mediaCaption: null, mediaDurationSeconds: null,
+          mediaUrl: att?.url || null, mediaStoragePath: null, mediaMimeType: null, isAudio: false,
+          senderName: m.direction === "outbound" ? m.operator_name : null,
+        };
+      });
+      return [...whatsapp, ...email, ...social].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     },
   });
 }
@@ -315,10 +348,39 @@ export async function marcarWhatsAppComoLido(leadId: string): Promise<boolean> {
   }
 }
 
+/** Contatos que chegaram pelo Instagram Direct ou Facebook Messenger (gravados pelo meta-webhook). */
+export function socialChannelOf(lead: Pick<Atendimento, "source"> | null | undefined): "instagram" | "facebook" | null {
+  if (lead?.source === "Instagram Direct") return "instagram";
+  if (lead?.source === "Facebook Messenger") return "facebook";
+  return null;
+}
+
+export function useEnviarMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, message }: { lead: Atendimento; message: string }) => {
+      if (DEMO_MODE) return demo.send(lead.id, message);
+      const { data, error } = await supabase.functions.invoke("send-meta-message", { body: { leadId: lead.id, message } });
+      if (error) {
+        let detail = error.message;
+        try { const body = await (error as { context?: Response }).context?.json(); if (body?.error) detail = body.error; } catch { /* corpo sem JSON */ }
+        throw new Error(detail || "Falha ao enviar.");
+      }
+      if (!data?.success) throw new Error(data?.error || "Falha ao enviar.");
+      return data;
+    },
+    onSuccess: (_data, { lead }) => {
+      void qc.invalidateQueries({ queryKey: ["mensagens-atendimento", lead.id] });
+      void qc.invalidateQueries({ queryKey: ["atendimentos"] });
+    },
+  });
+}
+
 export function useEnviarWhatsApp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ lead, message }: { lead: Atendimento; message: string }) => {
+      if (DEMO_MODE) return demo.send(lead.id, message);
       if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
       const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
         body: { phone: lead.phone, leadId: lead.id, message, senderType: "human" },
@@ -342,6 +404,7 @@ export function useEnviarAudioWhatsApp() {
       blob: Blob;
       durationSeconds: number;
     }) => {
+      if (DEMO_MODE) return { success: true, warning: "Modo demonstração: o áudio não foi enviado." } as { success: boolean; logged?: boolean; warning?: string };
       if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
@@ -380,6 +443,82 @@ export function useEnviarAudioWhatsApp() {
       qc.invalidateQueries({ queryKey: ["atendimentos"] });
     },
   });
+}
+
+/** Tipos que a secretaria pode enviar pelo CRM (o mesmo conjunto aceito pelo bucket e pela função). */
+export const ARQUIVO_TIPOS_ACEITOS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+};
+export const ARQUIVO_LIMITE_BYTES = 25 * 1024 * 1024;
+
+/** Envia um arquivo escolhido pela secretaria, ou o folder digital da escola (`folder: true`). */
+export function useEnviarArquivoWhatsApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lead, file, folder, caption }: {
+      lead: Atendimento;
+      file?: File;
+      folder?: boolean;
+      caption?: string;
+    }) => {
+      if (DEMO_MODE) return { success: true, warning: "Modo demonstração: o arquivo não foi enviado." } as { success: boolean; logged?: boolean; warning?: string };
+      if (!lead.phone) throw new Error("Este contato não tem telefone para WhatsApp.");
+
+      if (folder) {
+        const { data, error } = await supabase.functions.invoke("send-whatsapp-file", {
+          body: { leadId: lead.id, material: "school_folder", caption: caption || "" },
+        });
+        if (error) throw new Error(await functionErrorMessage(error, "Não foi possível enviar o folder."));
+        if (!data?.success) throw new Error(data?.error || "O WhatsApp não confirmou o envio do folder.");
+        return data as { success: boolean; logged?: boolean; warning?: string };
+      }
+
+      if (!file) throw new Error("Escolha um arquivo.");
+      const mimeType = (file.type || "").split(";")[0].trim().toLowerCase();
+      const extension = ARQUIVO_TIPOS_ACEITOS[mimeType];
+      if (!extension) throw new Error("Tipo de arquivo não aceito. Envie PDF, imagem (JPG, PNG), Word ou Excel.");
+      if (!file.size || file.size > ARQUIVO_LIMITE_BYTES) throw new Error("O arquivo está vazio ou passa de 25 MB.");
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
+      const storagePath = `${authData.user.id}/${lead.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("whatsapp-sent-files")
+        .upload(storagePath, file, { contentType: mimeType, upsert: false });
+      if (uploadError) throw new Error(`Não foi possível preparar o arquivo: ${uploadError.message}`);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("send-whatsapp-file", {
+          body: { leadId: lead.id, storagePath, mimeType, fileName: file.name, caption: caption || "" },
+        });
+        if (error) throw new Error(await functionErrorMessage(error, "Não foi possível enviar o arquivo."));
+        if (!data?.success) throw new Error(data?.error || "O WhatsApp não confirmou o envio do arquivo.");
+        return data as { success: boolean; logged?: boolean; warning?: string };
+      } catch (error) {
+        await supabase.storage.from("whatsapp-sent-files").remove([storagePath]).catch(() => undefined);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mensagens-atendimento"] });
+      qc.invalidateQueries({ queryKey: ["atendimentos"] });
+    },
+  });
+}
+
+async function functionErrorMessage(error: unknown, fallback: string) {
+  try {
+    const body = await (error as { context?: Response }).context?.json();
+    if (body?.error) return String(body.error);
+  } catch { /* resposta sem JSON */ }
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 /** Tempo de espera em horas desde a última mensagem recebida sem resposta. */
